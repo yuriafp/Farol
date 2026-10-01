@@ -4,7 +4,7 @@
 
 Farol is an open-source [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI coding agents (Claude Code, GitHub Copilot, Cursor, Codex) compiler-accurate understanding of C# and VB.NET solutions, including the legacy ones other tools skip: classic `.csproj`/`.vbproj`, `packages.config`, WebForms, WCF, ASMX, WinForms and WPF.
 
-**Status:** pre-alpha (Phase 0 done). Scope: [docs/specs/001-mvp.md](docs/specs/001-mvp.md) · spike results: [docs/spikes/phase-0-results.md](docs/spikes/phase-0-results.md).
+**Status:** pre-alpha. Phase 1 is in progress: workspace, navigation and markup references are done. Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
 
 ## Tools
 
