@@ -1,0 +1,6 @@
+<!-- Fixtures opt into central package management individually (see modern/). -->
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

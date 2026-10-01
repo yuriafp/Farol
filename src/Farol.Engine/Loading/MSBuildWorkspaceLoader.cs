@@ -1,0 +1,80 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using Farol.Engine.Workspaces;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.MSBuild;
+using Microsoft.Extensions.Logging;
+
+namespace Farol.Engine.Loading;
+
+public sealed record LoadedWorkspace(MSBuildWorkspace Workspace, Solution Solution, LoadReport Report);
+
+/// <summary>
+/// Loads solutions through Roslyn's MSBuildWorkspace. MSBuild runs out of process in a BuildHost:
+/// SDK-style projects use the .NET SDK host, and classic .NET Framework projects use the net472 host
+/// with Visual Studio's MSBuild — which is what gives legacy projects full fidelity.
+/// </summary>
+public sealed partial class MSBuildWorkspaceLoader(ILogger<MSBuildWorkspaceLoader> logger)
+{
+    public const string Name = "msbuild-workspace";
+
+    public async Task<LoadedWorkspace> LoadAsync(
+        WorkspaceTarget target,
+        IReadOnlyDictionary<string, string> properties,
+        Action<ProjectLoadProgress>? onProgress,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(properties);
+
+        var stopwatch = Stopwatch.StartNew();
+        var frameworks = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>(StringComparer.OrdinalIgnoreCase);
+        var progress = new SynchronousProgress<ProjectLoadProgress>(p =>
+        {
+            if (!string.IsNullOrEmpty(p.TargetFramework))
+            {
+                frameworks.GetOrAdd(p.FilePath, _ => new(StringComparer.OrdinalIgnoreCase)).TryAdd(p.TargetFramework, 0);
+            }
+
+            onProgress?.Invoke(p);
+        });
+
+        var workspace = MSBuildWorkspace.Create(new Dictionary<string, string>(properties, StringComparer.OrdinalIgnoreCase));
+        try
+        {
+            var solution = target.Kind == WorkspaceTargetKind.Project
+                ? (await workspace.OpenProjectAsync(target.Path, progress, cancellationToken)).Solution
+                : await workspace.OpenSolutionAsync(target.Path, progress, cancellationToken);
+            stopwatch.Stop();
+
+            var report = new LoadReport(
+                Name,
+                stopwatch.Elapsed,
+                ProjectFiles: solution.Projects.Select(p => p.FilePath).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+                RoslynProjects: solution.ProjectIds.Count,
+                Documents: solution.Projects.SelectMany(p => p.Documents).Select(d => d.FilePath ?? d.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+                TargetFrameworks: frameworks.ToDictionary(
+                    kv => kv.Key,
+                    kv => (IReadOnlyList<string>)[.. kv.Value.Keys.Order(StringComparer.OrdinalIgnoreCase)],
+                    StringComparer.OrdinalIgnoreCase),
+                Issues: [.. workspace.Diagnostics.Select(d => new LoadIssue(d.Kind == WorkspaceDiagnosticKind.Failure ? "error" : "warning", d.Message))]);
+
+            LogLoaded(logger, target.Path, report.ProjectFiles, report.Documents, report.Issues.Count, report.Elapsed);
+            return new LoadedWorkspace(workspace, solution, report);
+        }
+        catch
+        {
+            workspace.Dispose();
+            throw;
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Loaded {Workspace}: {Projects} project file(s), {Documents} document(s), {Issues} issue(s) in {Elapsed}")]
+    private static partial void LogLoaded(ILogger logger, string workspace, int projects, int documents, int issues, TimeSpan elapsed);
+
+    // Progress<T> posts callbacks asynchronously; we need them applied before the load completes.
+    private sealed class SynchronousProgress<T>(Action<T> handler) : IProgress<T>
+    {
+        public void Report(T value) => handler(value);
+    }
+}

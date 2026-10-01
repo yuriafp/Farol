@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\**\*.cs" Link="Shared\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Farol.Engine\Farol.Engine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Basic.CompilerLog.Util" />
+    <!-- Aligns the metapackage Basic.CompilerLog brings in (4.8) with the Roslyn version Farol uses. -->
+    <PackageReference Include="Microsoft.CodeAnalysis" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,2 @@
+<!-- Stops MSBuild from importing Farol's own build settings into the sample solutions below. -->
+<Project />

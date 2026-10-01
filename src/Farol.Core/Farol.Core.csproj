@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Transport-agnostic primitives shared by every Farol host: response budgeting, path display, process execution and the error model. No Roslyn dependency.</Description>
+  </PropertyGroup>
+</Project>

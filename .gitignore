@@ -1,0 +1,21 @@
+# Build outputs
+bin/
+obj/
+artifacts/
+TestResults/
+*.binlog
+*.complog
+
+# IDE state
+.vs/
+.idea/
+*.user
+*.suo
+*.DotSettings.user
+
+# packages.config restore folders (legacy fixtures)
+packages/
+
+
+#
+docs/
