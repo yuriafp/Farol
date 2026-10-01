@@ -13,10 +13,11 @@ internal static class HostConfiguration
         ["--root"] = $"{Section}:RootDirectory",
         ["--autoload"] = $"{Section}:AutoLoad",
         ["--read-only"] = $"{Section}:ReadOnly",
+        ["--offline"] = $"{Section}:Offline",
     };
 
     // Switches that may be passed bare: "--read-only" means "--read-only true".
-    private static readonly HashSet<string> Flags = new(StringComparer.OrdinalIgnoreCase) { "--read-only", "--autoload" };
+    private static readonly HashSet<string> Flags = new(StringComparer.OrdinalIgnoreCase) { "--read-only", "--autoload", "--offline" };
 
     public static string Version { get; } =
         typeof(HostConfiguration).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]

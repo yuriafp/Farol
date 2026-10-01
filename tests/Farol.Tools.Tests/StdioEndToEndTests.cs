@@ -36,14 +36,14 @@ public sealed class StdioEndToEndTests(ModernCopyFixture fixture) : IClassFixtur
     }
 
     [Fact]
-    public async Task A_bare_read_only_flag_applies_without_swallowing_the_next_switch()
+    public async Task Bare_read_only_and_offline_flags_apply_without_swallowing_the_next_switch()
     {
         var ct = TestContext.Current.CancellationToken;
         var transport = new StdioClientTransport(new StdioClientTransportOptions
         {
             Name = "farol",
             Command = "dotnet",
-            Arguments = [HostAssemblyPath(), "--read-only", "--root", fixture.Copy.Root, "--autoload", "false"],
+            Arguments = [HostAssemblyPath(), "--read-only", "--offline", "--root", fixture.Copy.Root, "--autoload", "false"],
         });
         await using var client = await McpClient.CreateAsync(transport, cancellationToken: ct);
 
@@ -54,6 +54,7 @@ public sealed class StdioEndToEndTests(ModernCopyFixture fixture) : IClassFixtur
         var outside = await client.CallToolAsync("dotnet_outline", new Dictionary<string, object?> { ["path"] = "../Other.cs" }, cancellationToken: ct);
 
         Assert.Contains("runs read-only", client.ServerInstructions, StringComparison.Ordinal);
+        Assert.Contains("runs offline", client.ServerInstructions, StringComparison.Ordinal);
         Assert.Equal(true, apply.IsError);
         Assert.Contains("--read-only", Text(apply), StringComparison.Ordinal);
         Assert.Equal(true, outside.IsError);

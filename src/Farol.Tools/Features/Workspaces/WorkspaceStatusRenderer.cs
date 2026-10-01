@@ -44,7 +44,7 @@ internal static class WorkspaceStatusRenderer
 
         if (report is { Issues.Count: > 0 })
         {
-            text.List("load issues", report.Issues, i => $"{i.Severity}: {i.Message}", continuation: _ => "results for the affected projects may be incomplete");
+            text.List("load issues", report.Issues, i => $"{i.Severity}: {DisplayPath.InText(root, i.Message)}", continuation: _ => "results for the affected projects may be incomplete");
         }
 
         return text.ToString();

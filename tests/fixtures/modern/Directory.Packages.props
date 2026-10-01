@@ -3,6 +3,13 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
+  <!-- Pinned on purpose for dotnet_packages: JwtBearer 8.0.0 brings in deprecated, vulnerable Microsoft.IdentityModel
+       7.0.3 packages, and System.Text.Json 8.0.4 has a known vulnerability. Never shipped. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
+    <PackageVersion Include="System.Text.Json" Version="8.0.4" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="xunit.v3" Version="4.0.1" />

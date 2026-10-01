@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Farol.Engine.Packages;
 using Farol.Engine.Workspaces;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
@@ -58,7 +59,7 @@ public sealed partial class MSBuildWorkspaceLoader(ILogger<MSBuildWorkspaceLoade
                     kv => kv.Key,
                     kv => (IReadOnlyList<string>)[.. kv.Value.Keys.Order(StringComparer.OrdinalIgnoreCase)],
                     StringComparer.OrdinalIgnoreCase),
-                Issues: [.. workspace.Diagnostics.Select(d => new LoadIssue(d.Kind == WorkspaceDiagnosticKind.Failure ? "error" : "warning", d.Message))]);
+                Issues: Issues(workspace.Diagnostics, solution));
 
             LogLoaded(logger, target.Path, report.ProjectFiles, report.Documents, report.Issues.Count, report.Elapsed);
             return new LoadedWorkspace(workspace, solution, report);
@@ -68,6 +69,27 @@ public sealed partial class MSBuildWorkspaceLoader(ILogger<MSBuildWorkspaceLoade
             workspace.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    /// MSBuildWorkspace reports every message of a design-time build as a failure, warnings included. Design-time builds
+    /// replay the warnings restore recorded (vulnerable packages, version conflicts…): those are warnings, with their
+    /// NuGet code, never load errors.
+    /// </summary>
+    private static List<LoadIssue> Issues(IEnumerable<WorkspaceDiagnostic> diagnostics, Solution solution)
+    {
+        var restore = solution.Projects
+            .Where(p => p.FilePath is not null)
+            .GroupBy(p => p.FilePath!, StringComparer.OrdinalIgnoreCase)
+            .SelectMany(g => PackageInventory.RestoreMessages(g.Key, g))
+            .Where(m => !m.IsError)
+            .ToList();
+
+        return [.. diagnostics
+            .Select(d => d.Kind == WorkspaceDiagnosticKind.Failure && restore.FirstOrDefault(m => d.Message.EndsWith(m.Message, StringComparison.Ordinal)) is { } replayed
+                ? new LoadIssue("warning", $"{replayed.Code} in {replayed.ProjectPath}: {replayed.Message}")
+                : new LoadIssue(d.Kind == WorkspaceDiagnosticKind.Failure ? "error" : "warning", d.Message))
+            .Distinct()];
     }
 
     // Roslyn reads document text lazily, on first use. Read it all now, so the loaded solution is a true snapshot:

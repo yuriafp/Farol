@@ -14,4 +14,5 @@ public static class ErrorCodes
     public const string ReadOnlyMode = "read_only";
     public const string Conflict = "conflict";
     public const string WriteFailed = "write_failed";
+    public const string PackageNotAvailable = "package_not_available";
 }

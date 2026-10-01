@@ -19,6 +19,19 @@ public sealed class ModernWorkspaceTests(ModernWorkspaceFixture fixture)
     }
 
     [Fact]
+    public void Restore_warnings_replayed_by_design_time_builds_are_warnings_with_their_code()
+    {
+        var issues = fixture.Session.Report!.Issues;
+
+        // MSBuildWorkspace reports them as failures; the fixture pins vulnerable packages, so restore recorded NU1902/NU1903.
+        var core = Assert.Single(issues, i => i.Message.StartsWith("NU1903 in ", StringComparison.Ordinal));
+        Assert.Equal("warning", core.Severity);
+        Assert.Contains("Modern.Core.csproj: ", core.Message, StringComparison.Ordinal);
+        Assert.Contains("https://github.com/advisories/GHSA-8g4q-xg66-9fp4", core.Message, StringComparison.Ordinal);
+        Assert.Equal(2, issues.Count(i => i.Message.StartsWith("NU1902 in ", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void Overview_recognizes_aspnetcore_multitargeting_and_central_package_management()
     {
         var overview = SolutionOverviewBuilder.Build(fixture.Session.Target, fixture.Snapshot.Solution, fixture.Session.Report);

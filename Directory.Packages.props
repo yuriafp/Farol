@@ -21,6 +21,17 @@
     <PackageVersion Include="MSBuild.StructuredLogger" Version="2.3.246" />
   </ItemGroup>
 
+  <ItemGroup Label="NuGet">
+    <!-- dotnet_packages and dotnet_package_api: feeds, credential providers, vulnerability and deprecation data, restore's assets files. -->
+    <PackageVersion Include="NuGet.Credentials" Version="7.9.0" />
+    <PackageVersion Include="NuGet.ProjectModel" Version="7.9.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Decompilation">
+    <!-- Source of external (metadata) symbols for dotnet_symbol: the ILSpy engine, MIT. -->
+    <PackageVersion Include="ICSharpCode.Decompiler" Version="11.1.0.9782" />
+  </ItemGroup>
+
   <ItemGroup Label="Microsoft.Extensions">
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.12" />

@@ -21,6 +21,12 @@ public sealed class ToolContractTests
         Assert.False(codeActions?.ReadOnlyHint);
         Assert.True(codeActions?.DestructiveHint);
         Assert.All(tools.Where(t => t.Name is "dotnet_build" or "dotnet_test"), t => Assert.False(t.ProtocolTool.Annotations?.ReadOnlyHint));
+        Assert.All(tools.Where(t => t.Name is "dotnet_packages" or "dotnet_package_api"), t =>
+        {
+            Assert.True(t.ProtocolTool.Annotations?.ReadOnlyHint);
+            Assert.True(t.ProtocolTool.Annotations?.OpenWorldHint);
+        });
+        Assert.Equal(2, tools.Count(t => t.Name is "dotnet_packages" or "dotnet_package_api"));
         Assert.All(tools, tool =>
         {
             Assert.StartsWith("dotnet_", tool.Name, StringComparison.Ordinal);

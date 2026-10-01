@@ -13,6 +13,13 @@ internal sealed class BuildLog
 
     public void Add(bool isError, string? code, string? message, string? file, int line, int column, string? projectFile, string? targetFramework)
     {
+        // Restore runs in the solution's context but reports issues against a project file (NU1903 on Legacy.Tests.csproj):
+        // group them under that project.
+        if (IsProjectFile(file))
+        {
+            projectFile = file;
+        }
+
         var project = string.IsNullOrEmpty(projectFile) ? "(solution)" : Path.GetFileNameWithoutExtension(projectFile);
         var key = (isError, string.IsNullOrEmpty(code) ? null : code, (message ?? string.Empty).Trim(), string.IsNullOrEmpty(file) ? null : file, line, column, project);
         if (!_issues.TryGetValue(key, out var frameworks))
@@ -26,6 +33,9 @@ internal sealed class BuildLog
             frameworks.Add(targetFramework);
         }
     }
+
+    private static bool IsProjectFile(string? file) =>
+        file is not null && (file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase) || file.EndsWith(".vbproj", StringComparison.OrdinalIgnoreCase) || file.EndsWith(".fsproj", StringComparison.OrdinalIgnoreCase));
 
     public void AddOutput(string project, string path)
     {

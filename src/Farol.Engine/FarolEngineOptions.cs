@@ -23,6 +23,12 @@ public sealed class FarolEngineOptions
     /// <summary>Refuse writing files, building and running tests (<c>--read-only</c>).</summary>
     public bool ReadOnly { get; set; }
 
+    /// <summary>
+    /// Never touch the network (<c>--offline</c>): package checks use only what restore left on disk, and package APIs only
+    /// the local NuGet caches.
+    /// </summary>
+    public bool Offline { get; set; }
+
     /// <summary>A build that runs longer is stopped, with its whole process tree.</summary>
     public int BuildTimeoutMinutes { get; set; } = 15;
 

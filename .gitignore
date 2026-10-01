@@ -14,4 +14,4 @@ TestResults/
 *.DotSettings.user
 
 # packages.config restore folders (legacy fixtures)
-packages/
+tests/fixtures/**/packages/

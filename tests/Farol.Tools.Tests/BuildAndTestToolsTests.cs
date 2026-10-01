@@ -17,9 +17,14 @@ public sealed class BuildToolTests
         await server.EditAsync(["Legacy.Core", "Orders", "OrderCalculator.cs"], ("return order.Subtotal() * (1 + TaxRate());", "return \"total\";"));
         var broken = await server.CallAsync("dotnet_build", new() { ["project"] = "Legacy.Core" });
 
-        Assert.Contains("build: succeeded · 0 error(s), 1 warning(s)", clean, StringComparison.Ordinal);
+        Assert.Contains("build: succeeded · 0 error(s), 2 warning(s)", clean, StringComparison.Ordinal);
         Assert.True(Regex.IsMatch(clean, @"toolchain: MSBuild \d+\.\d+ \([^)]*Visual Studio[^)]*\) · Legacy\.sln · Debug"), clean);
         Assert.Contains("Legacy.Core:\n- Legacy.Core/Serialization/LegacySerializer.cs:29 · warning CS0168", clean, StringComparison.Ordinal);
+        // The packages.config restore audits too; its warning belongs to the project, not to the solution restore ran in.
+        Assert.Contains(
+            "Legacy.Tests:\n- Legacy.Tests/Legacy.Tests.csproj · warning NU1903 · Package 'Newtonsoft.Json' 12.0.3 has a known high severity vulnerability",
+            clean,
+            StringComparison.Ordinal);
         Assert.Contains("build: failed (exit code 1) · 1 error(s)", broken, StringComparison.Ordinal);
         Assert.Contains("- Legacy.Core/Orders/OrderCalculator.cs:23 · error CS0029 · Cannot implicitly convert type 'string' to 'decimal'", broken, StringComparison.Ordinal);
     }
