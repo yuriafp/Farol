@@ -31,12 +31,12 @@ public sealed class OutlineTool(WorkspaceManager workspaces)
             }
 
             var root = workspaces.RootDirectory;
+            var fullPath = string.IsNullOrWhiteSpace(path) ? null : workspaces.Paths.Resolve(path);
             var snapshot = await workspaces.GetSession(workspace).GetSnapshotAsync(wait: true, cancellationToken);
             IReadOnlyList<OutlineEntry> entries;
             string title;
-            if (!string.IsNullOrWhiteSpace(path))
+            if (fullPath is not null)
             {
-                var fullPath = Path.GetFullPath(Path.IsPathRooted(path) ? path : Path.Combine(root, path));
                 var ids = snapshot.Solution.GetDocumentIdsWithFilePath(fullPath);
                 if (ids.IsEmpty)
                 {
@@ -48,7 +48,7 @@ public sealed class OutlineTool(WorkspaceManager workspaces)
             }
             else
             {
-                var (candidate, ambiguity) = await SymbolArgument.ResolveAsync(snapshot, root, symbol!, cancellationToken);
+                var (candidate, ambiguity) = await SymbolArgument.ResolveAsync(snapshot, workspaces.Paths, symbol!, cancellationToken);
                 if (candidate is null)
                 {
                     return ambiguity!;

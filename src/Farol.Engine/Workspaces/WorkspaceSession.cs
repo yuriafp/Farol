@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using Farol.Core;
 using Farol.Engine.Loading;
@@ -31,6 +32,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     private readonly Lock _gate = new();
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
+    private readonly ConcurrentDictionary<string, byte> _written = new(StringComparer.OrdinalIgnoreCase);
 
     private Task? _loadTask;
     private LoadedWorkspace? _loaded;
@@ -140,6 +142,19 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     public async Task<Solution> GetSolutionAsync(bool wait, CancellationToken cancellationToken) =>
         (await GetSnapshotAsync(wait, cancellationToken)).Solution;
 
+    /// <summary>
+    /// Queues source files Farol itself just wrote, so the next snapshot includes them without waiting for
+    /// file-system events (which arrive later and then find nothing new).
+    /// </summary>
+    public void NotifyChanged(IEnumerable<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        foreach (var path in paths)
+        {
+            _written.TryAdd(Path.GetFullPath(path), 0);
+        }
+    }
+
     /// <summary>Discards the current snapshot and loads again, e.g. after project files changed.</summary>
     public Task ReloadAsync()
     {
@@ -189,7 +204,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
             {
                 _loaded = loaded;
                 _watcher = watcher;
-                _snapshot = new WorkspaceSnapshot(loaded.Solution, 1, projects);
+                _snapshot = new WorkspaceSnapshot(loaded.Solution, 1, projects, new WorkspaceLoad(loaded.Solution, DateTimeOffset.UtcNow));
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -218,9 +233,11 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         }
     }
 
+    private bool HasPendingChanges => !_written.IsEmpty || Volatile.Read(ref _watcher) is { HasChanges: true };
+
     private async Task<WorkspaceSnapshot> RefreshAsync(CancellationToken cancellationToken)
     {
-        if (Volatile.Read(ref _watcher) is not { HasChanges: true } && CurrentSnapshot is { } unchanged)
+        if (!HasPendingChanges && CurrentSnapshot is { } unchanged)
         {
             return unchanged;
         }
@@ -228,16 +245,9 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         await _refreshGate.WaitAsync(cancellationToken);
         try
         {
-            var current = CurrentSnapshot;
-            var watcher = Volatile.Read(ref _watcher);
-            if (current is not null && watcher is not null)
+            if (CurrentSnapshot is { } current)
             {
-                return await ApplyPendingChangesAsync(current, watcher, cancellationToken);
-            }
-
-            if (current is not null)
-            {
-                return current;
+                return await ApplyPendingChangesAsync(current, cancellationToken);
             }
         }
         finally
@@ -249,16 +259,26 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         return await GetSnapshotAsync(wait: true, cancellationToken);
     }
 
-    private async Task<WorkspaceSnapshot> ApplyPendingChangesAsync(WorkspaceSnapshot current, WorkspaceWatcher watcher, CancellationToken cancellationToken)
+    private async Task<WorkspaceSnapshot> ApplyPendingChangesAsync(WorkspaceSnapshot current, CancellationToken cancellationToken)
     {
-        var changes = watcher.Drain();
+        var watcher = Volatile.Read(ref _watcher);
+        var changes = DrainChanges(watcher);
         if (changes.IsEmpty)
         {
             return current;
         }
 
-        var (solution, reloadRequired) = await ApplyAsync(current, changes, watcher, cancellationToken);
-        if (reloadRequired)
+        var (solution, unreadable) = await ApplyAsync(current, changes, cancellationToken);
+        if (watcher is not null)
+        {
+            watcher.Requeue(unreadable);
+        }
+        else
+        {
+            NotifyChanged(unreadable);
+        }
+
+        if (changes.ReloadRequired)
         {
             LogReloading(_logger, Target.Path);
             await ReloadAsync().WaitAsync(cancellationToken);
@@ -268,13 +288,40 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
                 "Fix the project files, then call dotnet_workspace with action='reload'.");
         }
 
+        // Files touched without new content (or written by Farol and then seen by the watcher) keep the snapshot.
+        if (ReferenceEquals(solution, current.Solution) && !changes.MarkupChanged)
+        {
+            return current;
+        }
+
         var next = current with { Solution = solution, Version = current.Version + 1 };
         Volatile.Write(ref _snapshot, next);
         return next;
     }
 
-    private static async Task<(Solution Solution, bool ReloadRequired)> ApplyAsync(
-        WorkspaceSnapshot current, WorkspaceChanges changes, WorkspaceWatcher watcher, CancellationToken cancellationToken)
+    private WorkspaceChanges DrainChanges(WorkspaceWatcher? watcher)
+    {
+        var written = new List<string>();
+        foreach (var path in _written.Keys)
+        {
+            if (_written.TryRemove(path, out _))
+            {
+                written.Add(path);
+            }
+        }
+
+        if (watcher?.Drain() is not { } watched)
+        {
+            return new WorkspaceChanges(written, ReloadRequired: false, MarkupChanged: false);
+        }
+
+        return written.Count == 0
+            ? watched
+            : watched with { TouchedSources = [.. watched.TouchedSources.Union(written, StringComparer.OrdinalIgnoreCase)] };
+    }
+
+    private static async Task<(Solution Solution, IReadOnlyList<string> Unreadable)> ApplyAsync(
+        WorkspaceSnapshot current, WorkspaceChanges changes, CancellationToken cancellationToken)
     {
         var solution = current.Solution;
         var unreadable = new List<string>();
@@ -292,6 +339,11 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
                 if (await ReadTextAsync(path, previous.Encoding, previous.ChecksumAlgorithm, cancellationToken) is not { } text)
                 {
                     unreadable.Add(path);
+                    continue;
+                }
+
+                if (text.ContentEquals(previous))
+                {
                     continue;
                 }
 
@@ -320,8 +372,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
             }
         }
 
-        watcher.Requeue(unreadable);
-        return (solution, changes.ReloadRequired);
+        return (solution, unreadable);
     }
 
     // Writers (editors, agents) may still hold the file: retry briefly. Reuse the encoding Roslyn detected

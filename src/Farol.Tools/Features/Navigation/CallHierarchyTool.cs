@@ -26,7 +26,7 @@ public sealed class CallHierarchyTool(WorkspaceManager workspaces)
         {
             var root = workspaces.RootDirectory;
             var snapshot = await workspaces.GetSession(workspace).GetSnapshotAsync(wait: true, cancellationToken);
-            var (candidate, ambiguity) = await SymbolArgument.ResolveAsync(snapshot, root, symbol, cancellationToken);
+            var (candidate, ambiguity) = await SymbolArgument.ResolveAsync(snapshot, workspaces.Paths, symbol, cancellationToken);
             if (candidate is null)
             {
                 return ambiguity!;

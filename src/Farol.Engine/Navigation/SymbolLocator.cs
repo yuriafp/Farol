@@ -33,16 +33,9 @@ public static partial class SymbolLocator
         {
             symbols = await FromDocumentationIdAsync(snapshot.Solution, SymbolFormatter.NormalizeId(text), cancellationToken);
         }
-        else if (Location().Match(text) is { Success: true } location)
+        else if (TryParseLocation(text, out var path, out var line, out var column))
         {
-            var column = location.Groups["column"].Success ? int.Parse(location.Groups["column"].ValueSpan, System.Globalization.CultureInfo.InvariantCulture) : (int?)null;
-            symbols = await FromLocationAsync(
-                snapshot.Solution,
-                rootDirectory,
-                location.Groups["path"].Value,
-                int.Parse(location.Groups["line"].ValueSpan, System.Globalization.CultureInfo.InvariantCulture),
-                column,
-                cancellationToken);
+            symbols = await FromLocationAsync(snapshot.Solution, rootDirectory, path, line, column, cancellationToken);
         }
         else
         {
@@ -50,6 +43,24 @@ public static partial class SymbolLocator
         }
 
         return await GroupAsync(snapshot, symbols, cancellationToken);
+    }
+
+    /// <summary>Recognizes the "path:line[:column]" form, so callers can vet the path before anything reads it.</summary>
+    public static bool TryParseLocation(string reference, out string path, out int line, out int? column)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        if (Location().Match(reference.Trim()) is { Success: true } match)
+        {
+            path = match.Groups["path"].Value;
+            line = int.Parse(match.Groups["line"].ValueSpan, System.Globalization.CultureInfo.InvariantCulture);
+            column = match.Groups["column"].Success ? int.Parse(match.Groups["column"].ValueSpan, System.Globalization.CultureInfo.InvariantCulture) : null;
+            return true;
+        }
+
+        path = string.Empty;
+        line = 0;
+        column = null;
+        return false;
     }
 
     /// <summary>Groups symbols by ID and adds the variants from other target frameworks of the same project files.</summary>

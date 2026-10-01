@@ -12,9 +12,29 @@ internal static class HostConfiguration
         ["--workspace"] = $"{Section}:DefaultWorkspace",
         ["--root"] = $"{Section}:RootDirectory",
         ["--autoload"] = $"{Section}:AutoLoad",
+        ["--read-only"] = $"{Section}:ReadOnly",
     };
+
+    // Switches that may be passed bare: "--read-only" means "--read-only true".
+    private static readonly HashSet<string> Flags = new(StringComparer.OrdinalIgnoreCase) { "--read-only", "--autoload" };
 
     public static string Version { get; } =
         typeof(HostConfiguration).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
         ?? "0.0.0";
+
+    /// <summary>
+    /// Gives bare flags an explicit value. The configuration parser would otherwise take the next argument as the
+    /// flag's value, so "--read-only --workspace App.sln" would swallow "--workspace".
+    /// </summary>
+    public static string[] ExpandFlags(string[] args)
+    {
+        var expanded = new List<string>(args.Length);
+        for (var i = 0; i < args.Length; i++)
+        {
+            var hasValue = i + 1 < args.Length && bool.TryParse(args[i + 1], out _);
+            expanded.Add(Flags.Contains(args[i]) && !hasValue ? $"{args[i]}=true" : args[i]);
+        }
+
+        return [.. expanded];
+    }
 }

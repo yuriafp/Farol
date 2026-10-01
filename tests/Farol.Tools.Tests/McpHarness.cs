@@ -25,7 +25,7 @@ public sealed class McpHarness : IAsyncDisposable
 
     public McpClient Client { get; }
 
-    public static async Task<McpHarness> StartAsync(string rootDirectory, CancellationToken cancellationToken)
+    public static async Task<McpHarness> StartAsync(string rootDirectory, CancellationToken cancellationToken, Action<FarolEngineOptions>? configure = null)
     {
         Pipe clientToServer = new(), serverToClient = new();
 
@@ -36,6 +36,7 @@ public sealed class McpHarness : IAsyncDisposable
         {
             o.RootDirectory = rootDirectory;
             o.AutoLoad = false;
+            configure?.Invoke(o);
         });
         builder.Services
             .AddMcpServer()

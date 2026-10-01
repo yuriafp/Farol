@@ -8,7 +8,7 @@ namespace Farol.Tools.Features.Workspaces;
 
 internal static class WorkspaceStatusRenderer
 {
-    public static string Render(WorkspaceSession session, ToolchainInfo toolchain, string root)
+    public static string Render(WorkspaceSession session, ToolchainInfo toolchain, string root, bool readOnly)
     {
         var text = new ResponseBuilder(TokenBudget.DefaultTokens);
         text.Line($"workspace: {DisplayPath.From(root, session.Target.Path)}");
@@ -37,6 +37,11 @@ internal static class WorkspaceStatusRenderer
         }
 
         text.Line(ToolchainLine(toolchain));
+        if (readOnly)
+        {
+            text.Line("mode: read-only (--read-only): writing files, building and running tests are refused");
+        }
+
         if (report is { Issues.Count: > 0 })
         {
             text.List("load issues", report.Issues, i => $"{i.Severity}: {i.Message}", continuation: _ => "results for the affected projects may be incomplete");

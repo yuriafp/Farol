@@ -13,6 +13,7 @@ public sealed class ProjectCatalog
 {
     private readonly Dictionary<ProjectId, ProjectEntry> _entries;
     private readonly List<(string Directory, bool IsSdkStyle, List<ProjectId> Ids)> _directories;
+    private readonly Dictionary<string, int> _variantsPerFile;
 
     private ProjectCatalog(Dictionary<ProjectId, ProjectEntry> entries)
     {
@@ -22,9 +23,23 @@ public sealed class ProjectCatalog
             .Select(g => (g.Key, g.First().IsSdkStyle, g.Select(e => e.Id).ToList()))
             .OrderByDescending(d => d.Key.Length)
             .ToList();
+        _variantsPerFile = entries.Values
+            .GroupBy(e => e.FilePath, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
     }
 
     public IReadOnlyCollection<string> ProjectDirectories => [.. _directories.Select(d => d.Directory)];
+
+    /// <summary>Distinct project names, as agents pass them in a <c>project</c> argument.</summary>
+    public IReadOnlyList<string> Names => [.. _entries.Values.Select(e => e.Name).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)];
+
+    /// <summary>Every target-framework variant of the project with this name (case-insensitive).</summary>
+    public IReadOnlyList<ProjectEntry> FindByName(string name) =>
+        [.. _entries.Values.Where(e => e.Name.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase))];
+
+    /// <summary>True when the project file is loaded once per target framework.</summary>
+    public bool IsMultiTargeted(ProjectId id) =>
+        Get(id) is { } entry && _variantsPerFile.TryGetValue(entry.FilePath, out var count) && count > 1;
 
     public static ProjectCatalog Build(Solution solution, LoadReport report)
     {

@@ -16,6 +16,10 @@ public sealed class ToolContractTests
 
         Assert.Contains(tools, t => t.Name == "dotnet_workspace");
         Assert.Contains(tools, t => t.Name == "dotnet_overview");
+        Assert.True(tools.Single(t => t.Name == "dotnet_check").ProtocolTool.Annotations?.ReadOnlyHint);
+        var codeActions = tools.Single(t => t.Name == "dotnet_code_actions").ProtocolTool.Annotations;
+        Assert.False(codeActions?.ReadOnlyHint);
+        Assert.True(codeActions?.DestructiveHint);
         Assert.All(tools, tool =>
         {
             Assert.StartsWith("dotnet_", tool.Name, StringComparison.Ordinal);

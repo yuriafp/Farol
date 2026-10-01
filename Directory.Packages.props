@@ -11,6 +11,9 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="5.9.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.9.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="5.9.0" />
+    <!-- Built-in code fixes and refactorings (add using, generate member, ...) for dotnet_code_actions. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Features" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.VisualBasic.Features" Version="5.9.0" />
   </ItemGroup>
 
   <ItemGroup Label="Microsoft.Extensions">

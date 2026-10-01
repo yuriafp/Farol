@@ -36,6 +36,25 @@ public sealed class WorkspaceSyncTests
     }
 
     [Fact]
+    public async Task The_load_snapshot_keeps_the_text_files_had_when_they_loaded()
+    {
+        using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
+        await FixtureRestore.EnsureRestoredAsync(copy.PathOf("Modern.slnx"), Ct);
+        await using var engine = EngineHarness.Create(copy.Root);
+        var session = engine.Workspaces.GetSession(null);
+        var loaded = await session.GetSnapshotAsync(wait: true, Ct);
+        var file = copy.PathOf("src", "Modern.Core", "Pricing", "PriceCalculator.cs");
+
+        // Nothing has asked for this file's text yet: read lazily, it would come back already edited.
+        await File.WriteAllTextAsync(file, "// edited after load\n" + await File.ReadAllTextAsync(file, Ct), Ct);
+        var edited = await Eventually.MatchesAsync(() => session.GetSnapshotAsync(wait: true, Ct), s => s.Version > loaded.Version, Ct);
+        var atLoad = await loaded.Solution.GetDocument(loaded.Solution.GetDocumentIdsWithFilePath(file)[0])!.GetTextAsync(Ct);
+
+        Assert.True(edited.Version > loaded.Version);
+        Assert.DoesNotContain("edited after load", atLoad.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task New_file_in_an_sdk_style_project_joins_the_project_without_a_reload()
     {
         using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);

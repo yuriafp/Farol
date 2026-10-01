@@ -45,6 +45,7 @@ public sealed partial class MSBuildWorkspaceLoader(ILogger<MSBuildWorkspaceLoade
             var solution = target.Kind == WorkspaceTargetKind.Project
                 ? (await workspace.OpenProjectAsync(target.Path, progress, cancellationToken)).Solution
                 : await workspace.OpenSolutionAsync(target.Path, progress, cancellationToken);
+            await ReadAllTextAsync(solution, cancellationToken);
             stopwatch.Stop();
 
             var report = new LoadReport(
@@ -68,6 +69,14 @@ public sealed partial class MSBuildWorkspaceLoader(ILogger<MSBuildWorkspaceLoade
             throw;
         }
     }
+
+    // Roslyn reads document text lazily, on first use. Read it all now, so the loaded solution is a true snapshot:
+    // a file edited before anything looked at it must not leak into the load baseline that dotnet_check compares against.
+    private static Task ReadAllTextAsync(Solution solution, CancellationToken cancellationToken) =>
+        Parallel.ForEachAsync(
+            solution.Projects.SelectMany(p => p.Documents),
+            new ParallelOptions { CancellationToken = cancellationToken },
+            async (document, token) => await document.GetTextAsync(token));
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Loaded {Workspace}: {Projects} project file(s), {Documents} document(s), {Issues} issue(s) in {Elapsed}")]
     private static partial void LogLoaded(ILogger logger, string workspace, int projects, int documents, int issues, TimeSpan elapsed);

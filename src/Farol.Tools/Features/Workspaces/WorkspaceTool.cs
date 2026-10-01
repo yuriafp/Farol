@@ -9,7 +9,7 @@ using ModelContextProtocol.Server;
 namespace Farol.Tools.Features.Workspaces;
 
 [McpServerToolType]
-public sealed partial class WorkspaceTool(WorkspaceManager workspaces, ToolchainProbe toolchain, CallerContext caller, ILogger<WorkspaceTool> logger)
+public sealed partial class WorkspaceTool(WorkspaceManager workspaces, ToolchainProbe toolchain, ServerPermissions permissions, CallerContext caller, ILogger<WorkspaceTool> logger)
 {
     [McpServerTool(Name = "dotnet_workspace", Title = "Load or inspect a .NET workspace", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
@@ -40,7 +40,7 @@ public sealed partial class WorkspaceTool(WorkspaceManager workspaces, Toolchain
             }
 
             var info = await toolchain.ProbeAsync(session.Target.Directory, cancellationToken);
-            return WorkspaceStatusRenderer.Render(session, info, workspaces.RootDirectory);
+            return WorkspaceStatusRenderer.Render(session, info, workspaces.RootDirectory, permissions.ReadOnly);
         });
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Reload of {Workspace} requested by {User} via {Origin}")]

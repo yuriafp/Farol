@@ -1,4 +1,5 @@
 using Farol.Core;
+using Farol.Core.Paths;
 using Farol.Core.Text;
 using Farol.Engine.Navigation;
 using Farol.Engine.Workspaces;
@@ -17,9 +18,15 @@ internal static class SymbolArgument
     /// candidates with the IDs to call again with.
     /// </summary>
     public static async Task<(SymbolCandidate? Candidate, string? Ambiguity)> ResolveAsync(
-        WorkspaceSnapshot snapshot, string root, string symbol, CancellationToken cancellationToken)
+        WorkspaceSnapshot snapshot, PathSandbox paths, string symbol, CancellationToken cancellationToken)
     {
-        var candidates = await SymbolLocator.ResolveAsync(snapshot, root, symbol, cancellationToken);
+        // A source position is a path argument like any other: it must stay inside the trusted directories.
+        if (SymbolLocator.TryParseLocation(symbol, out var path, out _, out _))
+        {
+            paths.Resolve(path);
+        }
+
+        var candidates = await SymbolLocator.ResolveAsync(snapshot, paths.Root, symbol, cancellationToken);
         if (candidates.Count == 1)
         {
             return (candidates[0], null);
@@ -35,7 +42,7 @@ internal static class SymbolArgument
 
         var text = new ResponseBuilder(TokenBudget.DefaultTokens);
         text.Line($"'{symbol}' matches {candidates.Count} symbols. Call again with the id of the one you mean:");
-        text.List("candidates", candidates, c => NavigationText.Candidate(c, snapshot, root), continuation: _ => "use a more specific name");
+        text.List("candidates", candidates, c => NavigationText.Candidate(c, snapshot, paths.Root), continuation: _ => "use a more specific name");
         return (null, text.ToString());
     }
 }

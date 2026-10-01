@@ -1,9 +1,12 @@
+using Farol.Core;
 using Farol.Core.Execution;
+using Farol.Core.Paths;
 using Farol.Engine.Loading;
 using Farol.Engine.Toolchain;
 using Farol.Engine.Workspaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace Farol.Engine;
 
@@ -21,6 +24,12 @@ public static class EngineServiceCollectionExtensions
 
         // Hosts may replace the runner (e.g. a sandboxed runner on a shared server).
         services.TryAddSingleton<IProcessRunner, LocalProcessRunner>();
+        services.AddSingleton(sp =>
+        {
+            var o = sp.GetRequiredService<IOptions<FarolEngineOptions>>().Value;
+            return new PathSandbox(o.RootDirectory, o.TrustedPaths);
+        });
+        services.AddSingleton(sp => new ServerPermissions(sp.GetRequiredService<IOptions<FarolEngineOptions>>().Value.ReadOnly));
         services.AddSingleton<ToolchainProbe>();
         services.AddSingleton<MSBuildWorkspaceLoader>();
         services.AddSingleton<WorkspaceManager>();

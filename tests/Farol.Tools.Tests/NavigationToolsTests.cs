@@ -101,6 +101,17 @@ public sealed class NavigationToolsTests(LegacyMcpFixture fixture) : IClassFixtu
     }
 
     [Fact]
+    public async Task A_source_position_outside_the_root_is_refused()
+    {
+        Assert.SkipUnless(fixture.Available, "Needs Windows with Visual Studio or Build Tools.");
+
+        var (isError, text) = await fixture.Harness!.CallAsync("dotnet_symbol", new() { ["symbol"] = "../elsewhere/Secret.cs:3" }, TestContext.Current.CancellationToken);
+
+        Assert.True(isError);
+        Assert.Contains("Path '../elsewhere/Secret.cs' resolves outside the directories Farol trusts", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Unknown_symbol_is_an_actionable_error()
     {
         Assert.SkipUnless(fixture.Available, "Needs Windows with Visual Studio or Build Tools.");

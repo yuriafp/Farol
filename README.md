@@ -4,7 +4,7 @@
 
 Farol is an open-source [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI coding agents (Claude Code, GitHub Copilot, Cursor, Codex) compiler-accurate understanding of C# and VB.NET solutions, including the legacy ones other tools skip: classic `.csproj`/`.vbproj`, `packages.config`, WebForms, WCF, ASMX, WinForms and WPF.
 
-**Status:** pre-alpha. Phase 1 is in progress: workspace, navigation and markup references are done. Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
+**Status:** pre-alpha. Phase 1 is in progress: workspace, navigation, markup references and edit verification are done. Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
 
 ## Tools
 
@@ -18,6 +18,8 @@ Farol is an open-source [Model Context Protocol](https://modelcontextprotocol.io
 | `dotnet_hierarchy` | Base types, interfaces, derived types, implementations and overrides. |
 | `dotnet_call_hierarchy` | Callers or callees as a tree (depth 1–3) with call sites. |
 | `dotnet_outline` | Types and members of a file or type with signatures and lines, no bodies. |
+| `dotnet_check` | The errors and warnings your edits introduced since the workspace loaded, never the pre-existing ones, including in the projects that depend on the edited code (a C# signature change shows up as the VB error it causes). Edits inside member bodies re-check only the edited files, so it answers in about a second. Compiler diagnostics only. |
+| `dotnet_code_actions` | Visual Studio's lightbulb for one line: compiler fixes (add a missing `using`/`Imports`, generate a member, implement an interface…) and refactorings (extract method…). Previews a unified diff without touching files; `apply=true` writes the change atomically and returns a fresh check. |
 
 Symbols can be passed as names, dotted names, documentation comment IDs from earlier results, or `path:line`.
 
@@ -51,6 +53,20 @@ After building, add to the `.mcp.json` of the repository you want to analyze:
 ```
 
 Farol discovers the solution in the working directory. Pass `--workspace <path>` to pick one explicitly.
+
+## Configuration
+
+| Setting | Command line | Default | Meaning |
+|---|---|---|---|
+| `Farol:RootDirectory` | `--root <dir>` | working directory | Where the default workspace is discovered. Farol trusts this directory. |
+| `Farol:DefaultWorkspace` | `--workspace <path>` | discovered | The solution or project used when a tool call names none. |
+| `Farol:AutoLoad` | `--autoload false` | `true` | Start loading the default workspace at startup. |
+| `Farol:ReadOnly` | `--read-only` | `false` | Refuse writing files, building and running tests; tools explain the refusal. |
+| `Farol:TrustedPaths` | `--Farol:TrustedPaths:0 <dir>` | none | More directories whose solutions may be loaded and whose files may be read or written. |
+
+Settings can also come from `appsettings.json` next to the executable and from environment variables such as `Farol__TrustedPaths__0`.
+
+**Trust:** loading a solution runs its build logic (MSBuild evaluation, analyzers, source generators). Farol only loads solutions, reads paths and writes files inside the root it was started in and `Farol:TrustedPaths`, after resolving `..` and symbolic links; anything else is refused with an error that says how to allow it.
 
 ## Use it from VS Code
 

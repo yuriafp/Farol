@@ -9,6 +9,9 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <Deterministic>true</Deterministic>
     <IsPackable>false</IsPackable>
+    <!-- Tool output is English everywhere: without satellite assemblies, Roslyn's diagnostics and code action titles
+         stay in English whatever the machine's language. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <PropertyGroup Label="Package metadata">

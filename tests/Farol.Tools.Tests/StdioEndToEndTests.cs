@@ -35,6 +35,33 @@ public sealed class StdioEndToEndTests(ModernCopyFixture fixture) : IClassFixtur
         Assert.Contains("Modern.Api", text, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task A_bare_read_only_flag_applies_without_swallowing_the_next_switch()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var transport = new StdioClientTransport(new StdioClientTransportOptions
+        {
+            Name = "farol",
+            Command = "dotnet",
+            Arguments = [HostAssemblyPath(), "--read-only", "--root", fixture.Copy.Root, "--autoload", "false"],
+        });
+        await using var client = await McpClient.CreateAsync(transport, cancellationToken: ct);
+
+        var apply = await client.CallToolAsync(
+            "dotnet_code_actions",
+            new Dictionary<string, object?> { ["path"] = "src/Modern.Core/Pricing/PriceCalculator.cs", ["line"] = 1, ["action"] = "1", ["apply"] = true },
+            cancellationToken: ct);
+        var outside = await client.CallToolAsync("dotnet_outline", new Dictionary<string, object?> { ["path"] = "../Other.cs" }, cancellationToken: ct);
+
+        Assert.Contains("runs read-only", client.ServerInstructions, StringComparison.Ordinal);
+        Assert.Equal(true, apply.IsError);
+        Assert.Contains("--read-only", Text(apply), StringComparison.Ordinal);
+        Assert.Equal(true, outside.IsError);
+        Assert.Contains(fixture.Copy.Root.Replace('\\', '/'), Text(outside), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string Text(CallToolResult result) => string.Join('\n', result.Content.OfType<TextContentBlock>().Select(t => t.Text));
+
     // The host is built alongside the tests (see the project reference); run the same configuration.
     private static string HostAssemblyPath()
     {
