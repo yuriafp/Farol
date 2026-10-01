@@ -9,6 +9,10 @@ public sealed record VisualStudioInstance(string DisplayName, string Version, st
 {
     /// <summary>"17.14.37710.0" → "17.14".</summary>
     public string ShortVersion => string.Join('.', Version.Split('.').Take(2));
+
+    /// <summary>The VSTest runner for classic .NET Framework test projects, when the testing tools are installed.</summary>
+    public string? VSTestPath =>
+        Path.Combine(InstallationPath, "Common7", "IDE", "Extensions", "TestPlatform", "vstest.console.exe") is var path && File.Exists(path) ? path : null;
 }
 
 public sealed record ToolchainInfo(string? DotnetSdkVersion, IReadOnlyList<VisualStudioInstance> VisualStudio)
@@ -83,7 +87,7 @@ public sealed class ToolchainProbe(IProcessRunner runner)
 
             var msbuild = Path.Combine(path, "MSBuild", "Current", "Bin", "MSBuild.exe");
             instances.Add(new VisualStudioInstance(
-                item.TryGetProperty("displayName", out var name) ? name.GetString() ?? "Visual Studio" : "Visual Studio",
+                PlainSpaces(item.TryGetProperty("displayName", out var name) ? name.GetString() ?? "Visual Studio" : "Visual Studio"),
                 item.TryGetProperty("installationVersion", out var version) ? version.GetString() ?? string.Empty : string.Empty,
                 path,
                 File.Exists(msbuild) ? msbuild : null));
@@ -91,4 +95,8 @@ public sealed class ToolchainProbe(IProcessRunner runner)
 
         return instances;
     }
+
+    // Some installers name themselves with non-breaking spaces ("Visual Studio"): agents searching the text would miss them.
+    private static string PlainSpaces(string text) =>
+        string.Concat(text.Select(c => char.IsWhiteSpace(c) ? ' ' : c));
 }

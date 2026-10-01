@@ -3,7 +3,14 @@ using System.Text;
 
 namespace Farol.Core.Execution;
 
-public sealed record ProcessSpec(string FileName, IReadOnlyList<string> Arguments, string WorkingDirectory, TimeSpan Timeout);
+public sealed record ProcessSpec(string FileName, IReadOnlyList<string> Arguments, string WorkingDirectory, TimeSpan Timeout)
+{
+    /// <summary>Extra environment variables for the child process.</summary>
+    public IReadOnlyDictionary<string, string>? Environment { get; init; }
+
+    /// <summary>Receives each line of standard output as it arrives, e.g. to report progress. Must not throw.</summary>
+    public Action<string>? OnOutputLine { get; init; }
+}
 
 public sealed record ProcessResult(int ExitCode, string StandardOutput, string StandardError, TimeSpan Elapsed, bool TimedOut);
 
@@ -44,6 +51,14 @@ public sealed class LocalProcessRunner : IProcessRunner
         startInfo.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
         startInfo.Environment["DOTNET_NOLOGO"] = "1";
 
+        // Tool output reaches agents in English whatever the machine's language (dotnet CLI, MSBuild.exe).
+        startInfo.Environment["DOTNET_CLI_UI_LANGUAGE"] = "en";
+        startInfo.Environment["VSLANG"] = "1033";
+        foreach (var (name, value) in spec.Environment ?? new Dictionary<string, string>())
+        {
+            startInfo.Environment[name] = value;
+        }
+
         using var process = new Process { StartInfo = startInfo };
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
@@ -57,6 +72,8 @@ public sealed class LocalProcessRunner : IProcessRunner
                 {
                     stdout.AppendLine(e.Data);
                 }
+
+                spec.OnOutputLine?.Invoke(e.Data);
             }
         };
         process.ErrorDataReceived += (_, e) =>

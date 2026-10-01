@@ -23,6 +23,12 @@ public sealed class FarolEngineOptions
     /// <summary>Refuse writing files, building and running tests (<c>--read-only</c>).</summary>
     public bool ReadOnly { get; set; }
 
+    /// <summary>A build that runs longer is stopped, with its whole process tree.</summary>
+    public int BuildTimeoutMinutes { get; set; } = 15;
+
+    /// <summary>A test run (per test project) that runs longer is stopped, with its whole process tree.</summary>
+    public int TestTimeoutMinutes { get; set; } = 20;
+
     /// <summary>Global MSBuild properties for design-time builds, e.g. Configuration=Release.</summary>
     public IDictionary<string, string> MSBuildProperties { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 }

@@ -39,7 +39,7 @@ public sealed class LegacyBinlogSpikeTests
             new ProcessSpec(
                 toolchain.PreferredVisualStudio!.MSBuildPath!,
                 // Rebuild: an up-to-date build skips CoreCompile and the log would hold no compiler calls.
-                [copy.PathOf("Legacy.sln"), "-restore", "-t:Rebuild", "-nodeReuse:false", "-v:quiet", "-nologo", $"-bl:{binlog}"],
+                [copy.PathOf("Legacy.sln"), "-restore", "-p:RestorePackagesConfig=true", "-t:Rebuild", "-nodeReuse:false", "-v:quiet", "-nologo", $"-bl:{binlog}"],
                 copy.Root,
                 TimeSpan.FromMinutes(5)),
             ct);

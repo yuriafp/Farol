@@ -30,7 +30,7 @@ public sealed class WorkspaceToolsTests(ModernCopyFixture fixture) : IClassFixtu
 
         Assert.False(isError, text);
         Assert.Contains("state: ready", text, StringComparison.Ordinal);
-        Assert.Contains("projects: 2 (3 including target-framework variants)", text, StringComparison.Ordinal);
+        Assert.Contains("projects: 3 (4 including target-framework variants)", text, StringComparison.Ordinal);
         Assert.Contains("toolchain: .NET SDK", text, StringComparison.Ordinal);
     }
 

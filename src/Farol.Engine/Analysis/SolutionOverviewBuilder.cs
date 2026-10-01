@@ -58,7 +58,7 @@ public static class SolutionOverviewBuilder
             ResolveTargetFrameworks(path, variants, facts, report),
             DescribeOutputKind(primary.CompilationOptions?.OutputKind),
             AppModelDetector.DetectAppModels(references, Path.GetDirectoryName(path)!, facts),
-            AppModelDetector.DetectTestFrameworks(references),
+            Testing.TestFrameworks.Detect(references.Concat(facts.References), facts.Sdk),
             projectReferences,
             variants.SelectMany(v => v.Documents).Select(d => d.FilePath ?? d.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
             facts.HasPackagesConfig);

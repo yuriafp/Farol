@@ -83,33 +83,6 @@ internal static class AppModelDetector
         return models;
     }
 
-    public static IReadOnlyList<string> DetectTestFrameworks(IReadOnlySet<string> references)
-    {
-        var frameworks = new List<string>();
-        if (references.Any(r => r.StartsWith("xunit.", StringComparison.OrdinalIgnoreCase)))
-        {
-            frameworks.Add("xUnit");
-        }
-
-        if (references.Contains("nunit.framework"))
-        {
-            frameworks.Add("NUnit");
-        }
-
-        if (references.Contains("Microsoft.VisualStudio.TestPlatform.TestFramework")
-            || references.Contains("Microsoft.VisualStudio.QualityTools.UnitTestFramework"))
-        {
-            frameworks.Add("MSTest");
-        }
-
-        if (references.Contains("TUnit.Core"))
-        {
-            frameworks.Add("TUnit");
-        }
-
-        return frameworks;
-    }
-
     private static HashSet<string> ScanMarkup(string directory)
     {
         var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

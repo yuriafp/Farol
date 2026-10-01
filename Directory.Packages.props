@@ -16,6 +16,11 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.VisualBasic.Features" Version="5.9.0" />
   </ItemGroup>
 
+  <ItemGroup Label="MSBuild">
+    <!-- Reads binary logs: build errors and warnings with their projects and target frameworks. -->
+    <PackageVersion Include="MSBuild.StructuredLogger" Version="2.3.246" />
+  </ItemGroup>
+
   <ItemGroup Label="Microsoft.Extensions">
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.12" />

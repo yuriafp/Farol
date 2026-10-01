@@ -20,6 +20,7 @@ public sealed class ToolContractTests
         var codeActions = tools.Single(t => t.Name == "dotnet_code_actions").ProtocolTool.Annotations;
         Assert.False(codeActions?.ReadOnlyHint);
         Assert.True(codeActions?.DestructiveHint);
+        Assert.All(tools.Where(t => t.Name is "dotnet_build" or "dotnet_test"), t => Assert.False(t.ProtocolTool.Annotations?.ReadOnlyHint));
         Assert.All(tools, tool =>
         {
             Assert.StartsWith("dotnet_", tool.Name, StringComparison.Ordinal);

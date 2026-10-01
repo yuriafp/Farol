@@ -19,7 +19,7 @@ public sealed class NavigationToolsTests(LegacyMcpFixture fixture) : IClassFixtu
     {
         var text = await CallAsync("dotnet_find_references", new() { ["symbol"] = "OrderCalculator.GetTotal" });
 
-        Assert.Contains("in 4 project(s)", text, StringComparison.Ordinal);
+        Assert.Contains("in 5 project(s)", text, StringComparison.Ordinal);
         Assert.Contains("defined at: Legacy.Core/Orders/OrderCalculator.cs:15", text, StringComparison.Ordinal);
         Assert.Contains("Legacy.VbLib:", text, StringComparison.Ordinal);
         Assert.Contains("Legacy.VbLib/ShippingCalculator.vb:", text, StringComparison.Ordinal);

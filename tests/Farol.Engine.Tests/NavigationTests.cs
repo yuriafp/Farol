@@ -17,8 +17,10 @@ public sealed class NavigationTests(LegacyWorkspaceFixture fixture)
 
         var found = await DeclarationSearch.SearchAsync(fixture.Snapshot!, "OrdCalc", "any", project: null, Ct);
 
-        var first = Assert.Single(found);
+        // OrderCalculatorTests matches the humps too, ranked after the closer match.
+        var first = found[0];
         Assert.Equal("T:Legacy.Core.Orders.OrderCalculator", first.Id);
+        Assert.Contains(found, c => c.Id == "T:Legacy.Tests.OrderCalculatorTests");
         Assert.EndsWith("OrderCalculator.cs", SymbolFormatter.SourceLocation(first.Symbol)!.Value.Path, StringComparison.Ordinal);
     }
 
@@ -31,7 +33,7 @@ public sealed class NavigationTests(LegacyWorkspaceFixture fixture)
         var result = await ReferenceFinder.FindAsync(fixture.Snapshot!, candidate, Ct);
 
         Assert.Equal(
-            ["Legacy.Desktop", "Legacy.VbLib", "Legacy.Web", "Legacy.Wpf"],
+            ["Legacy.Desktop", "Legacy.Tests", "Legacy.VbLib", "Legacy.Web", "Legacy.Wpf"],
             result.References.Select(r => r.Project).Distinct().Order(StringComparer.Ordinal));
         Assert.All(result.References, r => Assert.Equal("call", r.Kind));
         Assert.Contains(result.References, r => r.FilePath.EndsWith(".vb", StringComparison.OrdinalIgnoreCase));
@@ -86,7 +88,7 @@ public sealed class NavigationTests(LegacyWorkspaceFixture fixture)
         var callers = await CallHierarchyFinder.FindAsync(fixture.Snapshot!.Solution, candidate, "callers", depth: 1, Ct);
 
         Assert.Equal(
-            ["GetOrderTotal", "GetTotal", "OnCalculateClick", "TotalWithShipping", "btnCalculate_Click", "calculateButton_Click"],
+            ["GetOrderTotal", "GetTotal", "GetTotal_adds_the_default_tax", "GetTotal_rejects_unknown_orders", "OnCalculateClick", "TotalWithShipping", "btnCalculate_Click", "calculateButton_Click"],
             callers.Select(c => c.Symbol.Name).Order(StringComparer.Ordinal));
         var vb = Assert.Single(callers, c => c.Symbol.Name == "TotalWithShipping");
         Assert.Equal(LanguageNames.VisualBasic, vb.Symbol.Language);

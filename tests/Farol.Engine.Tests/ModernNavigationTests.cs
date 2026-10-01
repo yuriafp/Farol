@@ -20,7 +20,9 @@ public sealed class ModernNavigationTests(ModernWorkspaceFixture fixture)
         Assert.All(inCore, r => Assert.Equal(["net10.0", "net48"], r.TargetFrameworks));
         var inApi = Assert.Single(result.References, r => r.FilePath.EndsWith("Program.cs", StringComparison.Ordinal));
         Assert.Equal(["net10.0"], inApi.TargetFrameworks);
-        Assert.Equal(inCore.Count + 1, result.References.Count);
+        var inTests = Assert.Single(result.References, r => r.FilePath.EndsWith("PriceCalculatorTests.cs", StringComparison.Ordinal));
+        Assert.Equal(["net10.0"], inTests.TargetFrameworks);
+        Assert.Equal(inCore.Count + 2, result.References.Count);
     }
 
     [Fact]
@@ -30,7 +32,7 @@ public sealed class ModernNavigationTests(ModernWorkspaceFixture fixture)
 
         var found = await DeclarationSearch.SearchAsync(fixture.Snapshot, "PriceCalculator", "class", project: null, ct);
 
-        var calculator = Assert.Single(found);
+        var calculator = Assert.Single(found, c => c.Id == "T:Modern.Core.Pricing.PriceCalculator");
         Assert.Equal(
             ["net10.0", "net48"],
             calculator.Variants.Select(v => fixture.Snapshot.Projects.Get(v.ProjectId)!.TargetFramework).Order(StringComparer.Ordinal));

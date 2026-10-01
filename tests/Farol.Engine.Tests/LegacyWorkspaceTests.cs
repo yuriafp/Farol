@@ -23,7 +23,7 @@ public sealed class LegacyWorkspaceTests(LegacyWorkspaceFixture fixture)
 
         await SpikeReport.WriteAsync("spike-a-msbuildworkspace", session.CurrentSolution!, session.Report!, TestContext.Current.CancellationToken);
 
-        Assert.Equal(5, session.Report!.ProjectFiles);
+        Assert.Equal(6, session.Report!.ProjectFiles);
         Assert.Empty(session.Report.Issues);
         Assert.Contains(solution.Projects, p => p.Language == LanguageNames.VisualBasic);
     }

@@ -3,7 +3,10 @@ using System.Xml.Linq;
 
 namespace Farol.Engine.Workspaces;
 
-/// <summary>Facts read straight from a project file, without MSBuild evaluation.</summary>
+/// <summary>
+/// Facts read straight from a project file, without MSBuild evaluation. References are package ids (PackageReference,
+/// packages.config) and assembly names (Reference) as written: known before any restore, unlike resolved metadata references.
+/// </summary>
 public sealed record ProjectFileFacts(
     string Path,
     string Language,
@@ -12,7 +15,8 @@ public sealed record ProjectFileFacts(
     IReadOnlyList<string> DeclaredTargetFrameworks,
     string? OutputType,
     IReadOnlyList<string> ProjectTypeGuids,
-    bool HasPackagesConfig);
+    bool HasPackagesConfig,
+    IReadOnlyList<string> References);
 
 /// <summary>Well-known classic project flavors (the ProjectTypeGuids element of legacy projects).</summary>
 public static class ProjectTypeGuids
@@ -33,7 +37,9 @@ public static class ProjectFileInspector
             ".FSPROJ" => "F#",
             _ => "C#",
         };
-        var hasPackagesConfig = File.Exists(Path.Combine(Path.GetDirectoryName(projectPath)!, "packages.config"));
+        var packagesConfig = Path.Combine(Path.GetDirectoryName(projectPath)!, "packages.config");
+        var hasPackagesConfig = File.Exists(packagesConfig);
+        var packages = hasPackagesConfig ? PackagesConfigIds(packagesConfig) : [];
 
         XElement root;
         try
@@ -42,7 +48,7 @@ public static class ProjectFileInspector
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or XmlException)
         {
-            return new ProjectFileFacts(projectPath, language, false, null, [], null, [], hasPackagesConfig);
+            return new ProjectFileFacts(projectPath, language, false, null, [], null, [], hasPackagesConfig, packages);
         }
 
         var sdk = (string?)root.Attribute("Sdk")
@@ -62,6 +68,15 @@ public static class ProjectFileInspector
             .Select(g => g.Trim('{', '}').ToUpperInvariant())
             .ToList();
 
+        // "Microsoft.VisualStudio.TestPlatform.TestFramework, Version=14.0.0.0, ..." → the assembly name.
+        var references = Elements(root, "PackageReference").Concat(Elements(root, "Reference"))
+            .Select(e => ((string?)e.Attribute("Include"))?.Split(',')[0].Trim())
+            .OfType<string>()
+            .Where(name => name.Length > 0 && !name.Contains('$', StringComparison.Ordinal))
+            .Concat(packages)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         return new ProjectFileFacts(
             projectPath,
             language,
@@ -70,7 +85,20 @@ public static class ProjectFileInspector
             frameworks,
             Values(root, "OutputType").FirstOrDefault(),
             typeGuids,
-            hasPackagesConfig);
+            hasPackagesConfig,
+            references);
+    }
+
+    private static List<string> PackagesConfigIds(string path)
+    {
+        try
+        {
+            return [.. XDocument.Load(path).Descendants().Where(e => e.Name.LocalName == "package").Select(e => (string?)e.Attribute("id")).OfType<string>()];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or XmlException)
+        {
+            return [];
+        }
     }
 
     /// <summary>"v4.7.2" → "net472", "v3.5" → "net35".</summary>

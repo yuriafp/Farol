@@ -3,4 +3,7 @@
     <Project Path="src/Modern.Core/Modern.Core.csproj" />
     <Project Path="src/Modern.Api/Modern.Api.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Modern.Tests/Modern.Tests.csproj" />
+  </Folder>
 </Solution>

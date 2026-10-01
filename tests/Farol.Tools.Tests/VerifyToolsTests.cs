@@ -33,7 +33,7 @@ public sealed class CheckToolTests
 
         Assert.Contains("Legacy.VbLib:", text, StringComparison.Ordinal);
         Assert.Matches(@"- Legacy\.VbLib/ShippingCalculator\.vb:13 · error BC\d+ · .*includeTax", text);
-        Assert.Contains("checked projects: Legacy.Core, Legacy.Desktop, Legacy.VbLib, Legacy.Web, Legacy.Wpf", text, StringComparison.Ordinal);
+        Assert.Contains("checked projects: Legacy.Core, Legacy.Desktop, Legacy.Tests, Legacy.VbLib, Legacy.Web, Legacy.Wpf", text, StringComparison.Ordinal);
     }
 
     [Fact]

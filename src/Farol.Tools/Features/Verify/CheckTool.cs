@@ -15,7 +15,7 @@ public sealed class CheckTool(WorkspaceManager workspaces)
     [Description(
         "Compiler errors and warnings introduced since the workspace loaded — not the ones that were already there — in the edited files and in every " +
         "project their declaration changes can break, across C#, VB and every target framework. Call it after editing .cs/.vb files instead of " +
-        "building: edits on disk are picked up automatically, and it takes about a second. Covers compiler diagnostics; analyzer rules (CA/IDE) are not run.")]
+        "building: edits on disk are picked up automatically, and it takes about a second. Covers compiler diagnostics; analyzer rules (CA/IDE) show up in dotnet_build.")]
     public Task<string> Run(
         [Description("changed (default): files edited since load, plus the projects that depend on their declarations · file: one file ('path') · project: one project ('project') · solution: every project")] string? scope = null,
         [Description("Source file for scope=file, relative to the workspace root.")] string? path = null,

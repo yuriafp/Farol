@@ -1,7 +1,9 @@
 using Farol.Core;
 using Farol.Core.Execution;
 using Farol.Core.Paths;
+using Farol.Engine.Building;
 using Farol.Engine.Loading;
+using Farol.Engine.Testing;
 using Farol.Engine.Toolchain;
 using Farol.Engine.Workspaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +35,8 @@ public static class EngineServiceCollectionExtensions
         services.AddSingleton<ToolchainProbe>();
         services.AddSingleton<MSBuildWorkspaceLoader>();
         services.AddSingleton<WorkspaceManager>();
+        services.AddSingleton<BuildRunner>();
+        services.AddSingleton<TestRunner>();
         services.AddHostedService<WorkspaceAutoLoader>();
         return services;
     }

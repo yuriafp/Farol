@@ -11,8 +11,8 @@ public sealed class ModernWorkspaceTests(ModernWorkspaceFixture fixture)
     {
         var report = fixture.Session.Report!;
 
-        Assert.Equal(2, report.ProjectFiles);
-        Assert.Equal(3, report.RoslynProjects); // Modern.Core is loaded once per target framework.
+        Assert.Equal(3, report.ProjectFiles);
+        Assert.Equal(4, report.RoslynProjects); // Modern.Core is loaded once per target framework.
         Assert.DoesNotContain(report.Issues, i => i.Severity == "error");
         var core = report.TargetFrameworks.Single(kv => kv.Key.EndsWith("Modern.Core.csproj", StringComparison.OrdinalIgnoreCase)).Value;
         Assert.Equal(["net10.0", "net48"], core);
