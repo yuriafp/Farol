@@ -13,12 +13,13 @@ internal static class ServerInstructions
         - dotnet_code_actions offers the compiler's fixes and refactorings at a line (e.g. add a missing using) as a diff; apply=true writes it.
         - dotnet_build picks the toolchain that works (Visual Studio's MSBuild for classic projects). dotnet_test with affectedBy (a symbol, or 'changes') runs only the tests that reach your edits.
         - Before using a NuGet package API you are unsure of, read it with dotnet_package_api (exact version, signatures and docs) instead of guessing. dotnet_packages lists the resolved versions and flags vulnerable and deprecated packages.
+        - Modernizing .NET Framework code: dotnet_legacy_inventory shows what is legacy and where, dotnet_portability the APIs that break on the target with their replacements, dotnet_config_inspect the web.config → appsettings.json mapping, and dotnet_migration_plan the ordered steps (write=true saves them to docs/modernization/).
         - Pass symbols as names, dotted names, ids from earlier results, or path:line. Ambiguous names return candidates to choose from.
         - File and project edits are picked up automatically; dotnet_workspace reports load state and failed projects.
         - Paths in responses are relative to the workspace root, formatted as path:line.
         """;
 
-    private const string ReadOnlyNote = "\n- This server runs read-only: dotnet_code_actions returns diffs but cannot apply them, and dotnet_build and dotnet_test are refused.";
+    private const string ReadOnlyNote = "\n- This server runs read-only: dotnet_code_actions returns diffs but cannot apply them, dotnet_migration_plan cannot write its documents, and dotnet_build and dotnet_test are refused.";
 
     private const string OfflineNote = "\n- This server runs offline: dotnet_packages does not ask the feeds, and dotnet_package_api reads only packages already in the local NuGet caches.";
 

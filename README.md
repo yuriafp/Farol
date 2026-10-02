@@ -4,7 +4,7 @@
 
 Farol is an open-source [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI coding agents (Claude Code, GitHub Copilot, Cursor, Codex) compiler-accurate understanding of C# and VB.NET solutions, including the legacy ones other tools skip: classic `.csproj`/`.vbproj`, `packages.config`, WebForms, WCF, ASMX, WinForms and WPF.
 
-**Status:** pre-alpha. Phase 1 is in progress: workspace, navigation, markup references, edit verification, build and test, and packages are done. Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
+**Status:** pre-alpha. Phase 1 is in progress: all 18 tools are done (workspace, navigation, markup references, edit verification, build and test, packages, legacy modernization); the Claude Code plugin, NuGet distribution and evals come next. Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
 
 ## Tools
 
@@ -24,6 +24,10 @@ Farol is an open-source [Model Context Protocol](https://modelcontextprotocol.io
 | `dotnet_test` | Runs all tests, tests matching a name, or only those that reach a symbol or your edits (`affectedBy`). Reports failures only: the assertion message and the stack frames in your code. `vstest.console` for classic test projects, `dotnet test` (VSTest or Microsoft.Testing.Platform, per `global.json`) for SDK-style ones. |
 | `dotnet_packages` | NuGet packages per project with the versions restore resolved: direct, and transitive with the chain that brings each one in. PackageReference (central package management included) and `packages.config`. Flags vulnerable packages (advisories), deprecated ones (with the replacement) and newer versions, from the solution's feeds. |
 | `dotnet_package_api` | The public API of an exact package version: signatures and XML documentation summaries read from the package's assemblies, never guessed. Local NuGet caches first, then the solution's feeds. |
+| `dotnet_legacy_inventory` | What is legacy and where, with counts: classic projects, .NET Framework targets, packages.config; WebForms pages, ASMX and WCF services, WinForms forms, WPF XAML; config settings and binding redirects; code uses of BinaryFormatter, System.Configuration, System.Web… with their lines and the files where they concentrate. |
+| `dotnet_portability` | Every .NET Framework API the code uses, looked up in the target framework's reference assemblies: the missing and obsolete ones, grouped by technology, with their locations and the replacement. WinForms/WPF projects are checked against `-windows`. |
+| `dotnet_config_inspect` | A web.config or app.config with secrets masked — app settings, connection strings, WCF services, system.web, binding redirects — and its appsettings.json mapping. |
+| `dotnet_migration_plan` | An ordered plan, bottom-up by project dependency: one step per project with its approach (multi-target, retarget to `-windows`, or rebuild on ASP.NET Core), a size and tasks citing file:line. `write=true` saves `assessment.md`, `plan.md` and `tasks.md` to `docs/modernization/`; it never writes code. |
 
 Symbols can be passed as names, dotted names, documentation comment IDs from earlier results, or `path:line`.
 

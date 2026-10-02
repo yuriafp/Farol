@@ -292,6 +292,13 @@ public static class MetadataSource
         return string.Join('\n', lines[start..]).TrimEnd();
     }
 
+    /// <summary>True when the assembly lives inside a NuGet package folder.</summary>
+    public static bool IsPackageAssembly(string assemblyPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(assemblyPath);
+        return PackageOf(Path.GetFullPath(assemblyPath)) is not null;
+    }
+
     private static bool IsPackageContent(string relativePath) =>
         relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0].ToUpperInvariant() is "LIB" or "REF" or "RUNTIMES" or "ANALYZERS" or "BUILD" or "TOOLS";
 

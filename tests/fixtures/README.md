@@ -19,3 +19,5 @@ The files in this folder (`Directory.Build.*`, `Directory.Packages.props`, `.edi
 | `MSTest.TestAdapter`, `MSTest.TestFramework` 2.2.10 | `legacy/Legacy.Tests` (packages.config) | Deprecated (legacy). |
 
 GitHub's dependency graph may raise Dependabot alerts for these manifests; they can be dismissed as "used in tests".
+
+**Fake secrets on purpose.** `legacy/Legacy.Web/Web.config` holds a connection string with a password and a secret-looking app setting, both fake, so tests can check that `dotnet_config_inspect` masks them.

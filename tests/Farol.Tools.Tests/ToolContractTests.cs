@@ -27,6 +27,11 @@ public sealed class ToolContractTests
             Assert.True(t.ProtocolTool.Annotations?.OpenWorldHint);
         });
         Assert.Equal(2, tools.Count(t => t.Name is "dotnet_packages" or "dotnet_package_api"));
+        var migrationPlan = tools.Single(t => t.Name == "dotnet_migration_plan").ProtocolTool.Annotations;
+        Assert.False(migrationPlan?.ReadOnlyHint);
+        Assert.True(migrationPlan?.DestructiveHint);
+        Assert.All(tools.Where(t => t.Name is "dotnet_legacy_inventory" or "dotnet_config_inspect" or "dotnet_portability"), t => Assert.True(t.ProtocolTool.Annotations?.ReadOnlyHint));
+        Assert.Equal(18, tools.Count);
         Assert.All(tools, tool =>
         {
             Assert.StartsWith("dotnet_", tool.Name, StringComparison.Ordinal);
