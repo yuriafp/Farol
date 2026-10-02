@@ -41,7 +41,8 @@ public sealed class McpHarness : IAsyncDisposable
         builder.Services
             .AddMcpServer()
             .WithStreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream())
-            .WithToolsFromAssembly(ToolsAssembly.Assembly);
+            .WithToolsFromAssembly(ToolsAssembly.Assembly)
+            .WithPromptsFromAssembly(ToolsAssembly.Assembly);
 
         var host = builder.Build();
         await host.StartAsync(cancellationToken);

@@ -4,16 +4,23 @@
     <!-- Lets `dnx`/global-tool users run Farol on newer runtimes without a rebuild. -->
     <RollForward>Major</RollForward>
 
+    <!-- A .NET tool package of type McpServer: `dnx Farol.Mcp` runs it, and nuget.org lists it as an MCP server
+         (reading .mcp/server.json). -->
     <IsPackable>true</IsPackable>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>farol</ToolCommandName>
+    <PackageType>McpServer</PackageType>
     <PackageId>Farol.Mcp</PackageId>
-    <Description>Farol: an MCP server that gives AI agents compiler-accurate understanding of legacy (.NET Framework) and modern .NET solutions.</Description>
+    <Description>Compiler-accurate C# and VB code intelligence for AI agents, from legacy .NET Framework to modern .NET: navigation, edit verification, build, tests, NuGet package APIs and modernization plans, as an MCP server.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/yuriafp/Farol</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yuriafp/Farol</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include=".mcp/server.json" Pack="true" PackagePath="/.mcp/" />
   </ItemGroup>
 
   <ItemGroup>

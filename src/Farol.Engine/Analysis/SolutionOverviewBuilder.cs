@@ -129,11 +129,10 @@ public static class SolutionOverviewBuilder
         var files = new List<string>();
         foreach (var project in projects.Where(p => p.TargetsNetFramework))
         {
-            var directory = Path.GetDirectoryName(project.FilePath)!;
-            foreach (var name in (string[])["web.config", "app.config"])
+            // The files as they are named on disk (Web.config), not as Windows would also accept them (web.config).
+            foreach (var path in Legacy.ConfigInspector.FindIn(Path.GetDirectoryName(project.FilePath)!))
             {
-                var path = Path.Combine(directory, name);
-                if (File.Exists(path) && File.ReadAllText(path).Contains("bindingRedirect", StringComparison.OrdinalIgnoreCase))
+                if (File.ReadAllText(path).Contains("bindingRedirect", StringComparison.OrdinalIgnoreCase))
                 {
                     files.Add(path);
                 }

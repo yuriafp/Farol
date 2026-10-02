@@ -34,6 +34,7 @@ builder.Services
         options.ServerInstructions = ServerInstructions.For(readOnly, offline);
     })
     .WithStdioServerTransport()
-    .WithToolsFromAssembly(ToolsAssembly.Assembly);
+    .WithToolsFromAssembly(ToolsAssembly.Assembly)
+    .WithPromptsFromAssembly(ToolsAssembly.Assembly);
 
 await builder.Build().RunAsync();

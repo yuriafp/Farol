@@ -33,21 +33,64 @@ Symbols can be passed as names, dotted names, documentation comment IDs from ear
 
 ## Requirements
 
-- .NET 10 SDK.
+- .NET 10 SDK (it provides `dnx`, which runs Farol from NuGet without installing it).
 - Classic .NET Framework projects: Windows with Visual Studio 2022+ or Build Tools (full fidelity comes from Visual Studio's MSBuild); running their tests also needs Visual Studio's testing tools (`vstest.console.exe`).
 
-## Build and test
+## Install
 
-```bash
-dotnet build Farol.slnx
-dotnet test --solution Farol.slnx
+Farol ships on NuGet as [`Farol.Mcp`](https://www.nuget.org/packages/Farol.Mcp), an MCP server package that `dnx` runs on demand. It discovers the solution in the client's working directory; pass `--workspace <path>` to pick one.
+
+### Claude Code
+
+Install the plugin, which runs the server and adds a skill that teaches Claude when to use each tool, plus a hook that checks every `.cs`/`.vb` edit and puts new compiler errors in front of Claude:
+
+```
+/plugin marketplace add yuriafp/Farol
+/plugin install farol@farol
 ```
 
-To work on Farol in an IDE, use one that supports .NET 10: Visual Studio 2026 (18.0+), VS Code with C# Dev Kit, or a recent Rider. **Visual Studio 2022 cannot open the solution:** the .NET 10 SDK requires MSBuild 18.0, and Visual Studio 2022 ships MSBuild 17.14. Farol can still analyze your solutions with Visual Studio 2022 installed; this only concerns building Farol itself.
+The server's prompts appear as slash commands: `explore`, `verify_changes`, `upgrade_package` and `modernize`.
 
-## Use it from Claude Code
+To add only the server, without the skill and the hook, put this in the `.mcp.json` of the repository:
 
-After building, add to the `.mcp.json` of the repository you want to analyze:
+```json
+{
+  "mcpServers": {
+    "farol": {
+      "command": "dotnet",
+      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.1", "--yes"]
+    }
+  }
+}
+```
+
+### Visual Studio 2026
+
+Add the server to a `.mcp.json` next to the solution (or to `%USERPROFILE%\.mcp.json` for every solution), then use it from GitHub Copilot Chat in agent mode:
+
+```json
+{
+  "servers": {
+    "farol": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.1", "--yes"]
+    }
+  }
+}
+```
+
+### VS Code
+
+Not yet validated for the MVP (Claude Code and Visual Studio 2026 are). The same configuration goes in `.vscode/mcp.json`.
+
+### Options
+
+Farol's own options go after `--`, so `dnx` doesn't read them as its own: `"args": ["dnx", "Farol.Mcp@0.1.0-alpha.1", "--yes", "--", "--read-only"]`. The [Configuration](#configuration) table lists them.
+
+### From source
+
+To run a local build instead, point the client at the host assembly:
 
 ```json
 {
@@ -59,8 +102,6 @@ After building, add to the `.mcp.json` of the repository you want to analyze:
   }
 }
 ```
-
-Farol discovers the solution in the working directory. Pass `--workspace <path>` to pick one explicitly.
 
 ## Configuration
 
@@ -81,21 +122,16 @@ Settings can also come from `appsettings.json` next to the executable and from e
 
 **NuGet:** the package tools use the NuGet configuration restore uses (the `nuget.config` files from the solution up, package source mapping, `auditSources`), the HTTP cache, and credential providers such as Azure Artifacts' in non-interactive mode: if a private feed needs a sign-in, run `dotnet restore --interactive` once. A package `dotnet_package_api` downloads goes into the global packages folder, as restore would put it.
 
-## Use it from VS Code
+## Build and test
 
-Not yet validated for the MVP (Claude Code and Visual Studio 2026 are). Add to `.vscode/mcp.json`:
-
-```json
-{
-  "servers": {
-    "farol": {
-      "type": "stdio",
-      "command": "dotnet",
-      "args": ["C:/path/to/Farol/src/Farol.Host/bin/Debug/net10.0/Farol.Host.dll"]
-    }
-  }
-}
+```bash
+dotnet build Farol.slnx
+dotnet test --solution Farol.slnx
 ```
+
+To work on Farol in an IDE, use one that supports .NET 10: Visual Studio 2026 (18.0+), VS Code with C# Dev Kit, or a recent Rider. **Visual Studio 2022 cannot open the solution:** the .NET 10 SDK requires MSBuild 18.0, and Visual Studio 2022 ships MSBuild 17.14. Farol can still analyze your solutions with Visual Studio 2022 installed; this only concerns building Farol itself.
+
+Releasing: [docs/release.md](docs/release.md). Manual smoke tests in Claude Code and Visual Studio 2026: [docs/smoke-tests.md](docs/smoke-tests.md).
 
 ## Architecture
 

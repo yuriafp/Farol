@@ -15,3 +15,6 @@ TestResults/
 
 # packages.config restore folders (legacy fixtures)
 tests/fixtures/**/packages/
+
+# Snapshot test output awaiting review
+*.received.json

@@ -1,0 +1,274 @@
+{
+  "tools": [
+    {
+      "name": "dotnet_build",
+      "readOnly": false,
+      "destructive": false,
+      "idempotent": true,
+      "openWorld": false,
+      "parameters": [
+        "project?: string|null",
+        "configuration?: string",
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_call_hierarchy",
+      "readOnly": true,
+      "destructive": null,
+      "idempotent": true,
+      "openWorld": false,
+      "parameters": [
+        "symbol: string",
+        "direction?: string",
+        "depth?: integer",
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_check",
+      "readOnly": true,
+      "destructive": null,
+      "idempotent": true,
+      "openWorld": false,
+      "parameters": [
+        "scope?: string|null",
+        "path?: string|null",
+        "project?: string|null",
+        "includeExisting?: boolean",
+        "format?: string",
+        "edited?: string|null",
+        "workspace?: string|null",
+        "maxTokens?: integer",
+        "offset?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_code_actions",
+      "readOnly": false,
+      "destructive": true,
+      "idempotent": false,
+      "openWorld": false,
+      "parameters": [
+        "path: string",
+        "line: integer",
+        "column?: integer|null",
+        "diagnosticId?: string|null",
+        "action?: string|null",
+        "apply?: boolean",
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_config_inspect",
+      "readOnly": true,
+      "destructive": null,
+      "idempotent": true,
+      "openWorld": false,
+      "parameters": [
+        "path?: string|null",
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_find_references",
+      "readOnly": true,
+      "destructive": null,
+      "idempotent": true,
+      "openWorld": false,
+      "parameters": [
+        "symbol: string",
+        "kinds?: string|null",
+        "workspace?: string|null",
+        "maxTokens?: integer",
+        "offset?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_find_symbols",
+      "readOnly": true,
+      "destructive": null,
+      "idempotent": true,
+      "openWorld": false,
+      "parameters": [
+        "query: string",
+        "kind?: string",
+        "project?: string|null",
+        "workspace?: string|null",
+        "maxTokens?: integer",
+        "offset?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_hierarchy",
+      "readOnly": true,
+      "destructive": null,
+      "idempotent": true,
+      "openWorld": false,
+      "parameters": [
+        "symbol: string",
+        "direction?: string",
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_legacy_inventory",
+      "readOnly": true,
+      "destructive": null,
+      "idempotent": true,
+      "openWorld": false,
+      "parameters": [
+        "project?: string|null",
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_migration_plan",
+      "readOnly": false,
+      "destructive": true,
+      "idempotent": true,
+      "openWorld": false,
+      "parameters": [
+        "targetFramework?: string",
+        "write?: boolean",
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_outline",
+      "readOnly": true,
+      "destructive": null,
+      "idempotent": true,
+      "openWorld": false,
+      "parameters": [
+        "path?: string|null",
+        "symbol?: string|null",
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_overview",
+      "readOnly": true,
+      "destructive": null,
+      "idempotent": true,
+      "openWorld": false,
+      "parameters": [
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_package_api",
+      "readOnly": true,
+      "destructive": null,
+      "idempotent": true,
+      "openWorld": true,
+      "parameters": [
+        "package: string",
+        "version?: string|null",
+        "query?: string|null",
+        "targetFramework?: string|null",
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_packages",
+      "readOnly": true,
+      "destructive": null,
+      "idempotent": true,
+      "openWorld": true,
+      "parameters": [
+        "project?: string|null",
+        "include?: string",
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_portability",
+      "readOnly": true,
+      "destructive": null,
+      "idempotent": true,
+      "openWorld": false,
+      "parameters": [
+        "targetFramework?: string",
+        "project?: string|null",
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_symbol",
+      "readOnly": true,
+      "destructive": null,
+      "idempotent": true,
+      "openWorld": false,
+      "parameters": [
+        "symbol: string",
+        "include?: string",
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_test",
+      "readOnly": false,
+      "destructive": false,
+      "idempotent": false,
+      "openWorld": false,
+      "parameters": [
+        "project?: string|null",
+        "filter?: string|null",
+        "affectedBy?: string|null",
+        "configuration?: string",
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ]
+    },
+    {
+      "name": "dotnet_workspace",
+      "readOnly": true,
+      "destructive": null,
+      "idempotent": true,
+      "openWorld": false,
+      "parameters": [
+        "workspace?: string|null",
+        "action?: string"
+      ]
+    }
+  ],
+  "prompts": [
+    {
+      "name": "explore",
+      "arguments": [
+        "question?"
+      ]
+    },
+    {
+      "name": "modernize",
+      "arguments": [
+        "targetFramework?"
+      ]
+    },
+    {
+      "name": "upgrade_package",
+      "arguments": [
+        "package",
+        "version?"
+      ]
+    },
+    {
+      "name": "verify_changes",
+      "arguments": []
+    }
+  ]
+}

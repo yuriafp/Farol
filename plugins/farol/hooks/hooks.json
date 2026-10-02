@@ -1,0 +1,35 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "if": "Edit(**/*.cs)",
+            "server": "plugin:farol:farol",
+            "tool": "dotnet_check",
+            "input": {
+              "format": "hook",
+              "edited": "${tool_input.file_path}"
+            },
+            "timeout": 60,
+            "statusMessage": "Farol: checking the edit for new compiler errors"
+          },
+          {
+            "type": "mcp_tool",
+            "if": "Edit(**/*.vb)",
+            "server": "plugin:farol:farol",
+            "tool": "dotnet_check",
+            "input": {
+              "format": "hook",
+              "edited": "${tool_input.file_path}"
+            },
+            "timeout": 60,
+            "statusMessage": "Farol: checking the edit for new compiler errors"
+          }
+        ]
+      }
+    ]
+  }
+}

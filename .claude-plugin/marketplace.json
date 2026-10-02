@@ -1,0 +1,17 @@
+{
+  "name": "farol",
+  "owner": {
+    "name": "Farol contributors",
+    "url": "https://github.com/yuriafp/Farol"
+  },
+  "description": "Farol for Claude Code: compiler-accurate C# and VB code intelligence, from .NET Framework to modern .NET.",
+  "plugins": [
+    {
+      "name": "farol",
+      "source": "./plugins/farol",
+      "description": "The Farol MCP server, a skill that teaches when to use each tool, and a hook that checks every C#/VB edit for new compiler errors.",
+      "category": "development",
+      "tags": ["dotnet", "csharp", "vb", "roslyn", "msbuild", "legacy", "dotnet-framework", "modernization"]
+    }
+  ]
+}

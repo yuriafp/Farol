@@ -1,0 +1,14 @@
+{
+  "name": "farol",
+  "displayName": "Farol",
+  "version": "0.1.0-alpha.1",
+  "description": "Compiler-accurate C# and VB code intelligence from .NET Framework to modern .NET: the Farol MCP server, a usage skill, and a hook that checks every .cs/.vb edit for new compiler errors.",
+  "author": {
+    "name": "Farol contributors",
+    "url": "https://github.com/yuriafp/Farol"
+  },
+  "homepage": "https://github.com/yuriafp/Farol",
+  "repository": "https://github.com/yuriafp/Farol",
+  "license": "MIT",
+  "keywords": ["dotnet", "csharp", "vb", "roslyn", "msbuild", "mcp", "legacy", "dotnet-framework", "modernization"]
+}

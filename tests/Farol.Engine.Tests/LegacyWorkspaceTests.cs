@@ -45,7 +45,7 @@ public sealed class LegacyWorkspaceTests(LegacyWorkspaceFixture fixture)
         Assert.Contains("WinForms", Assert.Single(overview.Projects, p => p.Name == "Legacy.Desktop").AppModels);
         Assert.Contains("WPF", Assert.Single(overview.Projects, p => p.Name == "Legacy.Wpf").AppModels);
         Assert.Equal("VB", Assert.Single(overview.Projects, p => p.Name == "Legacy.VbLib").Language);
-        Assert.Single(overview.BindingRedirectFiles);
+        Assert.EndsWith(Path.Combine("Legacy.Web", "Web.config"), Assert.Single(overview.BindingRedirectFiles), StringComparison.Ordinal);
         Assert.Contains("MSBuild.exe", BuildAdvisor.SuggestBuildCommand(overview, toolchain, fixture.Root), StringComparison.OrdinalIgnoreCase);
     }
 }
