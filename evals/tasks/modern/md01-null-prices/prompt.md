@@ -1,0 +1,1 @@
+Make `PriceCalculator.Total` throw `ArgumentNullException` when `prices` is null, and add a test for it in Modern.Tests. Every target framework of Modern.Core must still build, and the tests must pass.

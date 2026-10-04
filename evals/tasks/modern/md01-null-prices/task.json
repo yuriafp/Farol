@@ -1,0 +1,12 @@
+{
+  "job": "modern",
+  "repo": "modern",
+  "maxTurns": 50,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "file", "name": "Total checks for null", "path": "src/Modern.Core/Pricing/PriceCalculator.cs", "patterns": [ "ArgumentNullException" ] },
+    { "type": "file", "name": "a test expects the exception", "path": "tests/Modern.Tests/PriceCalculatorTests.cs", "patterns": [ "Throws(Any)?\\s*<\\s*ArgumentNullException\\s*>" ] },
+    { "type": "command", "name": "both target frameworks build", "run": "dotnet build Modern.slnx -v:q -nologo", "timeoutMinutes": 10 },
+    { "type": "command", "name": "the tests pass", "run": "dotnet test --solution Modern.slnx", "timeoutMinutes": 10 }
+  ]
+}

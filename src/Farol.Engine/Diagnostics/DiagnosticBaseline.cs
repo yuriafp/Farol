@@ -26,11 +26,12 @@ internal sealed class DiagnosticBaseline
     public static DiagnosticBaseline For(Solution loaded) => Instances.GetValue(loaded, s => new DiagnosticBaseline(s));
 
     // Computed without the caller's token: the result is shared and stays valid, so a cancelled request must not poison it.
+    // On the thread pool, so callers can compute the current diagnostics while the baseline's are computed.
     public Task<DiagnosticSet> ProjectAsync(ProjectId id, CancellationToken cancellationToken) =>
-        _projects.GetOrAdd(id, key => new Lazy<Task<DiagnosticSet>>(() => ComputeAsync(_loaded.GetProject(key)))).Value.WaitAsync(cancellationToken);
+        _projects.GetOrAdd(id, key => new Lazy<Task<DiagnosticSet>>(() => Task.Run(() => ComputeAsync(_loaded.GetProject(key))))).Value.WaitAsync(cancellationToken);
 
     public Task<DiagnosticSet> DocumentAsync(DocumentId id, CancellationToken cancellationToken) =>
-        _documents.GetOrAdd(id, key => new Lazy<Task<DiagnosticSet>>(() => ComputeAsync(_loaded.GetDocument(key)))).Value.WaitAsync(cancellationToken);
+        _documents.GetOrAdd(id, key => new Lazy<Task<DiagnosticSet>>(() => Task.Run(() => ComputeAsync(_loaded.GetDocument(key))))).Value.WaitAsync(cancellationToken);
 
     private static async Task<DiagnosticSet> ComputeAsync(Project? project) =>
         project is null ? DiagnosticSet.Empty : DiagnosticSet.From(await CompilerDiagnostics.ForProjectAsync(project, CancellationToken.None));
@@ -54,6 +55,13 @@ internal static class CompilerDiagnostics
         var model = await document.GetSemanticModelAsync(cancellationToken);
         return model is null ? [] : Reportable(model.GetDiagnostics(cancellationToken: cancellationToken));
     }
+
+    public static ImmutableArray<Diagnostic> ForCompilation(Compilation? compilation, CancellationToken cancellationToken) =>
+        compilation is null ? [] : Reportable(compilation.GetDiagnostics(cancellationToken));
+
+    /// <summary>The diagnostics located in one file, bound against a given compilation of its project.</summary>
+    public static ImmutableArray<Diagnostic> ForTree(Compilation? compilation, SyntaxTree? tree, CancellationToken cancellationToken) =>
+        compilation is null || tree is null ? [] : Reportable(compilation.GetSemanticModel(tree).GetDiagnostics(cancellationToken: cancellationToken));
 
     private static ImmutableArray<Diagnostic> Reportable(ImmutableArray<Diagnostic> diagnostics) =>
         [.. diagnostics.Where(d => d.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning && !d.IsSuppressed)];

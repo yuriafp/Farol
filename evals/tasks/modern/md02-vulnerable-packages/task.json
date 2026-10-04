@@ -1,0 +1,12 @@
+{
+  "job": "modern",
+  "repo": "modern",
+  "maxTurns": 30,
+  "timeoutMinutes": 15,
+  "checks": [
+    { "type": "answer", "name": "System.Text.Json 8.0.4 in Modern.Core", "patterns": [ "System\\.Text\\.Json", "8\\.0\\.4", "Modern\\.Core" ] },
+    { "type": "answer", "name": "the two IdentityModel packages in Modern.Api", "patterns": [ "Microsoft\\.IdentityModel\\.JsonWebTokens", "System\\.IdentityModel\\.Tokens\\.Jwt", "7\\.0\\.3", "Modern\\.Api" ] },
+    { "type": "answer", "name": "says which are transitive", "patterns": [ "transitiv" ] },
+    { "type": "changed", "name": "changes nothing", "only": [] }
+  ]
+}

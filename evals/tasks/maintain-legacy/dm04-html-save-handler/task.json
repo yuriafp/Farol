@@ -1,0 +1,11 @@
+{
+  "job": "maintain-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 40,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "answer", "name": "the handler and how it is wired", "patterns": [ "OnSaveClick", "cmdSave\\.Click|Click\\s*\\+=" ] },
+    { "type": "answer", "name": "the method that stores it", "patterns": [ "UpdateHtmlText" ] },
+    { "type": "changed", "name": "changes nothing", "only": [] }
+  ]
+}

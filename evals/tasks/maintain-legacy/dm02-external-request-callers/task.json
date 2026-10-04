@@ -1,0 +1,10 @@
+{
+  "job": "maintain-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 50,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "answer", "name": "the four callers", "patterns": [ "PayPalIPN", "Purchase", "SecurityController", "ServerSummaryController" ] },
+    { "type": "changed", "name": "changes nothing", "only": [] }
+  ]
+}

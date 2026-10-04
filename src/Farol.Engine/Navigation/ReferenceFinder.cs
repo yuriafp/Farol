@@ -29,6 +29,7 @@ public static class ReferenceFinder
 
         var definitions = new SourceHitCollector(snapshot);
         var references = new SourceHitCollector(snapshot);
+        var locations = new List<ReferenceLocation>();
         foreach (var variant in candidate.Variants)
         {
             var found = await SymbolFinder.FindReferencesAsync(variant.Symbol, snapshot.Solution, cancellationToken);
@@ -44,11 +45,20 @@ public static class ReferenceFinder
                     }
                 }
 
-                foreach (var reference in referenced.Locations.Where(r => !r.IsImplicit && r.Location.IsInSource))
-                {
-                    await references.AddAsync(reference.Document, reference.Location, await ClassifyAsync(reference, cancellationToken), cancellationToken);
-                }
+                locations.AddRange(referenced.Locations.Where(r => !r.IsImplicit && r.Location.IsInSource));
             }
+        }
+
+        // Classifying binds the code around each use; for a type used a thousand times, one after the other, that was
+        // most of the call. Semantic models are safe to share across threads.
+        var kinds = new string[locations.Count];
+        await Parallel.ForEachAsync(
+            Enumerable.Range(0, locations.Count),
+            new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = cancellationToken },
+            async (index, token) => kinds[index] = await ClassifyAsync(locations[index], token));
+        for (var index = 0; index < locations.Count; index++)
+        {
+            await references.AddAsync(locations[index].Document, locations[index].Location, kinds[index], cancellationToken);
         }
 
         var markup = await MarkupIndex.GetAsync(snapshot, cancellationToken);

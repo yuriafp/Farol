@@ -1,0 +1,11 @@
+{
+  "job": "maintain-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 50,
+  "timeoutMinutes": 25,
+  "checks": [
+    { "type": "changed", "name": "only ClientAPI.vb changes", "include": [ "DNN Platform/DotNetNuke.WebUtility/ClientAPI.vb" ], "only": [ "DNN Platform/DotNetNuke.WebUtility/ClientAPI.vb" ] },
+    { "type": "command", "name": "the VB project builds", "run": "{msbuild} \"DNN Platform/DotNetNuke.WebUtility/DotNetNuke.WebUtility.vbproj\" -t:Build -p:Configuration=Debug -v:q -nologo", "timeoutMinutes": 10 },
+    { "type": "command", "name": "the built method escapes as asked", "run": "powershell -NoProfile -ExecutionPolicy Bypass -File \"{task}/check.ps1\"", "timeoutMinutes": 2 }
+  ]
+}

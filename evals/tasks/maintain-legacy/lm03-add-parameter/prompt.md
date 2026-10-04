@@ -1,0 +1,1 @@
+Add a `bool includeTax` parameter to `OrderCalculator.GetTotal` in Legacy.Core: when it is false, return the order subtotal without tax. Update every caller in the solution to pass `true`, so the behavior stays the same everywhere, and make sure the whole solution still builds.

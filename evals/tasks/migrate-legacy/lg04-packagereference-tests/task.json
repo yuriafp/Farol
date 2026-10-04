@@ -1,0 +1,12 @@
+{
+  "job": "migrate-legacy",
+  "repo": "legacy",
+  "maxTurns": 50,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "file", "name": "packages.config is gone", "path": "Legacy.Tests/packages.config", "exists": false },
+    { "type": "file", "name": "same packages and versions as PackageReference", "path": "Legacy.Tests/Legacy.Tests.csproj", "patterns": [ "PackageReference\\s+Include=\"MSTest\\.TestFramework\"[^>]*2\\.2\\.10|Include=\"MSTest\\.TestFramework\"\\s*>\\s*<Version>2\\.2\\.10", "PackageReference\\s+Include=\"MSTest\\.TestAdapter\"[^>]*2\\.2\\.10|Include=\"MSTest\\.TestAdapter\"\\s*>\\s*<Version>2\\.2\\.10", "PackageReference\\s+Include=\"Newtonsoft\\.Json\"[^>]*12\\.0\\.3|Include=\"Newtonsoft\\.Json\"\\s*>\\s*<Version>12\\.0\\.3" ] },
+    { "type": "command", "name": "the solution builds", "run": "{msbuild} Legacy.sln -restore -t:Build -p:Configuration=Debug -p:RestorePackagesConfig=true -v:q -nologo -m", "timeoutMinutes": 15 },
+    { "type": "command", "name": "the tests pass", "run": "{vstest} Legacy.Tests/bin/Debug/Legacy.Tests.dll", "timeoutMinutes": 10, "patterns": [ "Passed:\\s*3" ] }
+  ]
+}

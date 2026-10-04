@@ -1,0 +1,169 @@
+{
+  // Umbraco CMS 18.2.0: about 0.8M lines of C# in 32 net10.0 projects, the largest single-target open-source .NET
+  // solution that restores from nuget.org with the stock SDK. Spec 001's targets are stated for about 1M lines.
+  "name": "Umbraco CMS 18.2.0",
+  "repository": "https://github.com/umbraco/Umbraco-CMS",
+  "commit": "3a150afc500c944b9b85d863f080814c7f6d5a4f",
+  "workspace": "umbraco.sln",
+  // Run in the checkout by benchmarks/prepare.ps1. NuGetAudit=false: advisories published after the pinned commit would fail its
+  // restore (warnings are errors there), and they say nothing about Farol.
+  "prepare": [ "dotnet restore umbraco.sln -p:NuGetAudit=false -v:q -nologo" ],
+  "symbolQueries": [
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "ContentService" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "PublishedContent" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "CoreScope" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "JsonSerializer" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "ShortStringHelper" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "UmbConAcc" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "MediaService" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "DataTypeService" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "EntityService" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "UrlSegment" } },
+    { "tool": "dotnet_symbol", "arguments": { "symbol": "IContentService" } },
+    { "tool": "dotnet_symbol", "arguments": { "symbol": "ICoreScopeProvider.CreateCoreScope" } },
+    { "tool": "dotnet_symbol", "arguments": { "symbol": "IIdKeyMap.GetIdForKey" } },
+    { "tool": "dotnet_symbol", "arguments": { "symbol": "IShortStringHelper" } },
+    { "tool": "dotnet_symbol", "arguments": { "symbol": "IPublishedContent" } },
+    { "tool": "dotnet_outline", "arguments": { "path": "src/Umbraco.Core/Services/ContentService.cs" } },
+    { "tool": "dotnet_outline", "arguments": { "path": "src/Umbraco.Core/Services/IContentService.cs" } },
+    { "tool": "dotnet_outline", "arguments": { "path": "src/Umbraco.Infrastructure/Persistence/Repositories/Implement/DocumentRepository.cs" } },
+    { "tool": "dotnet_outline", "arguments": { "path": "src/Umbraco.Cms.Api.Management/Controllers/Document/ByKeyDocumentController.cs" } }
+  ],
+  // The first symbol warms the solution up (compilations, indexes) and is not timed; each other is timed once.
+  "references": [
+    "ICoreScopeProvider.CreateCoreScope",
+    "IPublishedContent",
+    "IUmbracoMapper",
+    "IEntityService",
+    "IJsonSerializer.Serialize",
+    "IContentTypeService",
+    "IShortStringHelper.SplitPascalCasing",
+    "IUserService",
+    "IContentService",
+    "IDataTypeService",
+    "IIdKeyMap.GetIdForKey",
+    "ILocalizedTextService",
+    "IEventAggregator",
+    "IMediaService",
+    "IUmbracoContextAccessor",
+    "IKeyValueService",
+    "T:Umbraco.Cms.Core.Cache.AppCaches",
+    "IBackOfficeSecurityAccessor",
+    "ILanguageService",
+    "IHostingEnvironment",
+    "IRuntimeState",
+    "IIOHelper",
+    "IVariationContextAccessor",
+    "ITemplateService",
+    "IPublishedValueFallback",
+    "IPublishedContentCache",
+    "IDocumentNavigationQueryService",
+    "IPublishedUrlProvider",
+    "IDataValueEditorFactory",
+    "IMemberTypeService",
+    "IUserIdKeyResolver",
+    "IMemberService",
+    "IAuditService",
+    "IRelationService"
+  ],
+  "edits": [
+    {
+      "kind": "body",
+      "path": "src/Umbraco.Core/Services/ContentService.cs",
+      "find": "IQuery<IContent>? query = Query<IContent>().Where(x => x.Level == level && x.Trashed == false);",
+      "replace": "_ = level; IQuery<IContent>? query = Query<IContent>().Where(x => x.Level == level && x.Trashed == false);"
+    },
+    {
+      "kind": "body",
+      "path": "src/Umbraco.Infrastructure/Persistence/Repositories/Implement/DocumentRepository.cs",
+      "find": "var templateIds = new List<int>();",
+      "replace": "var templateIds = new List<int>(capacity: 4);"
+    },
+    {
+      "kind": "body",
+      "path": "src/Umbraco.Cms.Api.Delivery/Controllers/Content/ByIdContentApiController.cs",
+      "find": "IPublishedContent? contentItem = await ApiPublishedContentCache.GetByIdAsync(id).ConfigureAwait(false);",
+      "replace": "_ = id; IPublishedContent? contentItem = await ApiPublishedContentCache.GetByIdAsync(id).ConfigureAwait(false);"
+    },
+    {
+      "kind": "body",
+      "path": "src/Umbraco.Cms.Api.Management/Controllers/Document/ByKeyDocumentController.cs",
+      "find": "var contentWithScheduleAttempt = await _contentQueryService.GetWithSchedulesAsync(id);",
+      "replace": "_ = id; var contentWithScheduleAttempt = await _contentQueryService.GetWithSchedulesAsync(id);"
+    },
+    {
+      "kind": "body",
+      "path": "tests/Umbraco.Tests.UnitTests/Umbraco.Core/Strings/DefaultUrlSegmentProviderTests.cs",
+      "find": "Assert.AreEqual(\"URL-SEGMENT-CULTURE::New Name\", result);",
+      "replace": "Assert.AreEqual(\"URL-SEGMENT-CULTURE::New Name\", result, \"edited\");"
+    },
+    {
+      "kind": "declaration",
+      "path": "src/Umbraco.Cms.Api.Delivery/Controllers/Content/ByIdContentApiController.cs",
+      "find": "public async Task<IActionResult> ByIdV20(Guid id)",
+      "replace": "public static int FarolBenchmarkProbe() => 0; public async Task<IActionResult> ByIdV20(Guid id)"
+    },
+    {
+      "kind": "declaration",
+      "path": "src/Umbraco.Web.Common/Controllers/UmbracoPageController.cs",
+      "find": "protected bool EnsurePhysicalViewExists(string? template)",
+      "replace": "protected static int FarolBenchmarkProbe() => 0; protected bool EnsurePhysicalViewExists(string? template)"
+    },
+    {
+      "kind": "declaration",
+      "path": "src/Umbraco.Infrastructure/Persistence/Repositories/Implement/DocumentRepository.cs",
+      "find": "protected override void AddAdditionalContentMapping(DocumentDto dto, IContent content)",
+      "replace": "private static int FarolBenchmarkProbe() => 0; protected override void AddAdditionalContentMapping(DocumentDto dto, IContent content)"
+    },
+    {
+      "kind": "declaration",
+      "path": "src/Umbraco.Core/Services/ContentService.cs",
+      "find": "public IContent? GetParent(int id)",
+      "replace": "public static int FarolBenchmarkProbe() => 0; public IContent? GetParent(int id)"
+    },
+    {
+      "kind": "declaration",
+      "path": "src/Umbraco.Core/Services/IContentService.cs",
+      "find": "    IContent? GetById(int id);",
+      "replace": "    int FarolBenchmarkProbe() => 0; IContent? GetById(int id);"
+    },
+    {
+      "kind": "body",
+      "path": "src/Umbraco.PublishedCache.HybridCache/Services/BlockElementService.cs",
+      "find": "var propertyData = new Dictionary<string, PropertyData[]>();",
+      "replace": "var propertyData = new Dictionary<string, PropertyData[]>(StringComparer.Ordinal);"
+    },
+    {
+      "kind": "body",
+      "path": "src/Umbraco.Cms.Persistence.SqlServer/Services/MicrosoftSqlSyntaxProviderBase.cs",
+      "find": "var tableNameParts = tableName?.Split(Core.Constants.CharArrays.Period, 2);",
+      "replace": "_ = tableName; var tableNameParts = tableName?.Split(Core.Constants.CharArrays.Period, 2);"
+    },
+    {
+      "kind": "body",
+      "path": "src/Umbraco.Web.Website/Controllers/RenderNoContentController.cs",
+      "find": "var model = new NoNodesViewModel { UmbracoPath = _hostingEnvironment.GetBackOfficePath() };",
+      "replace": "_ = _hostingEnvironment; var model = new NoNodesViewModel { UmbracoPath = _hostingEnvironment.GetBackOfficePath() };"
+    },
+    {
+      "kind": "body",
+      "path": "tests/Umbraco.Tests.Integration/Umbraco.Core/Services/ContentEditingServiceTests.cs",
+      "find": "var variantTestData = await SetupVariantTest();",
+      "replace": "_ = 0; var variantTestData = await SetupVariantTest();"
+    },
+    {
+      // An interface member gains a parameter: its implementations no longer match (new errors), callers still compile.
+      "kind": "signature",
+      "path": "src/Umbraco.Core/Strings/IShortStringHelper.cs",
+      "find": "    string SplitPascalCasing(string text, char separator);",
+      "replace": "    string SplitPascalCasing(string text, char separator, bool farolProbe = false);"
+    },
+    {
+      // A rename without its callers: every use breaks, in several projects.
+      "kind": "rename",
+      "path": "src/Umbraco.Core/Services/IIdKeyMap.cs",
+      "find": "    Attempt<int> GetIdForKey(Guid key, UmbracoObjectTypes umbracoObjectType);",
+      "replace": "    Attempt<int> GetIdForKeyRenamed(Guid key, UmbracoObjectTypes umbracoObjectType);"
+    }
+  ]
+}

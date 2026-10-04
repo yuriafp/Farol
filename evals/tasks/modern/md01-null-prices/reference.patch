@@ -1,0 +1,35 @@
+diff --git a/src/Modern.Core/Pricing/PriceCalculator.cs b/src/Modern.Core/Pricing/PriceCalculator.cs
+index b970119..6355ce5 100644
+--- a/src/Modern.Core/Pricing/PriceCalculator.cs
++++ b/src/Modern.Core/Pricing/PriceCalculator.cs
+@@ -14,6 +14,11 @@ public sealed class PriceCalculator(IClock clock)
+ {
+     public decimal Total(IEnumerable<decimal> prices, decimal weekendDiscount)
+     {
++        if (prices is null)
++        {
++            throw new ArgumentNullException(nameof(prices));
++        }
++
+         var subtotal = prices.Sum();
+         var discount = IsWeekend(clock.UtcNow) ? weekendDiscount : 0m;
+         return Math.Round(subtotal * (1 - discount), 2);
+diff --git a/tests/Modern.Tests/PriceCalculatorTests.cs b/tests/Modern.Tests/PriceCalculatorTests.cs
+index 6181a17..2cd2c19 100644
+--- a/tests/Modern.Tests/PriceCalculatorTests.cs
++++ b/tests/Modern.Tests/PriceCalculatorTests.cs
+@@ -24,6 +24,14 @@ public sealed class PriceCalculatorTests
+         Assert.Equal(100m, calculator.Total([60m, 40m], 0.1m));
+     }
+ 
++    [Fact]
++    public void Total_rejects_null_prices()
++    {
++        var calculator = new PriceCalculator(new FixedClock(Thursday));
++
++        Assert.Throws<ArgumentNullException>(() => calculator.Total(null!, 0m));
++    }
++
+     [Theory]
+     [InlineData(10.004, 10.00)]
+     [InlineData(10.006, 10.01)]

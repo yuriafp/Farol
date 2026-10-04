@@ -1,0 +1,1 @@
+In the HTML module, when an editor clicks Save on the edit control (EditHtml.ascx), which method runs, how is it wired to the button (the markup has no OnClick), and which `HtmlTextController` method stores the content? Don't change any file.

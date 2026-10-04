@@ -1,0 +1,11 @@
+{
+  "job": "maintain-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 50,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "answer", "name": "the implementation", "patterns": [ "PortalController\\.cs" ] },
+    { "type": "answer", "name": "the four InternalServices controllers", "patterns": [ "ControlBarController", "ItemListServiceController", "NewUserNotificationServiceController", "ProfileServiceController" ] },
+    { "type": "changed", "name": "changes nothing", "only": [] }
+  ]
+}

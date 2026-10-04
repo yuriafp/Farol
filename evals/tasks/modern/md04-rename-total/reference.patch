@@ -1,0 +1,55 @@
+diff --git a/src/Modern.Api/Program.cs b/src/Modern.Api/Program.cs
+index a8a6c25..bf9bb6b 100644
+--- a/src/Modern.Api/Program.cs
++++ b/src/Modern.Api/Program.cs
+@@ -5,5 +5,5 @@ builder.Services.AddSingleton<IClock, SystemClock>();
+ builder.Services.AddSingleton<PriceCalculator>();
+ 
+ var app = builder.Build();
+-app.MapPost("/orders/total", (decimal[] prices, PriceCalculator calculator) => calculator.Total(prices, 0.1m));
++app.MapPost("/orders/total", (decimal[] prices, PriceCalculator calculator) => calculator.CalculateTotal(prices, 0.1m));
+ app.Run();
+diff --git a/src/Modern.Core/Pricing/PriceCalculator.cs b/src/Modern.Core/Pricing/PriceCalculator.cs
+index b970119..02a60fa 100644
+--- a/src/Modern.Core/Pricing/PriceCalculator.cs
++++ b/src/Modern.Core/Pricing/PriceCalculator.cs
+@@ -12,7 +12,7 @@ public sealed class SystemClock : IClock
+ 
+ public sealed class PriceCalculator(IClock clock)
+ {
+-    public decimal Total(IEnumerable<decimal> prices, decimal weekendDiscount)
++    public decimal CalculateTotal(IEnumerable<decimal> prices, decimal weekendDiscount)
+     {
+         var subtotal = prices.Sum();
+         var discount = IsWeekend(clock.UtcNow) ? weekendDiscount : 0m;
+diff --git a/tests/Modern.Tests/PriceCalculatorTests.cs b/tests/Modern.Tests/PriceCalculatorTests.cs
+index 6181a17..56364b5 100644
+--- a/tests/Modern.Tests/PriceCalculatorTests.cs
++++ b/tests/Modern.Tests/PriceCalculatorTests.cs
+@@ -13,7 +13,7 @@ public sealed class PriceCalculatorTests
+     {
+         var calculator = new PriceCalculator(new FixedClock(Saturday));
+ 
+-        Assert.Equal(90m, calculator.Total([60m, 40m], 0.1m));
++        Assert.Equal(90m, calculator.CalculateTotal([60m, 40m], 0.1m));
+     }
+ 
+     [Fact]
+@@ -21,7 +21,7 @@ public sealed class PriceCalculatorTests
+     {
+         var calculator = new PriceCalculator(new FixedClock(Thursday));
+ 
+-        Assert.Equal(100m, calculator.Total([60m, 40m], 0.1m));
++        Assert.Equal(100m, calculator.CalculateTotal([60m, 40m], 0.1m));
+     }
+ 
+     [Theory]
+@@ -31,7 +31,7 @@ public sealed class PriceCalculatorTests
+     {
+         var calculator = new PriceCalculator(new FixedClock(Thursday));
+ 
+-        Assert.Equal(expected, calculator.Total([price], 0m));
++        Assert.Equal(expected, calculator.CalculateTotal([price], 0m));
+     }
+ }
+ 

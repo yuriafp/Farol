@@ -33,7 +33,10 @@ public sealed class CheckToolTests
 
         Assert.Contains("Legacy.VbLib:", text, StringComparison.Ordinal);
         Assert.Matches(@"- Legacy\.VbLib/ShippingCalculator\.vb:13 · error BC\d+ · .*includeTax", text);
-        Assert.Contains("checked projects: Legacy.Core, Legacy.Desktop, Legacy.Tests, Legacy.VbLib, Legacy.Web, Legacy.Wpf", text, StringComparison.Ordinal);
+
+        // The files that call GetTotal are checked, in every project and both languages; no project is compiled whole.
+        Assert.Contains("checked files (edited, and those using changed declarations): ", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("checked projects:", text, StringComparison.Ordinal);
     }
 
     [Fact]

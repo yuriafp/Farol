@@ -36,6 +36,27 @@ public sealed class WorkspaceSyncTests
     }
 
     [Fact]
+    public async Task A_file_put_back_as_it_was_returns_the_snapshot_to_the_loaded_solution()
+    {
+        using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
+        await FixtureRestore.EnsureRestoredAsync(copy.PathOf("Modern.slnx"), Ct);
+        await using var engine = EngineHarness.Create(copy.Root);
+        var session = engine.Workspaces.GetSession(null);
+        var loaded = await session.GetSnapshotAsync(wait: true, Ct);
+        var file = copy.PathOf("src", "Modern.Core", "Pricing", "PriceCalculator.cs");
+        var original = await File.ReadAllTextAsync(file, Ct);
+
+        await File.WriteAllTextAsync(file, "// edited\n" + original, Ct);
+        var edited = await Eventually.MatchesAsync(() => session.GetSnapshotAsync(wait: true, Ct), s => s.Version > loaded.Version, Ct);
+        await File.WriteAllTextAsync(file, original, Ct);
+        var reverted = await Eventually.MatchesAsync(() => session.GetSnapshotAsync(wait: true, Ct), s => s.Version > edited.Version, Ct);
+
+        // The load's solution, compilations included: nothing has to be compiled again for an undone edit.
+        Assert.NotSame(loaded.Solution, edited.Solution);
+        Assert.Same(loaded.Solution, reverted.Solution);
+    }
+
+    [Fact]
     public async Task The_load_snapshot_keeps_the_text_files_had_when_they_loaded()
     {
         using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);

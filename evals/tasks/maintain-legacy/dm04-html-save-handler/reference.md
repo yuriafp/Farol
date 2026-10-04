@@ -1,0 +1,1 @@
+`EditHtml.OnSaveClick` runs (DNN Platform/Modules/HTML/EditHtml.ascx.cs). EditHtml.ascx sets AutoEventWireup="false" and the cmdSave LinkButton has no OnClick: the code-behind wires it in OnInit with `this.cmdSave.Click += this.OnSaveClick;`. The content is stored by `HtmlTextController.UpdateHtmlText(htmlContent, maxVersions)`.

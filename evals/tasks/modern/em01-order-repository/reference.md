@@ -1,0 +1,1 @@
+`OrderRepository` in Ordering.Infrastructure (src/Ordering.Infrastructure/Repositories/OrderRepository.cs) implements it. Ordering.API registers it in src/Ordering.API/Extensions/Extensions.cs with `services.AddScoped<IOrderRepository, OrderRepository>();`.

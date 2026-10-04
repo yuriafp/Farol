@@ -1,0 +1,30 @@
+diff --git a/DNN Platform/Library/Common/Utilities/XmlUtils.cs b/DNN Platform/Library/Common/Utilities/XmlUtils.cs
+index e101ce4..e409756 100644
+--- a/DNN Platform/Library/Common/Utilities/XmlUtils.cs	
++++ b/DNN Platform/Library/Common/Utilities/XmlUtils.cs	
+@@ -768,25 +768,6 @@ public static string XPathLiteral(string value)
+             return sb.ToString();
+         }
+ 
+-        /// <summary>Load an XML document from a URL.</summary>
+-        /// <param name="contentUrl">The URL to the XML document.</param>
+-        /// <returns>An XML document.</returns>
+-        [DnnDeprecated(7, 0, 0, "Use XmlDocument.Load instead", RemovalVersion = 11)]
+-        public static partial XmlDocument GetXMLContent(string contentUrl)
+-        {
+-            // This function reads an XML document via a URL and returns it as an XmlDocument object
+-            var functionReturnValue = new XmlDocument { XmlResolver = null };
+-            var req = WebRequest.Create(contentUrl);
+-            var result = req.GetResponse();
+-            var objXmlReader = new XmlTextReader(result.GetResponseStream())
+-            {
+-                XmlResolver = null,
+-                DtdProcessing = DtdProcessing.Prohibit,
+-            };
+-            functionReturnValue.Load(objXmlReader);
+-            return functionReturnValue;
+-        }
+-
+         public static bool TryReadEndElement(XmlReader reader)
+         {
+             while (reader.NodeType == XmlNodeType.Whitespace)

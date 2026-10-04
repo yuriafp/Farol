@@ -1,0 +1,10 @@
+{
+  "job": "migrate-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 40,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "answer", "name": "the file and both methods", "patterns": [ "Globals\\.cs", "\\bSerializeHashTableBase64", "DeserializeHashTableBase64" ] },
+    { "type": "changed", "name": "changes nothing", "only": [] }
+  ]
+}

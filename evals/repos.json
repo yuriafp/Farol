@@ -1,0 +1,24 @@
+{
+  // Where eval tasks run. "fixture": a folder of this repository, copied into each run's workspace and committed as its
+  // baseline. "corpus": a benchmark corpus (benchmarks/corpora), pinned to its commit. Otherwise a repository and commit.
+  // "prepare" runs in every fresh workspace: both arms start from a restored solution, as a developer's clone would be.
+  "legacy": {
+    "fixture": "tests/fixtures/legacy",
+    "workspace": "Legacy.sln",
+    "prepare": [ "{msbuild} Legacy.sln -t:Restore -p:RestorePackagesConfig=true -v:q -nologo" ]
+  },
+  "modern": {
+    "fixture": "tests/fixtures/modern",
+    "workspace": "Modern.slnx",
+    "prepare": [ "dotnet restore Modern.slnx -v:q -nologo" ]
+  },
+  "dnn-platform": {
+    "corpus": "dnn-platform"
+  },
+  "eshop": {
+    "repository": "https://github.com/dotnet/eShop",
+    "commit": "dc7ea499cd356924fb6689b3702964a5869dbae9",
+    "workspace": "eShop.slnx",
+    "prepare": [ "dotnet restore eShop.slnx -p:NuGetAudit=false -v:q -nologo" ]
+  }
+}

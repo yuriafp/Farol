@@ -1,12 +1,11 @@
 ---
 name: farol
 description: >
-  How to work in .NET (C# and VB) solutions with the Farol MCP server, legacy .NET Framework and modern .NET alike:
-  compiler-accurate navigation instead of grep, checking edits in about a second instead of building, running only the
-  tests an edit reaches, reading the exact API of a NuGet package version, and planning .NET Framework migrations.
-  Load this skill whenever the working directory holds a .sln, .slnx, .csproj or .vbproj, before searching C#/VB code,
-  after editing .cs/.vb files, before adding or upgrading a NuGet package, or when the user mentions .NET Framework,
-  WebForms, WCF, ASMX, WinForms, WPF, packages.config, portability or modernization.
+  Playbook for multi-step work in .NET (C# and VB) solutions with the Farol MCP server: signature changes and refactors
+  that cross projects or languages, adding or upgrading NuGet packages, deleting code that looks unused, and .NET
+  Framework modernization (WebForms, WCF, ASMX, WinForms, WPF, packages.config, portability to modern .NET). Load it
+  before starting such a task. A lookup or a small edit needs only the dotnet_* tools, whose server instructions are
+  already in context.
 ---
 
 # Working in .NET with Farol

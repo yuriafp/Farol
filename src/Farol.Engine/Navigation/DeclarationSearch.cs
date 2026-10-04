@@ -1,7 +1,7 @@
+using System.Collections.Concurrent;
 using Farol.Core;
 using Farol.Engine.Workspaces;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.FindSymbols;
 
 namespace Farol.Engine.Navigation;
 
@@ -22,10 +22,29 @@ public static class DeclarationSearch
             throw new FarolException(ErrorCodes.InvalidArgument, $"Unknown kind '{kind}'.", $"Use one of: {string.Join(", ", Kinds)}.");
         }
 
-        var found = await SymbolFinder.FindSourceDeclarationsWithPatternAsync(snapshot.Solution, query.Trim(), SymbolFilter.TypeAndMember, cancellationToken);
-        var matching = found.Where(s => IsNavigable(s) && MatchesKind(s, kind) && MatchesProject(snapshot, s, project));
+        // Each compilation's declaration table, scanned in parallel: names are matched before any symbol is created, so a
+        // query over a large solution costs milliseconds once the compilations exist.
+        var pattern = NamePattern.Create(query);
+        var found = new ConcurrentBag<ISymbol>();
+        var projects = snapshot.Solution.Projects.Where(p => MatchesProject(snapshot, p.Id, project));
+        await Parallel.ForEachAsync(projects, cancellationToken, async (candidate, token) =>
+        {
+            var compilation = await candidate.GetCompilationAsync(token);
+            if (compilation is null)
+            {
+                return;
+            }
 
-        var candidates = await SymbolLocator.GroupAsync(snapshot, matching, cancellationToken);
+            foreach (var symbol in compilation.GetSymbolsWithName(pattern.MatchesName, SymbolFilter.TypeAndMember, token))
+            {
+                if (IsNavigable(symbol) && MatchesKind(symbol, kind) && pattern.MatchesContainers(symbol))
+                {
+                    found.Add(symbol);
+                }
+            }
+        });
+
+        var candidates = await SymbolLocator.GroupAsync(snapshot, found, cancellationToken);
         return [.. candidates
             .OrderBy(c => Rank(c.Symbol.Name, query.Trim()))
             .ThenBy(c => c.Symbol.Name.Length)
@@ -53,16 +72,8 @@ public static class DeclarationSearch
         _ => false,
     };
 
-    private static bool MatchesProject(WorkspaceSnapshot snapshot, ISymbol symbol, string? project)
-    {
-        if (string.IsNullOrWhiteSpace(project))
-        {
-            return true;
-        }
-
-        var id = symbol.ContainingAssembly is { } assembly ? snapshot.Solution.GetProject(assembly)?.Id : null;
-        return string.Equals(snapshot.Projects.Get(id)?.Name, project.Trim(), StringComparison.OrdinalIgnoreCase);
-    }
+    private static bool MatchesProject(WorkspaceSnapshot snapshot, ProjectId id, string? project) =>
+        string.IsNullOrWhiteSpace(project) || string.Equals(snapshot.Projects.Get(id)?.Name, project.Trim(), StringComparison.OrdinalIgnoreCase);
 
     private static int Rank(string name, string query)
     {

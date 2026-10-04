@@ -1,0 +1,10 @@
+{
+  "job": "migrate-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 40,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "answer", "name": "the files (at least 5 of 6)", "match": "min", "min": 5, "patterns": [ "Globals\\.cs", "XmlUtils\\.cs", "OAuthClientBase\\.cs", "ImageFileTransform\\.cs", "(Installer[/\\\\])?Util\\.cs", "UpdateService\\.cs" ] },
+    { "type": "changed", "name": "changes nothing", "only": [] }
+  ]
+}

@@ -1,8 +1,10 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using Farol.Engine.Packages;
+using Farol.Engine.Toolchain;
 using Farol.Engine.Workspaces;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.MSBuild;
 using Microsoft.Extensions.Logging;
 
@@ -15,7 +17,7 @@ public sealed record LoadedWorkspace(MSBuildWorkspace Workspace, Solution Soluti
 /// SDK-style projects use the .NET SDK host, and classic .NET Framework projects use the net472 host
 /// with Visual Studio's MSBuild — which is what gives legacy projects full fidelity.
 /// </summary>
-public sealed partial class MSBuildWorkspaceLoader(ILogger<MSBuildWorkspaceLoader> logger)
+public sealed partial class MSBuildWorkspaceLoader(ToolchainProbe toolchain, ILogger<MSBuildWorkspaceLoader> logger)
 {
     public const string Name = "msbuild-workspace";
 
@@ -40,12 +42,19 @@ public sealed partial class MSBuildWorkspaceLoader(ILogger<MSBuildWorkspaceLoade
             onProgress?.Invoke(p);
         });
 
-        var workspace = MSBuildWorkspace.Create(new Dictionary<string, string>(properties, StringComparer.OrdinalIgnoreCase));
+        var global = new Dictionary<string, string>(properties, StringComparer.OrdinalIgnoreCase);
+        if (!global.ContainsKey("VSToolsPath") && await VisualStudioToolsPathAsync(target.Directory, cancellationToken) is { } vsTools)
+        {
+            global["VSToolsPath"] = vsTools;
+        }
+
+        var workspace = MSBuildWorkspace.Create(global);
         try
         {
             var solution = target.Kind == WorkspaceTargetKind.Project
                 ? (await workspace.OpenProjectAsync(target.Path, progress, cancellationToken)).Solution
                 : await workspace.OpenSolutionAsync(target.Path, progress, cancellationToken);
+            (solution, var missingAnalyzers) = WithoutUnresolvedAnalyzers(solution);
             await ReadAllTextAsync(solution, cancellationToken);
             stopwatch.Stop();
 
@@ -59,7 +68,7 @@ public sealed partial class MSBuildWorkspaceLoader(ILogger<MSBuildWorkspaceLoade
                     kv => kv.Key,
                     kv => (IReadOnlyList<string>)[.. kv.Value.Keys.Order(StringComparer.OrdinalIgnoreCase)],
                     StringComparer.OrdinalIgnoreCase),
-                Issues: Issues(workspace.Diagnostics, solution));
+                Issues: [.. Issues(workspace.Diagnostics, solution), .. missingAnalyzers]);
 
             LogLoaded(logger, target.Path, report.ProjectFiles, report.Documents, report.Issues.Count, report.Elapsed);
             return new LoadedWorkspace(workspace, solution, report);
@@ -90,6 +99,59 @@ public sealed partial class MSBuildWorkspaceLoader(ILogger<MSBuildWorkspaceLoade
                 ? new LoadIssue("warning", $"{replayed.Code} in {replayed.ProjectPath}: {replayed.Message}")
                 : new LoadIssue(d.Kind == WorkspaceDiagnosticKind.Failure ? "error" : "warning", d.Message))
             .Distinct()];
+    }
+
+    /// <summary>
+    /// SDK-style projects always load in the .NET SDK's build host, but some .NET Framework web projects in SDK format still
+    /// import Visual Studio's targets through $(VSToolsPath) (WebApplications, for one), which only exist in a Visual
+    /// Studio installation: point them there, as Visual Studio's own MSBuild does.
+    /// </summary>
+    private async Task<string?> VisualStudioToolsPathAsync(string directory, CancellationToken cancellationToken)
+    {
+        if (!OperatingSystem.IsWindows() || (await toolchain.ProbeAsync(directory, cancellationToken)).PreferredVisualStudio is not { } visualStudio)
+        {
+            return null;
+        }
+
+        var path = Path.Combine(visualStudio.InstallationPath, "MSBuild", "Microsoft", "VisualStudio", $"v{visualStudio.Version.Split('.')[0]}.0");
+        return Directory.Exists(path) ? path : null;
+    }
+
+    /// <summary>
+    /// An analyzer or source generator whose file does not exist (typically a generator project of the solution that was
+    /// never built) carries no code, and Roslyn's reference and implementation searches fail on it: drop it, and say
+    /// what to build to get its generated code.
+    /// </summary>
+    internal static (Solution Solution, List<LoadIssue> Issues) WithoutUnresolvedAnalyzers(Solution solution)
+    {
+        var missing = new SortedDictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var project in solution.Projects.ToList())
+        {
+            var unresolved = project.AnalyzerReferences.OfType<UnresolvedAnalyzerReference>().ToList();
+            if (unresolved.Count == 0)
+            {
+                continue;
+            }
+
+            solution = solution.WithProjectAnalyzerReferences(project.Id, project.AnalyzerReferences.Where(r => r is not UnresolvedAnalyzerReference));
+            foreach (var reference in unresolved)
+            {
+                var path = reference.FullPath ?? reference.Display;
+                if (!missing.TryGetValue(path, out var projects))
+                {
+                    missing[path] = projects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                }
+
+                projects.Add(project.FilePath ?? project.Name);
+            }
+        }
+
+        return (solution, [.. missing.Select(kv =>
+        {
+            var producer = solution.Projects.FirstOrDefault(p => string.Equals(p.AssemblyName, Path.GetFileNameWithoutExtension(kv.Key), StringComparison.OrdinalIgnoreCase));
+            var build = producer?.FilePath is { } file ? $"build {file} once, then reload" : "build the project that produces it, then reload";
+            return new LoadIssue("warning", $"Analyzer or source generator not found: {kv.Key}. Code it generates is missing from {kv.Value.Count} project(s): {build}.");
+        })]);
     }
 
     // Roslyn reads document text lazily, on first use. Read it all now, so the loaded solution is a true snapshot:

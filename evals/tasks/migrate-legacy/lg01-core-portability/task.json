@@ -1,0 +1,11 @@
+{
+  "job": "migrate-legacy",
+  "repo": "legacy",
+  "maxTurns": 40,
+  "timeoutMinutes": 15,
+  "checks": [
+    { "type": "answer", "name": "BinaryFormatter in LegacySerializer", "patterns": [ "BinaryFormatter", "LegacySerializer" ] },
+    { "type": "answer", "name": "ConfigurationManager in OrderCalculator", "patterns": [ "ConfigurationManager", "OrderCalculator" ] },
+    { "type": "changed", "name": "changes nothing", "only": [] }
+  ]
+}

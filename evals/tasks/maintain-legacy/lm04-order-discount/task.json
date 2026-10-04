@@ -1,0 +1,13 @@
+{
+  "job": "maintain-legacy",
+  "repo": "legacy",
+  "maxTurns": 60,
+  "timeoutMinutes": 25,
+  "checks": [
+    { "type": "file", "name": "Order has DiscountPercent", "path": "Legacy.Core/Orders/Order.cs", "patterns": [ "decimal\\s+DiscountPercent" ] },
+    { "type": "file", "name": "GetTotal uses it", "path": "Legacy.Core/Orders/OrderCalculator.cs", "patterns": [ "DiscountPercent" ] },
+    { "type": "file", "name": "a test uses it", "path": "Legacy.Tests/OrderCalculatorTests.cs", "patterns": [ "DiscountPercent", "99" ] },
+    { "type": "command", "name": "the solution builds", "run": "{msbuild} Legacy.sln -t:Build -p:Configuration=Debug -v:q -nologo -m", "timeoutMinutes": 15 },
+    { "type": "command", "name": "four or more tests pass", "run": "{vstest} Legacy.Tests/bin/Debug/Legacy.Tests.dll", "timeoutMinutes": 10, "patterns": [ "Passed:\\s*([4-9]|\\d{2,})" ] }
+  ]
+}

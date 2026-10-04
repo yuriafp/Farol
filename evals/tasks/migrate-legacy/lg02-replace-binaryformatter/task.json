@@ -1,0 +1,11 @@
+{
+  "job": "migrate-legacy",
+  "repo": "legacy",
+  "maxTurns": 50,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "file", "name": "no BinaryFormatter left", "path": "Legacy.Core/Serialization/LegacySerializer.cs", "match": "none", "patterns": [ "new\\s+BinaryFormatter", "Formatters\\.Binary" ] },
+    { "type": "file", "name": "generic methods on DataContractSerializer", "path": "Legacy.Core/Serialization/LegacySerializer.cs", "patterns": [ "DataContractSerializer", "Serialize\\s*<\\s*T\\s*>", "Deserialize\\s*<\\s*T\\s*>" ] },
+    { "type": "command", "name": "the solution builds", "run": "{msbuild} Legacy.sln -t:Build -p:Configuration=Debug -v:q -nologo -m", "timeoutMinutes": 15 }
+  ]
+}

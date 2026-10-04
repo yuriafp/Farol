@@ -1,0 +1,17 @@
+diff --git a/Legacy.Web/appsettings.json b/Legacy.Web/appsettings.json
+new file mode 100644
+index 0000000..1988fa7
+--- /dev/null
++++ b/Legacy.Web/appsettings.json
+@@ -0,0 +1,11 @@
++{
++  "TaxRate": "0.12",
++  "Reports": {
++    "PageSize": "50"
++  },
++  "PaymentApiKey": "",
++  "ConnectionStrings": {
++    "LegacyDb": "Server=(localdb)\\MSSQLLocalDB;Database=Legacy;Integrated Security=True",
++    "ReportingDb": "Server=reports.example.test;Database=Reports;User ID=reporter;Password=;"
++  }
++}

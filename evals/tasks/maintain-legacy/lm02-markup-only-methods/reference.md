@@ -1,0 +1,2 @@
+- `_Default.btnCalculate_Click` — wired by `OnClick="btnCalculate_Click"` in Legacy.Web/Default.aspx.
+- `_Default.Greeting` — called from the `<%: Greeting() %>` expression in Legacy.Web/Default.aspx.

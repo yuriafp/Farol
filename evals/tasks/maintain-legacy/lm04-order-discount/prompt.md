@@ -1,0 +1,1 @@
+Orders need a discount. Add a `DiscountPercent` property (a decimal, 0 to 100) to `Order` in Legacy.Core, and make `OrderCalculator.GetTotal` apply it to the subtotal before tax. Add an MSTest test in Legacy.Tests showing that a 10% discount on a 100.00 order gives 99.00 with the default tax of 10%. Build the solution and run the tests.

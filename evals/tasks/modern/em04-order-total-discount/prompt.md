@@ -1,0 +1,1 @@
+`Order.GetTotal()` in the Ordering domain ignores the discount of each order item. Make it subtract the items' discounts, and add a unit test in Ordering.UnitTests that proves it. The ordering unit tests must pass.

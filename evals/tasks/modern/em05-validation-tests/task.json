@@ -1,0 +1,10 @@
+{
+  "job": "modern",
+  "repo": "eshop",
+  "maxTurns": 40,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "answer", "name": "the four validation tests", "patterns": [ "Invalid_number_of_units", "Invalid_total_of_order_item_lower_than_discount_applied", "Invalid_discount_setting", "Invalid_units_setting" ] },
+    { "type": "changed", "name": "changes nothing", "only": [] }
+  ]
+}

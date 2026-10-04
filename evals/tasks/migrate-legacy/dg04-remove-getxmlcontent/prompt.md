@@ -1,0 +1,1 @@
+`XmlUtils.GetXMLContent` in DotNetNuke.Library is deprecated (its DnnDeprecated attribute schedules removal for version 11) and uses the obsolete WebRequest API. Remove it, and make sure the library and anything that used it still build.

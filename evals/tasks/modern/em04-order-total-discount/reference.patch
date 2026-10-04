@@ -1,0 +1,33 @@
+diff --git a/src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs b/src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs
+index 3f51f71..52daad5 100644
+--- a/src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs
++++ b/src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs
+@@ -182,5 +182,5 @@ public class Order
+         throw new OrderingDomainException($"Is not possible to change the order status from {OrderStatus} to {orderStatusToChange}.");
+     }
+ 
+-    public decimal GetTotal() => _orderItems.Sum(o => o.Units * o.UnitPrice);
++    public decimal GetTotal() => _orderItems.Sum(o => o.Units * o.UnitPrice - o.Discount);
+ }
+diff --git a/tests/Ordering.UnitTests/Domain/OrderAggregateTest.cs b/tests/Ordering.UnitTests/Domain/OrderAggregateTest.cs
+index f0af353..cd8e95b 100644
+--- a/tests/Ordering.UnitTests/Domain/OrderAggregateTest.cs
++++ b/tests/Ordering.UnitTests/Domain/OrderAggregateTest.cs
+@@ -105,6 +105,17 @@ public class OrderAggregateTest
+         Assert.AreEqual(20.0m, order.GetTotal());
+     }
+ 
++    [TestMethod]
++    public void the_total_of_order_subtracts_the_discount_of_each_item()
++    {
++        var address = new AddressBuilder().Build();
++        var order = new OrderBuilder(address)
++            .AddOne(1, "cup", 10.0m, 5.0m, string.Empty, 2)
++            .Build();
++
++        Assert.AreEqual(15.0m, order.GetTotal());
++    }
++
+     [TestMethod]
+     public void Add_new_Order_raises_new_event()
+     {

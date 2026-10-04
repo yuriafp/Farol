@@ -1,0 +1,1 @@
+Which NuGet packages used by this solution have known security vulnerabilities, transitive ones included? For each, give the project, the version, and whether it is referenced directly or transitively. Don't change any file.

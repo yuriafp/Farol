@@ -1,0 +1,1 @@
+Reports use a page size of 50 (`Reports:PageSize` in Legacy.Web/Web.config). The reporting database is the `ReportingDb` connection string, pointing to server `reports.example.test` (database Reports); its password is masked here.

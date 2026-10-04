@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Build order only: the Farol arm runs the host built from this repository. -->
+    <ProjectReference Include="..\..\src\Farol.Host\Farol.Host.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

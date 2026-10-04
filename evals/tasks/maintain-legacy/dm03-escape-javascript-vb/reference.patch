@@ -1,0 +1,13 @@
+diff --git a/DNN Platform/DotNetNuke.WebUtility/ClientAPI.vb b/DNN Platform/DotNetNuke.WebUtility/ClientAPI.vb
+index b96abe8..f764127 100644
+--- a/DNN Platform/DotNetNuke.WebUtility/ClientAPI.vb	
++++ b/DNN Platform/DotNetNuke.WebUtility/ClientAPI.vb	
+@@ -259,7 +259,7 @@ Namespace DotNetNuke.UI.Utilities
+         End Property
+ 
+         Public Shared Function EscapeForJavascript(ByVal s As String) As String
+-            Return s.Replace("\", "\\").Replace("'", "\'")
++            Return s.Replace("\", "\\").Replace("'", "\'").Replace("""", "\""").Replace(vbCr, "\r").Replace(vbLf, "\n")
+         End Function
+ 
+ #End Region

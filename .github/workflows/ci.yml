@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    # Windows with Visual Studio 2026 (MSBuild 18): the legacy fixtures load and build with Visual Studio's MSBuild,
+    # and their tests run under vstest.console.
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build Farol.slnx -c Release
+
+      - name: Test
+        run: dotnet test --solution Farol.slnx -c Release --no-build

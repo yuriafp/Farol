@@ -50,7 +50,7 @@ internal static class CheckRenderer
         {
             var files = string.Join(", ", result.CheckedFiles.Take(5).Select(f => DisplayPath.From(root, f)));
             var more = result.CheckedFiles.Count > 5 ? $" and {result.CheckedFiles.Count - 5} more" : string.Empty;
-            parts.Add(scope == CheckScope.Changed ? $"checked files (only member bodies changed): {files}{more}" : $"checked: {files}{more}");
+            parts.Add(scope == CheckScope.Changed ? $"checked files (edited, and those using changed declarations): {files}{more}" : $"checked: {files}{more}");
         }
 
         return string.Join(" · ", parts);

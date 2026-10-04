@@ -1,0 +1,132 @@
+{
+  // DNN Platform 10.3.3: a .NET Framework 4.8 WebForms CMS, about 0.58M lines of C# and VB in 81 projects. The legacy
+  // side of the benchmark, and the legacy repository of the eval suite.
+  "name": "DNN Platform 10.3.3",
+  "repository": "https://github.com/dnnsoftware/Dnn.Platform",
+  "commit": "b417ffad45522ed718edb72c0a5d77f72249690e",
+  "workspace": "DNN_Platform.sln",
+  // Run in the checkout by benchmarks/prepare.ps1. DNN restores and builds with Visual Studio's MSBuild (its web projects import
+  // Visual Studio's targets), and its source generator project must be built for the generated code to exist.
+  // NuGetAudit=false: advisories published after the pinned commit would fail its restore (warnings are errors there).
+  "prepare": [
+    "{msbuild} DNN_Platform.sln -t:Restore -p:NuGetAudit=false -v:q -nologo -m",
+    "dotnet build DotNetNuke.Internal.SourceGenerators/DotNetNuke.Internal.SourceGenerators.csproj -c Debug -p:NuGetAudit=false -v:q -nologo"
+  ],
+  "symbolQueries": [
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "PortalSettings" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "UserController" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "TabCon" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "ModuleInfo" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "FolderManager" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "Localization" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "DataProvider" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "PortModBase" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "HostSettings" } },
+    { "tool": "dotnet_find_symbols", "arguments": { "query": "ClientAPI" } },
+    { "tool": "dotnet_symbol", "arguments": { "symbol": "IPortalController" } },
+    { "tool": "dotnet_symbol", "arguments": { "symbol": "M:DotNetNuke.Common.Requires.NotNull(System.String,System.Object)" } },
+    { "tool": "dotnet_symbol", "arguments": { "symbol": "IFileInfo" } },
+    { "tool": "dotnet_symbol", "arguments": { "symbol": "PortalModuleBase" } },
+    { "tool": "dotnet_symbol", "arguments": { "symbol": "ClientAPI.EscapeForJavascript" } },
+    { "tool": "dotnet_outline", "arguments": { "path": "DNN Platform/Library/Common/Globals.cs" } },
+    { "tool": "dotnet_outline", "arguments": { "path": "DNN Platform/Library/Entities/Portals/PortalController.cs" } },
+    { "tool": "dotnet_outline", "arguments": { "path": "DNN Platform/Library/Services/FileSystem/FileManager.cs" } },
+    { "tool": "dotnet_outline", "arguments": { "path": "DNN Platform/DotNetNuke.WebUtility/ClientAPI.vb" } }
+  ],
+  // The first symbol warms the solution up (compilations, indexes) and is not timed; each other is timed once.
+  "references": [
+    "T:DotNetNuke.Entities.Portals.PortalSettings",
+    "T:DotNetNuke.Entities.Users.UserInfo",
+    "IHostSettings",
+    "T:DotNetNuke.Entities.Portals.PortalController",
+    "T:DotNetNuke.Entities.Tabs.TabInfo",
+    "T:DotNetNuke.Data.DataProvider",
+    "T:DotNetNuke.Entities.Modules.ModuleInfo",
+    "IPortalController",
+    "T:DotNetNuke.Instrumentation.ILog",
+    "M:DotNetNuke.Common.Requires.NotNull(System.String,System.Object)",
+    "IFolderInfo",
+    "IFileInfo",
+    "PortalModuleBase",
+    "Globals.ApplicationPath",
+    "FolderManager",
+    "ClientAPI.EscapeForJavascript",
+    "T:DotNetNuke.Common.Utilities.DataCache",
+    "IEventLogger",
+    "IApplicationStatusInfo",
+    "CBO",
+    "T:DotNetNuke.Security.Roles.RoleInfo",
+    "INavigationManager",
+    "IHostSettingsService",
+    "PortalAliasInfo",
+    "IPortalAliasService",
+    "IUserController",
+    "SkinController",
+    "ITabController",
+    "IRoleController",
+    "IModuleController",
+    "ModuleActionCollection"
+  ],
+  "edits": [
+    {
+      "kind": "body",
+      "path": "DNN Platform/Library/Entities/Portals/PortalController.cs",
+      "find": "string defaultLanguage = GetActivePortalLanguage(this.hostSettings, this.appStatus, portalId);",
+      "replace": "_ = portalId; string defaultLanguage = GetActivePortalLanguage(this.hostSettings, this.appStatus, portalId);"
+    },
+    {
+      "kind": "body",
+      "path": "DNN Platform/Modules/HTML/Components/HtmlTextController.cs",
+      "find": "var htmlText = CBO.FillObject<HtmlTextInfo>(DataProvider.Instance().GetTopHtmlText(moduleId, isPublished));",
+      "replace": "_ = workflowId; var htmlText = CBO.FillObject<HtmlTextInfo>(DataProvider.Instance().GetTopHtmlText(moduleId, isPublished));"
+    },
+    {
+      "kind": "body",
+      "path": "DNN Platform/DotNetNuke.WebUtility/ClientAPI.vb",
+      "find": "Return oCtl.Page.Form",
+      "replace": "Return CType(oCtl.Page.Form, Control)"
+    },
+    {
+      "kind": "body",
+      "path": "Dnn.AdminExperience/Library/Dnn.PersonaBar.Library/Controllers/LocalizationController.cs",
+      "find": "return GetLastModifiedTime(resourceFile, this.CultureName, localization).Ticks;",
+      "replace": "_ = resourceFile; return GetLastModifiedTime(resourceFile, this.CultureName, localization).Ticks;"
+    },
+    {
+      "kind": "body",
+      "path": "DNN Platform/Tests/DotNetNuke.Tests.Core/Providers/Folder/FileManagerTests.cs",
+      "find": "Assert.That(seekableStream, Is.EqualTo(inputStream));",
+      "replace": "Assert.That(seekableStream, Is.EqualTo(inputStream), \"edited\");"
+    },
+    {
+      "kind": "declaration",
+      "path": "DNN Platform/Modules/HTML/Components/HtmlTextController.cs",
+      "find": "public HtmlTextInfo GetTopHtmlText(int moduleId, bool isPublished, int workflowId)",
+      "replace": "public static int FarolBenchmarkProbe() => 0; public HtmlTextInfo GetTopHtmlText(int moduleId, bool isPublished, int workflowId)"
+    },
+    {
+      "kind": "declaration",
+      "path": "Dnn.AdminExperience/Library/Dnn.PersonaBar.Library/Controllers/LocalizationController.cs",
+      "find": "public long GetResxTimeStamp(string resourceFile, Dto.Localization localization)",
+      "replace": "public static int FarolBenchmarkProbe() => 0; public long GetResxTimeStamp(string resourceFile, Dto.Localization localization)"
+    },
+    {
+      "kind": "declaration",
+      "path": "DNN Platform/DotNetNuke.WebUtility/ClientAPI.vb",
+      "find": "Private Shared Function FindForm(ByVal oCtl As Control) As Control",
+      "replace": "Public Shared FarolBenchmarkProbe As Integer\n        Private Shared Function FindForm(ByVal oCtl As Control) As Control"
+    },
+    {
+      "kind": "declaration",
+      "path": "DNN Platform/Library/Services/FileSystem/FileManager.cs",
+      "find": "public string GetUrl(IFileInfo file)",
+      "replace": "public string GetUrl(IFileInfo file, int farolBenchmarkProbe) => this.GetUrl(file); public string GetUrl(IFileInfo file)"
+    },
+    {
+      "kind": "declaration",
+      "path": "DNN Platform/Library/Entities/Portals/PortalController.cs",
+      "find": "public PortalInfo GetPortal(int portalId)",
+      "replace": "public static int FarolBenchmarkProbe() => 0; public PortalInfo GetPortal(int portalId)"
+    }
+  ]
+}

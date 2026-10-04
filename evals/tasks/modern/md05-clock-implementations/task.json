@@ -1,0 +1,11 @@
+{
+  "job": "modern",
+  "repo": "modern",
+  "maxTurns": 30,
+  "timeoutMinutes": 15,
+  "checks": [
+    { "type": "answer", "name": "both implementations", "patterns": [ "SystemClock", "FixedClock" ] },
+    { "type": "answer", "name": "the registration in Program.cs", "patterns": [ "AddSingleton\\s*<\\s*IClock\\s*,\\s*SystemClock\\s*>|Program\\.cs" ] },
+    { "type": "changed", "name": "changes nothing", "only": [] }
+  ]
+}

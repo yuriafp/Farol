@@ -1,0 +1,11 @@
+{
+  "job": "modern",
+  "repo": "eshop",
+  "maxTurns": 40,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "answer", "name": "the implementation", "patterns": [ "OrderRepository\\.cs", "Ordering\\.Infrastructure" ] },
+    { "type": "answer", "name": "the registration", "patterns": [ "AddScoped\\s*<\\s*IOrderRepository\\s*,\\s*OrderRepository\\s*>|Extensions\\.cs" ] },
+    { "type": "changed", "name": "changes nothing", "only": [] }
+  ]
+}

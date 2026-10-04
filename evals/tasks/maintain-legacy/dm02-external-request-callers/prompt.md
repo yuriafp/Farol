@@ -1,0 +1,1 @@
+Before we replace `Globals.GetExternalRequest` (DotNetNuke.Common.Globals, any overload), I need to know who uses it. Which classes outside Globals.cs call it? Give the class and file of each caller. Don't change any file.

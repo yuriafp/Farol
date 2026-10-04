@@ -1,0 +1,11 @@
+{
+  "job": "migrate-legacy",
+  "repo": "legacy",
+  "maxTurns": 50,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "file", "name": "SDK-style, net48", "path": "Legacy.Core/Legacy.Core.csproj", "patterns": [ "<Project\\s+Sdk=\"Microsoft\\.NET\\.Sdk\"", "<TargetFrameworks?>[^<]*net48" ] },
+    { "type": "command", "name": "the solution builds", "run": "{msbuild} Legacy.sln -restore -t:Build -p:Configuration=Debug -p:RestorePackagesConfig=true -v:q -nologo -m", "timeoutMinutes": 15 },
+    { "type": "command", "name": "the tests pass", "run": "{vstest} Legacy.Tests/bin/Debug/Legacy.Tests.dll", "timeoutMinutes": 10 }
+  ]
+}

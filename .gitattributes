@@ -2,3 +2,8 @@
 *.sln text eol=crlf
 *.cmd text eol=crlf
 *.sh text eol=lf
+
+# The evals apply their patches to copies of the fixtures byte for byte, so both keep the endings they were
+# written with on every checkout, whatever core.autocrlf says.
+tests/fixtures/** eol=lf
+evals/tasks/**/*.patch -text

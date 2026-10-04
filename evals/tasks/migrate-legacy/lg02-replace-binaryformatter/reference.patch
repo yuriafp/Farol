@@ -1,0 +1,55 @@
+diff --git a/Legacy.Core/Legacy.Core.csproj b/Legacy.Core/Legacy.Core.csproj
+index 5a5f305..501ea53 100644
+--- a/Legacy.Core/Legacy.Core.csproj
++++ b/Legacy.Core/Legacy.Core.csproj
+@@ -35,6 +35,7 @@
+     <Reference Include="System.Configuration" />
+     <Reference Include="System.Core" />
+     <Reference Include="System.Runtime.Serialization" />
++    <Reference Include="System.Xml" />
+   </ItemGroup>
+   <ItemGroup>
+     <Compile Include="Orders\IOrderRepository.cs" />
+diff --git a/Legacy.Core/Serialization/LegacySerializer.cs b/Legacy.Core/Serialization/LegacySerializer.cs
+index 8f649ef..a4ab82a 100644
+--- a/Legacy.Core/Serialization/LegacySerializer.cs
++++ b/Legacy.Core/Serialization/LegacySerializer.cs
+@@ -1,32 +1,30 @@
+ using System.IO;
+ using System.Runtime.Serialization;
+-using System.Runtime.Serialization.Formatters.Binary;
+ 
+ namespace Legacy.Core.Serialization
+ {
+-    // BinaryFormatter no longer exists in modern .NET: a realistic migration blocker.
++    // DataContractSerializer works on .NET Framework 4.8 and on modern .NET alike.
+     public static class LegacySerializer
+     {
+-        public static byte[] Serialize(object value)
++        public static byte[] Serialize<T>(T value)
+         {
+             using (var stream = new MemoryStream())
+             {
+-                new BinaryFormatter().Serialize(stream, value);
++                new DataContractSerializer(typeof(T)).WriteObject(stream, value);
+                 return stream.ToArray();
+             }
+         }
+ 
+-        // The swallowed exception leaves a warning (CS0168) every build has shown for years: a diagnostic that exists at load.
+-        public static object Deserialize(byte[] data)
++        public static T Deserialize<T>(byte[] data) where T : class
+         {
+             try
+             {
+                 using (var stream = new MemoryStream(data))
+                 {
+-                    return new BinaryFormatter().Deserialize(stream);
++                    return (T)new DataContractSerializer(typeof(T)).ReadObject(stream);
+                 }
+             }
+-            catch (SerializationException ex)
++            catch (SerializationException)
+             {
+                 return null;
+             }

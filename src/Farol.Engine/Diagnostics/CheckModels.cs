@@ -26,8 +26,8 @@ public sealed record DiagnosticEntry(
     IReadOnlyList<string> TargetFrameworks);
 
 /// <summary>
-/// New diagnostics (absent from the load baseline) and, when asked, the existing ones, plus what was checked:
-/// whole projects when declarations changed, single files when only member bodies did.
+/// New diagnostics (absent from the load baseline) and, when asked, the existing ones, plus what was checked: the
+/// edited files and the files that use changed declarations, or whole projects when a change's reach has no bound.
 /// </summary>
 public sealed record CheckResult(
     IReadOnlyList<DiagnosticEntry> New,

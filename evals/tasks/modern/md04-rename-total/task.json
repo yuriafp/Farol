@@ -1,0 +1,13 @@
+{
+  "job": "modern",
+  "repo": "modern",
+  "maxTurns": 40,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "file", "name": "renamed in Modern.Core", "path": "src/Modern.Core/Pricing/PriceCalculator.cs", "patterns": [ "decimal\\s+CalculateTotal\\s*\\(" ] },
+    { "type": "file", "name": "the API calls CalculateTotal", "path": "src/Modern.Api/Program.cs", "patterns": [ "\\.CalculateTotal\\(" ] },
+    { "type": "file", "name": "no old name left in the tests", "path": "tests/Modern.Tests/PriceCalculatorTests.cs", "match": "none", "patterns": [ "\\.Total\\(" ] },
+    { "type": "command", "name": "the solution builds", "run": "dotnet build Modern.slnx -v:q -nologo", "timeoutMinutes": 10 },
+    { "type": "command", "name": "the tests pass", "run": "dotnet test --solution Modern.slnx", "timeoutMinutes": 10 }
+  ]
+}

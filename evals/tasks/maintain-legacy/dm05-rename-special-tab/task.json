@@ -1,0 +1,14 @@
+{
+  "job": "maintain-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 60,
+  "timeoutMinutes": 30,
+  "checks": [
+    { "type": "file", "name": "both overloads renamed", "path": "DNN Platform/Library/Entities/Tabs/TabController.cs", "patterns": [ "public\\s+static\\s+bool\\s+IsAdminOrHostTab\\s*\\(\\s*int\\s+tabId\\s*,\\s*int\\s+portalId\\s*\\)", "public\\s+static\\s+bool\\s+IsAdminOrHostTab\\s*\\(\\s*int\\s+tabId\\s*,\\s*PortalSettings\\s+portalSettings\\s*\\)" ] },
+    { "type": "file", "name": "the ribbon bar calls the new name", "path": "DNN Platform/DotNetNuke.Web/UI/WebControls/DnnRibbonBarTool.cs", "match": "none", "patterns": [ "IsSpecialTab" ] },
+    { "type": "file", "name": "the Persona Bar converters call the new name", "path": "Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Components/Pages/Converters.cs", "match": "none", "patterns": [ "IsSpecialTab" ] },
+    { "type": "file", "name": "the recycle bin calls the new name", "path": "Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Services/RecyclebinController.cs", "match": "none", "patterns": [ "IsSpecialTab" ] },
+    { "type": "command", "name": "DotNetNuke.Web builds", "run": "{msbuild} \"DNN Platform/DotNetNuke.Web/DotNetNuke.Web.csproj\" -t:Build -p:Configuration=Debug -v:q -nologo -m", "timeoutMinutes": 15 },
+    { "type": "command", "name": "Dnn.PersonaBar.Extensions builds", "run": "{msbuild} \"Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Dnn.PersonaBar.Extensions.csproj\" -t:Build -p:Configuration=Debug -v:q -nologo -m", "timeoutMinutes": 15 }
+  ]
+}

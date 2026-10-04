@@ -1,0 +1,14 @@
+{
+  "job": "maintain-legacy",
+  "repo": "legacy",
+  "maxTurns": 40,
+  "timeoutMinutes": 15,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "names every caller",
+      "patterns": [ "btnCalculate_Click", "GetOrderTotal", "calculateButton_Click", "OnCalculateClick", "TotalWithShipping", "OrderService(\\.svc\\.cs|\\.GetTotal|\\b)", "GetTotal_adds_the_default_tax|OrderCalculatorTests" ]
+    },
+    { "type": "changed", "name": "changes nothing", "only": [] }
+  ]
+}

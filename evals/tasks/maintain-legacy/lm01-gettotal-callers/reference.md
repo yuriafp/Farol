@@ -1,0 +1,7 @@
+- `_Default.btnCalculate_Click` — Legacy.Web/Default.aspx.cs (wired from Default.aspx)
+- `LegacyService.GetOrderTotal` — Legacy.Web/LegacyService.asmx.cs
+- `OrderService.GetTotal` — Legacy.Web/OrderService.svc.cs
+- `MainForm.calculateButton_Click` — Legacy.Desktop/MainForm.cs
+- `MainWindow.OnCalculateClick` — Legacy.Wpf/MainWindow.xaml.cs
+- `ShippingCalculator.TotalWithShipping` — Legacy.VbLib/ShippingCalculator.vb (VB.NET)
+- `OrderCalculatorTests.GetTotal_adds_the_default_tax` and `GetTotal_rejects_unknown_orders` — Legacy.Tests/OrderCalculatorTests.cs

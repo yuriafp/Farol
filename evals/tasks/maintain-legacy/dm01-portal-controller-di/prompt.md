@@ -1,0 +1,1 @@
+In this DNN Platform solution, which classes implement the `IPortalController` interface itself? And which classes in DotNetNuke.Web's `InternalServices` folder receive an `IPortalController` through their constructor? Give the files. Don't change any file.

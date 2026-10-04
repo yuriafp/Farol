@@ -1,0 +1,14 @@
+{
+  "job": "maintain-legacy",
+  "repo": "legacy",
+  "maxTurns": 60,
+  "timeoutMinutes": 25,
+  "checks": [
+    { "type": "file", "name": "new signature", "path": "Legacy.Core/Orders/OrderCalculator.cs", "patterns": [ "GetTotal\\s*\\(\\s*int\\s+orderId\\s*,\\s*bool\\s+includeTax\\s*\\)" ] },
+    { "type": "file", "name": "VB caller passes True", "path": "Legacy.VbLib/ShippingCalculator.vb", "patterns": [ "GetTotal\\s*\\(\\s*id\\s*,\\s*True\\s*\\)" ] },
+    { "type": "file", "name": "ASMX caller passes true", "path": "Legacy.Web/LegacyService.asmx.cs", "patterns": [ "GetTotal\\s*\\(\\s*orderId\\s*,\\s*true\\s*\\)" ] },
+    { "type": "file", "name": "the WCF contract keeps its own GetTotal(int)", "path": "Legacy.Web/IOrderService.cs", "patterns": [ "decimal\\s+GetTotal\\s*\\(\\s*int\\s+orderId\\s*\\)\\s*;" ] },
+    { "type": "command", "name": "the solution builds", "run": "{msbuild} Legacy.sln -t:Build -p:Configuration=Debug -v:q -nologo -m", "timeoutMinutes": 15 },
+    { "type": "command", "name": "the tests pass", "run": "{vstest} Legacy.Tests/bin/Debug/Legacy.Tests.dll", "timeoutMinutes": 10 }
+  ]
+}

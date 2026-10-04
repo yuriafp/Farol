@@ -8,11 +8,14 @@ namespace Farol.Engine.Diagnostics;
 
 /// <summary>
 /// dotnet_check: compiles what an edit can affect and reports the diagnostics the load baseline does not have.
-/// Edits inside member bodies re-check only the edited files; declaration changes re-check the project and every
-/// project that depends on it, in either language, so a C# signature change surfaces as the VB error it causes.
+/// Edits inside member bodies re-check only the edited files. Declaration changes re-check the edited files plus the
+/// files, in any project and either language, that use what changed (<see cref="EditImpact"/>), so a C# signature
+/// change surfaces as the VB error it causes; changes a name cannot bound re-check the dependent projects whole.
 /// </summary>
 public static class DiagnosticCheck
 {
+    private const int MinFilesForProjectCheck = 64;
+
     public static async Task<CheckResult> RunAsync(WorkspaceSnapshot snapshot, CheckRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
@@ -27,7 +30,9 @@ public static class DiagnosticCheck
         };
 
         var solution = snapshot.Solution;
-        var baseline = DiagnosticBaseline.For(snapshot.Load.Solution);
+        var loaded = snapshot.Load.Solution;
+        var baseline = DiagnosticBaseline.For(loaded);
+        var compilations = CheckCompilations.For(loaded, solution);
         var found = new ConcurrentBag<(ProjectId Project, List<Diagnostic> New, List<Diagnostic> Existing)>();
         var options = new ParallelOptions
         {
@@ -35,17 +40,22 @@ public static class DiagnosticCheck
             CancellationToken = cancellationToken,
         };
 
+        // The current diagnostics and the baseline's (computed once per load) are independent: compute them side by side.
         await Parallel.ForEachAsync(plan.Projects, options, async (id, token) =>
         {
-            var current = await CompilerDiagnostics.ForProjectAsync(solution.GetProject(id)!, token);
-            var (fresh, existing) = (await baseline.ProjectAsync(id, token)).Split(current);
+            var atLoad = baseline.ProjectAsync(id, token);
+            var current = CompilerDiagnostics.ForCompilation(await compilations.GetAsync(id, token), token);
+            var (fresh, existing) = (await atLoad).Split(current);
             found.Add((id, fresh, existing));
         });
 
         await Parallel.ForEachAsync(plan.Documents, options, async (id, token) =>
         {
-            var current = await CompilerDiagnostics.ForDocumentAsync(solution.GetDocument(id)!, token);
-            var (fresh, existing) = (await baseline.DocumentAsync(id, token)).Split(current);
+            var atLoad = baseline.DocumentAsync(id, token);
+            var current = compilations.IsEdited(id.ProjectId)
+                ? await CompilerDiagnostics.ForDocumentAsync(solution.GetDocument(id)!, token)
+                : CompilerDiagnostics.ForTree(await compilations.GetAsync(id.ProjectId, token), await loaded.GetDocument(id)!.GetSyntaxTreeAsync(token), token);
+            var (fresh, existing) = (await atLoad).Split(current);
             found.Add((id.ProjectId, fresh, existing));
         });
 
@@ -62,8 +72,9 @@ public static class DiagnosticCheck
         var loaded = snapshot.Load.Solution;
         var current = snapshot.Solution;
         var changedFiles = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-        var declarationChanges = new HashSet<ProjectId>();
-        var bodyChanges = new Dictionary<ProjectId, List<DocumentId>>();
+        var documents = new HashSet<DocumentId>();
+        var wholeProjects = new HashSet<ProjectId>();
+        var withDependents = new HashSet<ProjectId>();
         foreach (var project in current.GetChanges(loaded).GetProjectChanges())
         {
             var added = project.GetAddedDocuments().ToList();
@@ -73,42 +84,61 @@ public static class DiagnosticCheck
             AddPaths(changedFiles, removed.Select(id => loaded.GetDocument(id)?.FilePath));
             AddPaths(changedFiles, changed.Select(id => current.GetDocument(id)?.FilePath));
 
-            var declarationsChanged = added.Count > 0 || removed.Count > 0;
+            var declarationEdits = new List<DocumentId>(added.Concat(removed));
             foreach (var id in changed)
             {
-                if (declarationsChanged)
+                if (await SameDeclarationsAsync(loaded.GetDocument(id)!, current.GetDocument(id)!, cancellationToken))
                 {
-                    break;
+                    documents.Add(id);
                 }
-
-                declarationsChanged = !await SameDeclarationsAsync(loaded.GetDocument(id)!, current.GetDocument(id)!, cancellationToken);
+                else
+                {
+                    declarationEdits.Add(id);
+                }
             }
 
-            if (declarationsChanged)
+            foreach (var id in declarationEdits)
             {
-                declarationChanges.Add(project.ProjectId);
-            }
-            else if (changed.Count > 0)
-            {
-                bodyChanges[project.ProjectId] = changed;
+                var impact = await EditImpact.OfAsync(loaded, current, id, cancellationToken);
+                switch (impact.Reach)
+                {
+                    case ImpactReach.Files:
+                        documents.UnionWith(impact.Documents);
+                        break;
+                    case ImpactReach.Project:
+                        wholeProjects.Add(project.ProjectId);
+                        break;
+                    default:
+                        withDependents.Add(project.ProjectId);
+                        break;
+                }
             }
         }
 
         var graph = current.GetProjectDependencyGraph();
-        var projects = new HashSet<ProjectId>(declarationChanges);
-        foreach (var id in declarationChanges)
+        var projects = new HashSet<ProjectId>(wholeProjects);
+        foreach (var id in withDependents)
         {
+            projects.Add(id);
             projects.UnionWith(graph.GetProjectsThatTransitivelyDependOnThisProject(id));
         }
 
-        // Existing diagnostics are listed per project, so the projects with body edits are checked whole too.
+        // Existing diagnostics are listed per project, so every project with a file to check is checked whole too.
         if (includeExisting)
         {
-            projects.UnionWith(bodyChanges.Keys);
+            projects.UnionWith(documents.Select(d => d.ProjectId));
         }
 
-        var documents = bodyChanges.Where(kv => !projects.Contains(kv.Key)).SelectMany(kv => kv.Value).ToList();
-        return new CheckPlan([.. projects], documents, [.. changedFiles]);
+        // Past a share of a project's files, one compilation of the project is cheaper than file by file.
+        foreach (var group in documents.GroupBy(d => d.ProjectId))
+        {
+            if (current.GetProject(group.Key) is { } project && group.Count() > Math.Max(MinFilesForProjectCheck, project.DocumentIds.Count / 2))
+            {
+                projects.Add(group.Key);
+            }
+        }
+
+        return new CheckPlan([.. projects], [.. documents.Where(d => !projects.Contains(d.ProjectId))], [.. changedFiles]);
     }
 
     // Edits inside bodies cannot change what other files or projects bind to; const initializers count as declarations.

@@ -1,0 +1,2 @@
+- Modern.Core: System.Text.Json 8.0.4, a direct reference (net48 only), high severity (GHSA-8g4q-xg66-9fp4).
+- Modern.Api: Microsoft.IdentityModel.JsonWebTokens 7.0.3 and System.IdentityModel.Tokens.Jwt 7.0.3, both transitive (through Microsoft.AspNetCore.Authentication.JwtBearer 8.0.0), moderate (GHSA-59j7-ghrg-fj52).

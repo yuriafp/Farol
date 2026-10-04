@@ -1,0 +1,33 @@
+diff --git a/DNN Platform/DotNetNuke.Abstractions/DotNetNuke.Abstractions.csproj b/DNN Platform/DotNetNuke.Abstractions/DotNetNuke.Abstractions.csproj
+index f30d426..fcb62c4 100644
+--- a/DNN Platform/DotNetNuke.Abstractions/DotNetNuke.Abstractions.csproj	
++++ b/DNN Platform/DotNetNuke.Abstractions/DotNetNuke.Abstractions.csproj	
+@@ -2,7 +2,7 @@
+ 
+   <PropertyGroup>
+     <RootDirectory>$(MSBuildProjectDirectory)\..\..</RootDirectory>
+-    <TargetFramework>netstandard2.0</TargetFramework>
++    <TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>
+     <Deterministic>true</Deterministic>
+     <LangVersion>latest</LangVersion>
+     <EnableNETAnalyzers>true</EnableNETAnalyzers>
+diff --git a/DNN Platform/DotNetNuke.Abstractions/Portals/StyleColor.cs b/DNN Platform/DotNetNuke.Abstractions/Portals/StyleColor.cs
+index 969ed93..f27532d 100644
+--- a/DNN Platform/DotNetNuke.Abstractions/Portals/StyleColor.cs	
++++ b/DNN Platform/DotNetNuke.Abstractions/Portals/StyleColor.cs	
+@@ -31,9 +31,15 @@ public StyleColor(string hexValue)
+             AssertIsValidCssColor(hexValue);
+ 
+             this.HexValue = hexValue;
++#if NET
++            this.red = byte.Parse(this.HexValue.AsSpan(0, 2), System.Globalization.NumberStyles.HexNumber, CultureInfo.InvariantCulture);
++            this.green = byte.Parse(this.HexValue.AsSpan(2, 2), System.Globalization.NumberStyles.HexNumber, CultureInfo.InvariantCulture);
++            this.blue = byte.Parse(this.HexValue.AsSpan(4, 2), System.Globalization.NumberStyles.HexNumber, CultureInfo.InvariantCulture);
++#else
+             this.red = byte.Parse(this.HexValue.Substring(0, 2), System.Globalization.NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+             this.green = byte.Parse(this.HexValue.Substring(2, 2), System.Globalization.NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+             this.blue = byte.Parse(this.HexValue.Substring(4, 2), System.Globalization.NumberStyles.HexNumber, CultureInfo.InvariantCulture);
++#endif
+         }
+ 
+         private enum Component

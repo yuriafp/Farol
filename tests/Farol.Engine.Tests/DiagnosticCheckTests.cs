@@ -38,7 +38,7 @@ public sealed class DiagnosticCheckTests
     }
 
     [Fact]
-    public async Task A_body_edit_checks_its_file_and_a_signature_change_checks_dependent_projects()
+    public async Task A_body_edit_checks_its_file_and_a_signature_change_checks_the_files_that_use_it()
     {
         await using var legacy = await LegacyCopy.LoadAsync();
         Assert.SkipUnless(legacy.Available, "Needs Windows with Visual Studio or Build Tools.");
@@ -61,8 +61,33 @@ public sealed class DiagnosticCheckTests
 
         Assert.Contains(signatureCheck.New, d => d.Project == "Legacy.VbLib" && d.Line == 13 && d.Id.StartsWith("BC", StringComparison.Ordinal));
         Assert.Contains(signatureCheck.New, d => d.Project == "Legacy.Web" && d.Id == "CS7036");
-        Assert.Contains("Legacy.VbLib", signatureCheck.CheckedProjects);
+        Assert.True(signatureCheck.CheckedProjects.Count == 0, Describe(signatureCheck));
+        Assert.Contains(signatureCheck.CheckedFiles, f => f.EndsWith("ShippingCalculator.vb", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(signatureCheck.New, d => d.Id == "CS0168");
+    }
+
+    [Fact]
+    public async Task An_interface_member_added_checks_its_implementations_and_a_new_method_checks_only_its_file()
+    {
+        await using var legacy = await LegacyCopy.LoadAsync();
+        Assert.SkipUnless(legacy.Available, "Needs Windows with Visual Studio or Build Tools.");
+        var session = legacy.Session!;
+        var calculator = legacy.Copy.PathOf("Legacy.Core", "Orders", "OrderCalculator.cs");
+        var repository = legacy.Copy.PathOf("Legacy.Core", "Orders", "IOrderRepository.cs");
+
+        var withMethod = await EditAsync(session, calculator, ("public decimal GetTotal(int orderId)", "public int Discount() { return 0; }\n\n        public decimal GetTotal(int orderId)"));
+        var methodCheck = await DiagnosticCheck.RunAsync(withMethod, new CheckRequest(CheckScope.Changed), Ct);
+        var withMember = await EditAsync(session, repository, ("void Save(Order order);", "void Save(Order order);\n\n        void Delete(int id);"));
+        var memberCheck = await DiagnosticCheck.RunAsync(withMember, new CheckRequest(CheckScope.Changed), Ct);
+
+        // Nothing calls Discount yet: no other file can be broken by it, and no project is compiled whole.
+        Assert.True(methodCheck.New.Count == 0 && methodCheck.CheckedProjects.Count == 0, Describe(methodCheck));
+        Assert.Equal(calculator, Assert.Single(methodCheck.CheckedFiles), ignoreCase: true);
+
+        var missing = Assert.Single(memberCheck.New);
+        Assert.Equal(("CS0535", "Legacy.Core"), (missing.Id, missing.Project));
+        Assert.EndsWith("InMemoryOrderRepository.cs", missing.FilePath, StringComparison.OrdinalIgnoreCase);
+        Assert.True(memberCheck.CheckedProjects.Count == 0, Describe(memberCheck));
     }
 
     [Fact]

@@ -1,0 +1,1 @@
+BinaryFormatter blocks our move to .NET 10. In Legacy.Core, rewrite LegacySerializer so it no longer uses BinaryFormatter: make its methods generic (`Serialize<T>(T value)` and `Deserialize<T>(byte[] data)`), use DataContractSerializer, and keep returning null when the data can't be deserialized. Update any callers. The solution must build.

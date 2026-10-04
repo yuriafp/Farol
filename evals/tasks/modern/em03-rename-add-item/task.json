@@ -1,0 +1,14 @@
+{
+  "job": "modern",
+  "repo": "eshop",
+  "maxTurns": 50,
+  "timeoutMinutes": 25,
+  "checks": [
+    { "type": "file", "name": "renamed on the aggregate", "path": "src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs", "patterns": [ "public\\s+void\\s+AddItem\\s*\\(" ] },
+    { "type": "file", "name": "the create command calls AddItem", "path": "src/Ordering.API/Application/Commands/CreateOrderCommandHandler.cs", "patterns": [ "\\.AddItem\\(" ] },
+    { "type": "file", "name": "the draft command calls AddItem", "path": "src/Ordering.API/Application/Commands/CreateOrderDraftCommandHandler.cs", "patterns": [ "\\.AddItem\\(" ] },
+    { "type": "file", "name": "the test builder calls AddItem", "path": "tests/Ordering.UnitTests/Builders.cs", "patterns": [ "\\.AddItem\\(" ] },
+    { "type": "command", "name": "Ordering.API builds", "run": "dotnet build src/Ordering.API/Ordering.API.csproj -v:q -nologo", "timeoutMinutes": 10 },
+    { "type": "command", "name": "the ordering unit tests pass", "run": "dotnet test --project tests/Ordering.UnitTests/Ordering.UnitTests.csproj", "timeoutMinutes": 10 }
+  ]
+}

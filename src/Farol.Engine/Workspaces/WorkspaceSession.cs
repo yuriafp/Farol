@@ -35,6 +35,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     private readonly ConcurrentDictionary<string, byte> _written = new(StringComparer.OrdinalIgnoreCase);
 
     private Task? _loadTask;
+    private Task? _warmup;
     private LoadedWorkspace? _loaded;
     private WorkspaceSnapshot? _snapshot;
     private WorkspaceWatcher? _watcher;
@@ -187,6 +188,11 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
             await _loadTask.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
 
+        if (Volatile.Read(ref _warmup) is { } warmup)
+        {
+            await warmup.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        }
+
         Volatile.Read(ref _watcher)?.Dispose();
         Volatile.Read(ref _loaded)?.Workspace.Dispose();
         _refreshGate.Dispose();
@@ -205,6 +211,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
                 _loaded = loaded;
                 _watcher = watcher;
                 _snapshot = new WorkspaceSnapshot(loaded.Solution, 1, projects, new WorkspaceLoad(loaded.Solution, DateTimeOffset.UtcNow));
+                _warmup = Task.Run(() => WarmAsync(loaded.Solution, cancellationToken), CancellationToken.None);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -217,6 +224,26 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         {
             Volatile.Write(ref _failure, ex);
             LogLoadFailed(_logger, ex, Target.Path);
+        }
+    }
+
+    private async Task WarmAsync(Solution solution, CancellationToken cancellationToken)
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            await WorkspaceWarmup.RunAsync(solution, cancellationToken);
+            LogWarm(_logger, Target.Path, clock.Elapsed.TotalSeconds);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Disposed while warming.
+        }
+#pragma warning disable CA1031 // Warming is an optimization: a failure must not surface as an unobserved task exception.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogWarmFailed(_logger, ex, Target.Path);
         }
     }
 
@@ -324,6 +351,8 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         WorkspaceSnapshot current, WorkspaceChanges changes, CancellationToken cancellationToken)
     {
         var solution = current.Solution;
+        var loaded = current.Load.Solution;
+        var reverted = false;
         var unreadable = new List<string>();
         foreach (var path in changes.TouchedSources)
         {
@@ -351,6 +380,8 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
                 {
                     solution = solution.WithDocumentText(id, text, PreservationMode.PreserveIdentity);
                 }
+
+                reverted |= loaded.GetDocument(ids[0]) is { } original && (await original.GetTextAsync(cancellationToken)).ContentEquals(text);
             }
             else if (exists)
             {
@@ -372,7 +403,38 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
             }
         }
 
-        return (solution, unreadable);
+        return (reverted ? await RebaseAsync(loaded, solution, cancellationToken) : solution, unreadable);
+    }
+
+    /// <summary>
+    /// A file put back as it was at load (git checkout, an undone edit) still forks every compilation that depends on it.
+    /// Rebuilt on the load solution, the snapshot shares the load's compilations wherever nothing differs any more,
+    /// and becomes the load solution itself when no difference is left.
+    /// </summary>
+    private static async Task<Solution> RebaseAsync(Solution loaded, Solution solution, CancellationToken cancellationToken)
+    {
+        var rebased = loaded;
+        foreach (var project in solution.GetChanges(loaded).GetProjectChanges())
+        {
+            if (project.GetAddedDocuments().Any() || project.GetRemovedDocuments().Any()
+                || project.GetAddedAdditionalDocuments().Any() || project.GetRemovedAdditionalDocuments().Any() || project.GetChangedAdditionalDocuments().Any()
+                || project.GetAddedProjectReferences().Any() || project.GetRemovedProjectReferences().Any()
+                || project.GetAddedMetadataReferences().Any() || project.GetRemovedMetadataReferences().Any())
+            {
+                return solution;
+            }
+
+            foreach (var id in project.GetChangedDocuments(onlyGetDocumentsWithTextChanges: true))
+            {
+                var text = await solution.GetDocument(id)!.GetTextAsync(cancellationToken);
+                if (!text.ContentEquals(await loaded.GetDocument(id)!.GetTextAsync(cancellationToken)))
+                {
+                    rebased = rebased.WithDocumentText(id, text, PreservationMode.PreserveIdentity);
+                }
+            }
+        }
+
+        return rebased;
     }
 
     // Writers (editors, agents) may still hold the file: retry briefly. Reuse the encoding Roslyn detected
@@ -415,4 +477,10 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Project files changed; reloading {Workspace}")]
     private static partial void LogReloading(ILogger logger, string workspace);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Compilations and search indexes of {Workspace} ready in {Seconds:N1} s")]
+    private static partial void LogWarm(ILogger logger, string workspace, double seconds);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Background warm-up of {Workspace} failed; queries build what they need")]
+    private static partial void LogWarmFailed(ILogger logger, Exception exception, string workspace);
 }

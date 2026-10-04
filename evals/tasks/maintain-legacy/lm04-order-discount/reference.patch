@@ -1,0 +1,49 @@
+diff --git a/Legacy.Core/Orders/Order.cs b/Legacy.Core/Orders/Order.cs
+index c85aec2..8cf7455 100644
+--- a/Legacy.Core/Orders/Order.cs
++++ b/Legacy.Core/Orders/Order.cs
+@@ -11,6 +11,8 @@ namespace Legacy.Core.Orders
+ 
+         public string Customer { get; set; }
+ 
++        public decimal DiscountPercent { get; set; }
++
+         public List<OrderLine> Lines { get; set; } = new List<OrderLine>();
+ 
+         public decimal Subtotal()
+diff --git a/Legacy.Core/Orders/OrderCalculator.cs b/Legacy.Core/Orders/OrderCalculator.cs
+index 67b34c0..c156b72 100644
+--- a/Legacy.Core/Orders/OrderCalculator.cs
++++ b/Legacy.Core/Orders/OrderCalculator.cs
+@@ -20,7 +20,8 @@ namespace Legacy.Core.Orders
+                 throw new ArgumentException("Order not found: " + orderId, "orderId");
+             }
+ 
+-            return order.Subtotal() * (1 + TaxRate());
++            var discounted = order.Subtotal() * (1 - order.DiscountPercent / 100m);
++            return discounted * (1 + TaxRate());
+         }
+ 
+         // Legacy on purpose: configuration read through System.Configuration (web.config / app.config).
+diff --git a/Legacy.Tests/OrderCalculatorTests.cs b/Legacy.Tests/OrderCalculatorTests.cs
+index d6cdb30..38cf820 100644
+--- a/Legacy.Tests/OrderCalculatorTests.cs
++++ b/Legacy.Tests/OrderCalculatorTests.cs
+@@ -18,6 +18,17 @@ namespace Legacy.Tests
+             Assert.AreEqual(110m, new OrderCalculator(repository).GetTotal(1));
+         }
+ 
++        [TestMethod]
++        public void GetTotal_applies_the_discount_before_tax()
++        {
++            var repository = new InMemoryOrderRepository();
++            var order = new Order { Id = 2, DiscountPercent = 10m };
++            order.Lines.Add(new OrderLine { Sku = "B-1", Quantity = 1, UnitPrice = 100m });
++            repository.Save(order);
++
++            Assert.AreEqual(99m, new OrderCalculator(repository).GetTotal(2));
++        }
++
+         [TestMethod]
+         [ExpectedException(typeof(ArgumentException))]
+         public void GetTotal_rejects_unknown_orders()

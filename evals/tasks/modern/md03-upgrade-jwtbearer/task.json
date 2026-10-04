@@ -1,0 +1,11 @@
+{
+  "job": "modern",
+  "repo": "modern",
+  "maxTurns": 40,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "file", "name": "JwtBearer 10.0.12", "path": "Directory.Packages.props", "patterns": [ "Microsoft\\.AspNetCore\\.Authentication\\.JwtBearer\"\\s+Version=\"10\\.0\\.12\"" ] },
+    { "type": "command", "name": "the solution builds", "run": "dotnet build Modern.slnx -v:q -nologo", "timeoutMinutes": 10 },
+    { "type": "command", "name": "Modern.Api has no vulnerable package", "run": "dotnet list src/Modern.Api/Modern.Api.csproj package --vulnerable --include-transitive", "timeoutMinutes": 5, "patterns": [ "has no vulnerable packages" ] }
+  ]
+}

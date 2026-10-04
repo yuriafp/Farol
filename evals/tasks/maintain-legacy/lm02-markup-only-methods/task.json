@@ -1,0 +1,10 @@
+{
+  "job": "maintain-legacy",
+  "repo": "legacy",
+  "maxTurns": 40,
+  "timeoutMinutes": 15,
+  "checks": [
+    { "type": "answer", "name": "names both markup-only methods and the page", "patterns": [ "btnCalculate_Click", "Greeting", "Default\\.aspx\\b(?!\\.cs)" ] },
+    { "type": "changed", "name": "changes nothing", "only": [] }
+  ]
+}

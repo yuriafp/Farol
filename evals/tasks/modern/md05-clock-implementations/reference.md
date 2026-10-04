@@ -1,0 +1,1 @@
+`SystemClock` (src/Modern.Core/Pricing/PriceCalculator.cs) and the test double `FixedClock` (tests/Modern.Tests/PriceCalculatorTests.cs) implement IClock. At runtime Modern.Api uses SystemClock: src/Modern.Api/Program.cs registers it with `builder.Services.AddSingleton<IClock, SystemClock>()`.

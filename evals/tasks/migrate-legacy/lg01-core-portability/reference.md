@@ -1,0 +1,2 @@
+- `BinaryFormatter` (Serialize and Deserialize) in Legacy.Core/Serialization/LegacySerializer.cs: obsolete (SYSLIB0011) and no longer functional on .NET 10.
+- `ConfigurationManager.AppSettings` (System.Configuration) in Legacy.Core/Orders/OrderCalculator.cs: not part of .NET 10; needs the System.Configuration.ConfigurationManager package or Microsoft.Extensions.Configuration.

@@ -1,0 +1,1 @@
+Make DotNetNuke.Abstractions build for .NET 10 too: multi-target it to netstandard2.0 and net10.0, fixing whatever stops it from compiling, without changing its public API. The project must build for both target frameworks.

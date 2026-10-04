@@ -1,0 +1,1 @@
+`ClientAPI.EscapeForJavascript` in DotNetNuke.WebUtility (VB.NET) escapes backslashes and single quotes, but not double quotes or line breaks, which breaks the inline scripts it feeds. Make it also escape `"` as `\"`, carriage return as `\r` and line feed as `\n`, keeping the existing escapes. The project must build.

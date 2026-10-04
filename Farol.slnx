@@ -5,6 +5,12 @@
     <Project Path="src/Farol.Tools/Farol.Tools.csproj" />
     <Project Path="src/Farol.Host/Farol.Host.csproj" />
   </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/Farol.Benchmarks/Farol.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/evals/">
+    <Project Path="evals/Farol.Evals/Farol.Evals.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Farol.Engine.Tests/Farol.Engine.Tests.csproj" />
     <Project Path="tests/Farol.Tools.Tests/Farol.Tools.Tests.csproj" />

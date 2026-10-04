@@ -1,0 +1,11 @@
+{
+  "job": "migrate-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 40,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "answer", "name": "the projects (at least 7 of 8)", "match": "min", "min": 7, "patterns": [ "DotNetNuke\\.Abstractions", "ContentSecurityPolicy", "DotNetNuke\\.DependencyInjection", "DotNetNuke\\.Maintenance", "ResourceManager", "Aperture", "Tests\\.SourceGenerators", "Internal\\.SourceGenerators" ] },
+    { "type": "answer", "name": "names both frameworks", "patterns": [ "netstandard2\\.0|\\.NET Standard 2\\.0", "net10\\.0|\\.NET 10" ] },
+    { "type": "changed", "name": "changes nothing", "only": [] }
+  ]
+}

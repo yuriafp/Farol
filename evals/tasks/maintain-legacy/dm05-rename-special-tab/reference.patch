@@ -1,0 +1,123 @@
+diff --git a/DNN Platform/DotNetNuke.Web/UI/WebControls/DnnRibbonBarTool.cs b/DNN Platform/DotNetNuke.Web/UI/WebControls/DnnRibbonBarTool.cs
+index a9588b7..c93bfc0 100644
+--- a/DNN Platform/DotNetNuke.Web/UI/WebControls/DnnRibbonBarTool.cs	
++++ b/DNN Platform/DotNetNuke.Web/UI/WebControls/DnnRibbonBarTool.cs	
+@@ -340,7 +340,7 @@ protected virtual bool EnableTool()
+             switch (this.ToolInfo.ToolName)
+             {
+                 case "DeletePage":
+-                    if (TabController.IsSpecialTab(TabController.CurrentPage.TabID, PortalSettings.PortalId))
++                    if (TabController.IsAdminOrHostTab(TabController.CurrentPage.TabID, PortalSettings.PortalId))
+                     {
+                         returnValue = false;
+                     }
+@@ -540,7 +540,7 @@ protected virtual string GetToolTip()
+         {
+             if (this.ToolInfo.ToolName == "DeletePage")
+             {
+-                if (TabController.IsSpecialTab(TabController.CurrentPage.TabID, PortalSettings.PortalId))
++                if (TabController.IsAdminOrHostTab(TabController.CurrentPage.TabID, PortalSettings.PortalId))
+                 {
+                     return this.GetString("Tool.DeletePage.Special.ToolTip");
+                 }
+diff --git a/DNN Platform/Library/Entities/Tabs/TabController.cs b/DNN Platform/Library/Entities/Tabs/TabController.cs
+index e1ccc65..170ad34 100644
+--- a/DNN Platform/Library/Entities/Tabs/TabController.cs	
++++ b/DNN Platform/Library/Entities/Tabs/TabController.cs	
+@@ -753,7 +753,7 @@ public static List<TabInfo> GetTabsBySortOrder(int portalId)
+         /// <param name="tabId">The tab id.</param>
+         /// <param name="portalId">The portal id.</param>
+         /// <returns><see langword="true"/> if the page is special, otherwise <see langword="false"/>.</returns>
+-        public static bool IsSpecialTab(int tabId, int portalId)
++        public static bool IsAdminOrHostTab(int tabId, int portalId)
+         {
+             Dictionary<string, Locale> locales = LocaleController.Instance.GetLocales(portalId);
+             bool isSpecial = false;
+@@ -761,7 +761,7 @@ public static bool IsSpecialTab(int tabId, int portalId)
+             {
+                 PortalInfo portal = PortalController.Instance.GetPortal(portalId, locale.Code);
+                 var portalSettings = new PortalSettings(portal);
+-                isSpecial = IsSpecialTab(tabId, portalSettings);
++                isSpecial = IsAdminOrHostTab(tabId, portalSettings);
+ 
+                 if (isSpecial)
+                 {
+@@ -776,7 +776,7 @@ public static bool IsSpecialTab(int tabId, int portalId)
+         /// <param name="tabId">The tab id.</param>
+         /// <param name="portalSettings">The portal settings.</param>
+         /// <returns><see langword="true"/> if is special tab; otherwise, <see langword="false"/>.</returns>
+-        public static bool IsSpecialTab(int tabId, PortalSettings portalSettings)
++        public static bool IsAdminOrHostTab(int tabId, PortalSettings portalSettings)
+         {
+             return tabId == portalSettings.SplashTabId || tabId == portalSettings.HomeTabId ||
+                    tabId == portalSettings.LoginTabId || tabId == portalSettings.UserTabId ||
+@@ -3022,7 +3022,7 @@ private bool SoftDeleteTabInternal(TabInfo tabToDelete, PortalSettings portalSet
+             }
+ 
+             var deleted = false;
+-            if (!IsSpecialTab(tabToDelete.TabID, portalSettings))
++            if (!IsAdminOrHostTab(tabToDelete.TabID, portalSettings))
+             {
+                 if (this.SoftDeleteChildTabs(tabToDelete.TabID, portalSettings))
+                 {
+diff --git a/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Components/Pages/Converters.cs b/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Components/Pages/Converters.cs
+index 98075b5..82d163e 100644
+--- a/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Components/Pages/Converters.cs
++++ b/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Components/Pages/Converters.cs
+@@ -40,7 +40,7 @@ public static T ConvertToPageItem<T>(TabInfo tab, IEnumerable<TabInfo> portalTab
+                 Status = GetTabStatus(tab),
+                 ParentId = tab.ParentId,
+                 Level = tab.Level,
+-                IsSpecial = TabController.IsSpecialTab(tab.TabID, PortalSettings.Current),
++                IsSpecial = TabController.IsAdminOrHostTab(tab.TabID, PortalSettings.Current),
+                 TabPath = tab.TabPath.Replace("//", "/"),
+                 PageType = GetPageType(tab.Url),
+                 CanViewPage = TabPermissionController.CanViewPage(tab),
+@@ -136,7 +136,7 @@ public static T ConvertToPageSettings<T>(TabInfo tab)
+                 ContainerSrc = tab.ContainerSrc,
+                 HasChild = pageManagementController.TabHasChildren(tab),
+                 ParentId = tab.ParentId,
+-                IsSpecial = TabController.IsSpecialTab(tab.TabID, PortalSettings.Current),
++                IsSpecial = TabController.IsAdminOrHostTab(tab.TabID, PortalSettings.Current),
+                 PagePermissions = SecurityService.Instance.GetPagePermissions(tab),
+             };
+         }
+diff --git a/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Components/Pages/PagesControllerImpl.cs b/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Components/Pages/PagesControllerImpl.cs
+index 17ab03a..118c13d 100644
+--- a/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Components/Pages/PagesControllerImpl.cs
++++ b/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Components/Pages/PagesControllerImpl.cs
+@@ -316,7 +316,7 @@ public void DeletePage(PageItem page, bool hardDelete, PortalSettings portalSett
+ 
+             if (TabPermissionController.CanDeletePage(tab))
+             {
+-                if (TabController.IsSpecialTab(tab.TabID, currentPortal.PortalId))
++                if (TabController.IsAdminOrHostTab(tab.TabID, currentPortal.PortalId))
+                 {
+                     throw new PageException(Localization.GetString("CannotDeleteSpecialPage"));
+                 }
+diff --git a/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Services/PagesController.cs b/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Services/PagesController.cs
+index 6f7a8e2..8cec23f 100644
+--- a/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Services/PagesController.cs
++++ b/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Services/PagesController.cs
+@@ -1120,7 +1120,7 @@ where TabPermissionController.CanViewPage(localizedTab.Value)
+             dnnPage.CanViewPage = TabPermissionController.CanViewPage(tabInfo);
+             dnnPage.LocalResourceFile = LocalResourceFile;
+             dnnPage.PageUrl = this.NavigationManager.NavigateURL(localTabInfo.TabID, false, this.PortalSettings, string.Empty, localTabInfo.CultureCode);
+-            dnnPage.IsSpecial = TabController.IsSpecialTab(localTabInfo.TabID, localTabInfo.PortalID);
++            dnnPage.IsSpecial = TabController.IsAdminOrHostTab(localTabInfo.TabID, localTabInfo.PortalID);
+ 
+             // calculate position in the form of 1.3.2...
+             var siblingTabs = tabInfos.Where(t => (t.ParentId == localTabInfo.ParentId && t.CultureCode == localTabInfo.CultureCode) || t.CultureCode == null).OrderBy(t => t.TabOrder).ToList();
+diff --git a/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Services/RecyclebinController.cs b/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Services/RecyclebinController.cs
+index d94f2c4..930eca3 100644
+--- a/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Services/RecyclebinController.cs
++++ b/Dnn.AdminExperience/Dnn.PersonaBar.Extensions/Services/RecyclebinController.cs
+@@ -318,7 +318,7 @@ private PageItem ConvertToPageItem(TabInfo tab, IEnumerable<TabInfo> portalTabs)
+                 Status = Components.RecyclebinController.Instance.GetTabStatus(tab),
+                 ParentId = tab.ParentId,
+                 Level = tab.Level,
+-                IsSpecial = TabController.IsSpecialTab(tab.TabID, this.PortalSettings),
++                IsSpecial = TabController.IsAdminOrHostTab(tab.TabID, this.PortalSettings),
+                 TabPath = tab.TabPath.Replace("//", "/"),
+                 LastModifiedOnDate =
+                     tab.LastModifiedOnDate.ToString(

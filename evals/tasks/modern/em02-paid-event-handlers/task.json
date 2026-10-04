@@ -1,0 +1,10 @@
+{
+  "job": "modern",
+  "repo": "eshop",
+  "maxTurns": 40,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "answer", "name": "the three services that handle it", "patterns": [ "Catalog\\.API", "WebApp", "Webhooks\\.API" ] },
+    { "type": "changed", "name": "changes nothing", "only": [] }
+  ]
+}

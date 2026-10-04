@@ -1,0 +1,11 @@
+{
+  "job": "migrate-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 50,
+  "timeoutMinutes": 25,
+  "checks": [
+    { "type": "file", "name": "GetXMLContent is gone", "path": "DNN Platform/Library/Common/Utilities/XmlUtils.cs", "match": "none", "patterns": [ "GetXMLContent" ] },
+    { "type": "file", "name": "the rest of XmlUtils stays", "path": "DNN Platform/Library/Common/Utilities/XmlUtils.cs", "patterns": [ "XPathLiteral", "TryReadEndElement" ] },
+    { "type": "command", "name": "DotNetNuke.Library builds", "run": "{msbuild} \"DNN Platform/Library/DotNetNuke.Library.csproj\" -t:Build -p:Configuration=Debug -v:q -nologo -m", "timeoutMinutes": 15 }
+  ]
+}

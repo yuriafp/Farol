@@ -1,0 +1,121 @@
+diff --git a/Legacy.Core/Orders/OrderCalculator.cs b/Legacy.Core/Orders/OrderCalculator.cs
+index 67b34c0..59fada8 100644
+--- a/Legacy.Core/Orders/OrderCalculator.cs
++++ b/Legacy.Core/Orders/OrderCalculator.cs
+@@ -12,7 +12,7 @@ namespace Legacy.Core.Orders
+             _repository = repository;
+         }
+ 
+-        public decimal GetTotal(int orderId)
++        public decimal GetTotal(int orderId, bool includeTax)
+         {
+             var order = _repository.Find(orderId);
+             if (order == null)
+@@ -20,7 +20,7 @@ namespace Legacy.Core.Orders
+                 throw new ArgumentException("Order not found: " + orderId, "orderId");
+             }
+ 
+-            return order.Subtotal() * (1 + TaxRate());
++            return includeTax ? order.Subtotal() * (1 + TaxRate()) : order.Subtotal();
+         }
+ 
+         // Legacy on purpose: configuration read through System.Configuration (web.config / app.config).
+diff --git a/Legacy.Desktop/MainForm.cs b/Legacy.Desktop/MainForm.cs
+index b77e493..93862f0 100644
+--- a/Legacy.Desktop/MainForm.cs
++++ b/Legacy.Desktop/MainForm.cs
+@@ -14,7 +14,7 @@ namespace Legacy.Desktop
+         private void calculateButton_Click(object sender, EventArgs e)
+         {
+             var calculator = new OrderCalculator(new InMemoryOrderRepository());
+-            totalLabel.Text = calculator.GetTotal(1).ToString("C");
++            totalLabel.Text = calculator.GetTotal(1, true).ToString("C");
+         }
+     }
+ }
+diff --git a/Legacy.Tests/OrderCalculatorTests.cs b/Legacy.Tests/OrderCalculatorTests.cs
+index d6cdb30..782ef7c 100644
+--- a/Legacy.Tests/OrderCalculatorTests.cs
++++ b/Legacy.Tests/OrderCalculatorTests.cs
+@@ -15,14 +15,14 @@ namespace Legacy.Tests
+             order.Lines.Add(new OrderLine { Sku = "A-1", Quantity = 2, UnitPrice = 50m });
+             repository.Save(order);
+ 
+-            Assert.AreEqual(110m, new OrderCalculator(repository).GetTotal(1));
++            Assert.AreEqual(110m, new OrderCalculator(repository).GetTotal(1, true));
+         }
+ 
+         [TestMethod]
+         [ExpectedException(typeof(ArgumentException))]
+         public void GetTotal_rejects_unknown_orders()
+         {
+-            new OrderCalculator(new InMemoryOrderRepository()).GetTotal(42);
++            new OrderCalculator(new InMemoryOrderRepository()).GetTotal(42, true);
+         }
+     }
+ 
+diff --git a/Legacy.VbLib/ShippingCalculator.vb b/Legacy.VbLib/ShippingCalculator.vb
+index 1f64f23..cf2cba4 100644
+--- a/Legacy.VbLib/ShippingCalculator.vb
++++ b/Legacy.VbLib/ShippingCalculator.vb
+@@ -10,7 +10,7 @@ Public Class ShippingCalculator
+     End Sub
+ 
+     Public Function TotalWithShipping(orderIds As IEnumerable(Of Integer), shipping As Decimal) As Decimal
+-        Dim totals = orderIds.Select(Function(id) _calculator.GetTotal(id)).ToList()
++        Dim totals = orderIds.Select(Function(id) _calculator.GetTotal(id, True)).ToList()
+         Return totals.Sum() + shipping
+     End Function
+ End Class
+diff --git a/Legacy.Web/Default.aspx.cs b/Legacy.Web/Default.aspx.cs
+index d081e9e..03e11ca 100644
+--- a/Legacy.Web/Default.aspx.cs
++++ b/Legacy.Web/Default.aspx.cs
+@@ -18,7 +18,7 @@ namespace Legacy.Web
+         protected void btnCalculate_Click(object sender, EventArgs e)
+         {
+             var calculator = new OrderCalculator(new InMemoryOrderRepository());
+-            lblTotal.Text = calculator.GetTotal(1).ToString("C");
++            lblTotal.Text = calculator.GetTotal(1, true).ToString("C");
+         }
+ 
+         // Called only from a <%: %> expression in Default.aspx.
+diff --git a/Legacy.Web/LegacyService.asmx.cs b/Legacy.Web/LegacyService.asmx.cs
+index 3340bd8..25fc059 100644
+--- a/Legacy.Web/LegacyService.asmx.cs
++++ b/Legacy.Web/LegacyService.asmx.cs
+@@ -10,7 +10,7 @@ namespace Legacy.Web
+         [WebMethod]
+         public decimal GetOrderTotal(int orderId)
+         {
+-            return new OrderCalculator(new InMemoryOrderRepository()).GetTotal(orderId);
++            return new OrderCalculator(new InMemoryOrderRepository()).GetTotal(orderId, true);
+         }
+     }
+ }
+diff --git a/Legacy.Web/OrderService.svc.cs b/Legacy.Web/OrderService.svc.cs
+index 6e6bae2..39de637 100644
+--- a/Legacy.Web/OrderService.svc.cs
++++ b/Legacy.Web/OrderService.svc.cs
+@@ -6,7 +6,7 @@ namespace Legacy.Web
+     {
+         public decimal GetTotal(int orderId)
+         {
+-            return new OrderCalculator(new InMemoryOrderRepository()).GetTotal(orderId);
++            return new OrderCalculator(new InMemoryOrderRepository()).GetTotal(orderId, true);
+         }
+     }
+ }
+diff --git a/Legacy.Wpf/MainWindow.xaml.cs b/Legacy.Wpf/MainWindow.xaml.cs
+index 7d6ebcd..dae0a35 100644
+--- a/Legacy.Wpf/MainWindow.xaml.cs
++++ b/Legacy.Wpf/MainWindow.xaml.cs
+@@ -14,7 +14,7 @@ namespace Legacy.Wpf
+         private void OnCalculateClick(object sender, RoutedEventArgs e)
+         {
+             var calculator = new OrderCalculator(new InMemoryOrderRepository());
+-            TotalText.Text = calculator.GetTotal(1).ToString("C");
++            TotalText.Text = calculator.GetTotal(1, true).ToString("C");
+         }
+     }
+ }

@@ -1,0 +1,1 @@
+Legacy.Web will be rebuilt on ASP.NET Core. Create Legacy.Web/appsettings.json with its app settings and connection strings from Web.config, in ASP.NET Core's format (settings whose key contains ':' become nested sections). Never copy a secret: put an empty string or a placeholder where a password or a key was.

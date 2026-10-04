@@ -1,0 +1,11 @@
+{
+  "job": "modern",
+  "repo": "eshop",
+  "maxTurns": 50,
+  "timeoutMinutes": 25,
+  "checks": [
+    { "type": "file", "name": "GetTotal subtracts the discounts", "path": "src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs", "patterns": [ "GetTotal\\(\\)[\\s\\S]{0,300}Discount" ] },
+    { "type": "changed", "name": "a test was added or changed", "include": [ "tests/Ordering.UnitTests/**" ] },
+    { "type": "command", "name": "the ordering unit tests pass", "run": "dotnet test --project tests/Ordering.UnitTests/Ordering.UnitTests.csproj", "timeoutMinutes": 10 }
+  ]
+}
