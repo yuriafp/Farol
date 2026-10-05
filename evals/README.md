@@ -73,3 +73,7 @@ limit stops a suite. Each run leaves `run.json`, the session transcript (`transc
 criterion is met, 1 when it is not, 2 when the suite stopped early.
 
 Workspaces live under `%LOCALAPPDATA%\Farol\evals\w` and are removed after each run.
+
+## Results
+
+- [2026-10-05](results/2026-10-05.md): Sonnet 5.5, 180 runs. Criterion not met: 97% success against 100%, tokens +8%.

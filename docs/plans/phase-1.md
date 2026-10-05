@@ -12,7 +12,7 @@ Implements [spec 001](../specs/001-mvp.md) (approved 2026-09-30). Each slice end
 | 5 | Packages: packages.config fixture, `packages`, `package_api` | AC-23, AC-24 | done (151 tests green) |
 | 6 | Legacy: `legacy_inventory`, `config_inspect`, `portability`, `migration_plan` | AC-25 – AC-28 | done (182 tests green) |
 | 7 | Plugin and distribution: Claude Code plugin (skill, hook, prompts), NuGet `McpServer` package, client docs, smoke tests | AC-33, AC-34, AC-36 | done (189 tests green); publishing to nuget.org and the AC-36 manual run are the developer's |
-| 8 | Evals and benchmarks: CI performance benchmarks, 30-task eval suite (DNN Platform, dotnet/eShop, fixtures) | AC-35, exit criteria | |
+| 8 | Evals and benchmarks: CI performance benchmarks, 30-task eval suite (DNN Platform, dotnet/eShop, fixtures) | AC-35, exit criteria | built (209 tests green); AC-35 met in CI on both corpora; exit criterion 1 not met on the first run ([results](../../evals/results/2026-10-05.md)), next step the developer's |
 
 Cross-cutting, checked in every slice: AC-29 (tool conventions), AC-30 (relative paths), AC-31 (clean stdout).
 

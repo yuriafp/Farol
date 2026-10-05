@@ -4,7 +4,7 @@
 
 Farol is an open-source [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI coding agents (Claude Code, GitHub Copilot, Cursor, Codex) compiler-accurate understanding of C# and VB.NET solutions, including the legacy ones other tools skip: classic `.csproj`/`.vbproj`, `packages.config`, WebForms, WCF, ASMX, WinForms and WPF.
 
-**Status:** pre-alpha. Phase 1 is in progress: all 18 tools are done (workspace, navigation, markup references, edit verification, build and test, packages, legacy modernization), and so are the Claude Code plugin, the NuGet package (not yet published) and the performance benchmarks; the eval suite is next. Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
+**Status:** pre-alpha. Phase 1 is in progress: all 18 tools are done (workspace, navigation, markup references, edit verification, build and test, packages, legacy modernization), and so are the Claude Code plugin, the NuGet package (not yet published) and the performance benchmarks, which meet the spec's targets. The first run of the eval suite did not meet the exit criterion yet: [results](evals/results/2026-10-05.md). Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
 
 ## Tools
 
@@ -118,7 +118,7 @@ To run a local build instead, point the client at the host assembly:
 
 Settings can also come from `appsettings.json` next to the executable and from environment variables such as `Farol__TrustedPaths__0`.
 
-**Trust:** loading a solution runs its build logic (MSBuild evaluation, analyzers, source generators). Farol only loads solutions, reads paths and writes files inside the root it was started in and `Farol:TrustedPaths`, after resolving `..` and symbolic links; anything else is refused with an error that says how to allow it.
+**Trust:** loading a solution runs its build logic (MSBuild evaluation, analyzers, source generators), including the code generators a design-time build runs, as Visual Studio does when it opens the solution: one that writes into the source tree, such as a gRPC client with its `OutputDir` there, rewrites those files. Farol only loads solutions, reads paths and writes files inside the root it was started in and `Farol:TrustedPaths`, after resolving `..` and symbolic links; anything else is refused with an error that says how to allow it.
 
 **NuGet:** the package tools use the NuGet configuration restore uses (the `nuget.config` files from the solution up, package source mapping, `auditSources`), the HTTP cache, and credential providers such as Azure Artifacts' in non-interactive mode: if a private feed needs a sign-in, run `dotnet restore --interactive` once. A package `dotnet_package_api` downloads goes into the global packages folder, as restore would put it.
 
