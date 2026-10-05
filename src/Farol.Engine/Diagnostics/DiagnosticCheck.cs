@@ -49,13 +49,18 @@ public static class DiagnosticCheck
             found.Add((id, fresh, existing));
         });
 
-        await Parallel.ForEachAsync(plan.Documents, options, async (id, token) =>
+        // A file's baseline binds it all again as it was at load. With fewer files than processors, it is computed beside
+        // the current diagnostics, on a processor that would idle otherwise. With more, the processors are busy, and it
+        // is only computed for files that have diagnostics now: a file with none has nothing new.
+        var beside = plan.Documents.Count < Environment.ProcessorCount;
+        var perFile = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = cancellationToken };
+        await Parallel.ForEachAsync(plan.Documents, perFile, async (id, token) =>
         {
-            var atLoad = baseline.DocumentAsync(id, token);
+            var atLoad = beside ? baseline.DocumentAsync(id, token) : null;
             var current = compilations.IsEdited(id.ProjectId)
                 ? await CompilerDiagnostics.ForDocumentAsync(solution.GetDocument(id)!, token)
                 : CompilerDiagnostics.ForTree(await compilations.GetAsync(id.ProjectId, token), await loaded.GetDocument(id)!.GetSyntaxTreeAsync(token), token);
-            var (fresh, existing) = (await atLoad).Split(current);
+            var (fresh, existing) = current.IsEmpty ? ([], []) : (await (atLoad ?? baseline.DocumentAsync(id, token))).Split(current);
             found.Add((id.ProjectId, fresh, existing));
         });
 
