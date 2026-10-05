@@ -50,10 +50,18 @@ await File.WriteAllTextAsync(Path.Combine(options.Output, "load-status.txt"), ru
 Console.WriteLine();
 Console.WriteLine(markdown);
 
-// In GitHub Actions, the report also becomes the job summary.
+// In GitHub Actions, the report also becomes the job summary, and the results annotations anyone can read.
 if (Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY") is { Length: > 0 } summary)
 {
     await File.AppendAllTextAsync(summary, markdown + Environment.NewLine);
+}
+
+if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true")
+{
+    foreach (var annotation in Report.Annotations(corpus, server, run))
+    {
+        Console.WriteLine(annotation);
+    }
 }
 
 return run.Passed ? 0 : 1;

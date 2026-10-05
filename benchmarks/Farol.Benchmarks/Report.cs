@@ -85,6 +85,42 @@ internal static class Report
         return document.ToJsonString(Indented);
     }
 
+    /// <summary>
+    /// GitHub Actions workflow commands: a notice with the results and an error per failed call or missed target. Unlike
+    /// the job log and summary, a check run's annotations can be read without signing in.
+    /// </summary>
+    public static IEnumerable<string> Annotations(Corpus corpus, FarolServer server, BenchmarkRun run)
+    {
+        var series = new[] { run.SymbolQueries, run.FindReferences, run.Check };
+        var results = string.Join("; ", series.Select(s => Invariant($"{s.Name} p95 {Ms(s.P95)} (target {Ms(s.TargetMilliseconds)})")))
+            + Invariant($"; peak memory {Gb(run.PeakWorkingSet)}; load {run.Load.TotalSeconds:N0} s; tools/list {Ms(server.ToolsListed.TotalMilliseconds)}; {Environment.ProcessorCount} logical processors.");
+        yield return Command("notice", Invariant($"AC-35 on {corpus.Name}: {(run.Passed ? "met" : "not met")}"), results);
+
+        foreach (var missed in series.Where(s => s.Samples.Count > 0 && !s.Passed))
+        {
+            var slowest = string.Join("; ", missed.Slowest(5).Select(s => Invariant($"{s.Label} ({Ms(s.Milliseconds)})")));
+            yield return Command("error", Invariant($"Target missed on {corpus.Name}"), Invariant($"{missed.Name}: p95 {Ms(missed.P95)}, target {Ms(missed.TargetMilliseconds)}. Slowest: {slowest}."));
+        }
+
+        if (run.PeakWorkingSet >= BenchmarkRun.MemoryTarget)
+        {
+            yield return Command("error", Invariant($"Target missed on {corpus.Name}"), Invariant($"Peak memory {Gb(run.PeakWorkingSet)}, target {Gb(BenchmarkRun.MemoryTarget)}."));
+        }
+
+        foreach (var failure in run.Failures)
+        {
+            yield return Command("error", Invariant($"Failed call on {corpus.Name}"), failure);
+        }
+    }
+
+    private static string Command(string level, string title, string message) =>
+        $"::{level} title={Escape(title).Replace(":", "%3A", StringComparison.Ordinal).Replace(",", "%2C", StringComparison.Ordinal)}::{Escape(message)}";
+
+    private static string Escape(string text) => text
+        .Replace("%", "%25", StringComparison.Ordinal)
+        .Replace("\r", "%0D", StringComparison.Ordinal)
+        .Replace("\n", "%0A", StringComparison.Ordinal);
+
     private static string Ms(double milliseconds) => milliseconds >= 1000
         ? Invariant($"{milliseconds / 1000:N2} s")
         : Invariant($"{milliseconds:N0} ms");
