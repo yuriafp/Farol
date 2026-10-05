@@ -10,11 +10,11 @@ internal static class ToolParameters
     public const string WorkspaceHeader = "Workspace";
 
     public const string WorkspaceDescription =
-        "Path to a .sln, .slnx, .slnf, .csproj or .vbproj file, or a directory containing one. Omit to use the solution discovered in the server's working directory.";
+        "A .sln, .slnx, .slnf, .csproj or .vbproj, or a directory with one; omit for the discovered solution.";
 
     public const string MaxTokensDescription =
-        "Response budget in tokens (default 1500, max 8000). Lists are cut to fit and say how many items were left out.";
+        "Response budget in tokens (default 1500, max 8000); a cut list says how much it left out.";
 
     public const string OffsetDescription =
-        "Skip this many results; use the offset suggested at the end of a cut list to continue it.";
+        "Skip this many results, as a cut list suggests.";
 }

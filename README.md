@@ -42,7 +42,7 @@ Farol ships on NuGet as [`Farol.Mcp`](https://www.nuget.org/packages/Farol.Mcp),
 
 ### Claude Code
 
-Install the plugin, which runs the server and adds a skill that teaches Claude when to use each tool, plus a hook that checks every `.cs`/`.vb` edit and puts new compiler errors in front of Claude:
+Install the plugin, which runs the server and adds a hook that checks every `.cs`/`.vb` edit and puts new compiler errors in front of Claude, plus a skill with the steps of a .NET Framework modernization:
 
 ```
 /plugin marketplace add yuriafp/Farol

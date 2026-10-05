@@ -2,7 +2,7 @@
   "name": "farol",
   "displayName": "Farol",
   "version": "0.1.0-alpha.1",
-  "description": "Compiler-accurate C# and VB code intelligence from .NET Framework to modern .NET: the Farol MCP server, a usage skill, and a hook that checks every .cs/.vb edit for new compiler errors.",
+  "description": "Compiler-accurate C# and VB code intelligence from .NET Framework to modern .NET: the Farol MCP server, a hook that checks every .cs/.vb edit for new compiler errors, and a .NET Framework modernization skill.",
   "author": {
     "name": "Farol contributors",
     "url": "https://github.com/yuriafp/Farol"
