@@ -21,9 +21,11 @@ internal static class Suite
         Directory.CreateDirectory(output);
         var plugin = arms.Contains("farol") ? FarolPlugin.Prepare(root, output) : null;
 
-        // Arms alternate within each round, so time of day and load treat both alike; finished runs are skipped (resume).
+        // Arms alternate within each round, so time of day and load treat both alike. Finished runs are kept (resume); one
+        // that does not count (usage limit, interrupted, failed before the session) runs again.
+        var finished = Summary.Load(output).Where(r => r.Valid).Select(r => (r.Task, r.Arm, r.Run)).ToHashSet();
         var planned = (from round in Enumerable.Range(1, runs) from task in tasks from arm in arms select (Task: task, Arm: arm, Round: round))
-            .Where(p => !File.Exists(Path.Combine(output, p.Task.Id, $"{p.Arm}-{p.Round}", "run.json")))
+            .Where(p => !finished.Contains((p.Task.Id, p.Arm, p.Round)))
             .ToList();
         var spent = Summary.Load(output).Sum(r => r.CostUsd);
         Console.WriteLine($"{planned.Count} run(s) to go in {output}; model {model}; {concurrency} at a time.");
