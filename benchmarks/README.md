@@ -11,8 +11,10 @@ numbers include the protocol and the rendering of every answer.
 | `dotnet_check` after editing one file | each edit of the corpus file written to disk and checked the way the plugin's hook does (`edited` set), then put back: bodies, new members, a changed interface signature, a rename that breaks callers in other projects | p95 under 2 s |
 | Peak memory | peak working set of the server process at the end | under 3 GB |
 
-The report also gives the time to answer `tools/list` after the process starts (it must not wait for the load) and
-the load time.
+The targets are for a warm server: after the load, the server builds every compilation and its search indexes in the
+background, and calls are timed once `dotnet_workspace` reports that warm-up done (on a 4-core machine, a call made
+during it shares the processors with it). The report also gives the time to answer `tools/list` after the process
+starts (it must not wait for the load), the load time and the warm-up time.
 
 ## Corpora
 
@@ -46,4 +48,6 @@ and its load status. The exit code is 0 when every target is met, 1 when one is 
 
 [`.github/workflows/benchmarks.yml`](../.github/workflows/benchmarks.yml) runs both corpora on `windows-2025` (4 cores,
 16 GB, Visual Studio 2026) on every push to `main` that touches `src/` or `benchmarks/`, every Monday, and on demand.
-Each job fails when a target is missed, and its summary is the report.
+Each job fails when a target is missed, and its summary is the report. Job logs and summaries need a signed-in GitHub
+user; the results and each missed target are also annotations of the run, which anyone can read (the web page or
+`GET /repos/yuriafp/Farol/check-runs/<job id>/annotations`).

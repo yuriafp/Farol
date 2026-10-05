@@ -4,17 +4,17 @@
 
 Farol is an open-source [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI coding agents (Claude Code, GitHub Copilot, Cursor, Codex) compiler-accurate understanding of C# and VB.NET solutions, including the legacy ones other tools skip: classic `.csproj`/`.vbproj`, `packages.config`, WebForms, WCF, ASMX, WinForms and WPF.
 
-**Status:** pre-alpha. Phase 1 is in progress: all 18 tools are done (workspace, navigation, markup references, edit verification, build and test, packages, legacy modernization); the Claude Code plugin, NuGet distribution and evals come next. Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
+**Status:** pre-alpha. Phase 1 is in progress: all 18 tools are done (workspace, navigation, markup references, edit verification, build and test, packages, legacy modernization), and so are the Claude Code plugin, the NuGet package (not yet published) and the performance benchmarks; the eval suite is next. Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
 
 ## Tools
 
 | Tool | What it does |
 |---|---|
 | `dotnet_overview` | One-call map of a solution: languages, SDK-style vs classic projects, target frameworks, app models, test frameworks and the build command that works. |
-| `dotnet_workspace` | Loads a solution and reports load state, failed projects and the MSBuild/Visual Studio toolchain in use. File and project edits are picked up automatically. |
+| `dotnet_workspace` | Loads a solution and reports load state, failed projects and the MSBuild/Visual Studio toolchain in use, and whether the background warm-up that makes searches fast is done. File and project edits are picked up automatically. |
 | `dotnet_find_symbols` | Finds declarations by name: exact, prefix, substring or camel-case humps (`OrdCalc` → `OrderCalculator`). |
 | `dotnet_symbol` | Signature, documentation and optionally the source of one symbol; a skeleton for types. External symbols name the package and version (or framework) they come from, and their source is decompiled from the implementation assembly. Ambiguous names return candidates. |
-| `dotnet_find_references` | Compiler-accurate references across C#, VB and every target framework, classified as call, new, read, write…, plus markup references the compiler never sees (WebForms, .asmx/.svc/.ashx/.asax, XAML). |
+| `dotnet_find_references` | Compiler-accurate references across C#, VB and every target framework, classified as call, new, read, write… (a type's include where it is created), plus markup references the compiler never sees (WebForms, .asmx/.svc/.ashx/.asax, XAML). |
 | `dotnet_hierarchy` | Base types, interfaces, derived types, implementations and overrides. |
 | `dotnet_call_hierarchy` | Callers or callees as a tree (depth 1–3) with call sites. |
 | `dotnet_outline` | Types and members of a file or type with signatures and lines, no bodies. |

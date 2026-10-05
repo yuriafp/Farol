@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 
 namespace Farol.Benchmarks;
@@ -16,6 +17,9 @@ internal sealed class BenchmarkRun(Corpus corpus, string repository, FarolServer
     public Series Check { get; } = new("dotnet_check after editing one file", 2000);
 
     public TimeSpan Load { get; private set; }
+
+    /// <summary>How long the server's background warm-up (compilations and search indexes) took after the load.</summary>
+    public TimeSpan WarmUp { get; private set; }
 
     public string LoadStatus { get; private set; } = "";
 
@@ -40,9 +44,11 @@ internal sealed class BenchmarkRun(Corpus corpus, string repository, FarolServer
             return;
         }
 
-        progress.WriteLine($"Loaded in {Load.TotalSeconds:N0} s; warming up...");
+        progress.WriteLine($"Loaded in {Load.TotalSeconds:N0} s; waiting for the server's background warm-up...");
+        WarmUp = await WaitForWarmUpAsync(cancellationToken);
+        progress.WriteLine($"Server warm-up took {WarmUp.TotalSeconds:N0} s; warming the queries up...");
 
-        // Warm-up, not timed: every query once, so symbol indexes exist, and one reference search, so the compilations do.
+        // Warm-up, not timed: every query once, and one reference search.
         foreach (var query in corpus.SymbolQueries)
         {
             await CallAsync(query.Tool, query.Arguments.ToDictionary(a => a.Key, a => (object?)a.Value), query.Label, series: null, cancellationToken);
@@ -73,6 +79,34 @@ internal sealed class BenchmarkRun(Corpus corpus, string repository, FarolServer
         }
 
         PeakWorkingSet = server.PeakWorkingSet;
+    }
+
+    /// <summary>
+    /// Waits until dotnet_workspace reports the background warm-up done: the targets are for a warm server, and on a
+    /// small machine a call made meanwhile shares the processors with it.
+    /// </summary>
+    private async Task<TimeSpan> WaitForWarmUpAsync(CancellationToken cancellationToken)
+    {
+        const string Ready = "search indexes ready in ";
+        var clock = Stopwatch.StartNew();
+        while (true)
+        {
+            var status = await server.CallAsync("dotnet_workspace", Arguments(("action", "status")), cancellationToken);
+            var at = status.Text.IndexOf(Ready, StringComparison.Ordinal);
+            if (at >= 0)
+            {
+                var seconds = status.Text.AsSpan(at + Ready.Length);
+                return TimeSpan.FromSeconds(double.Parse(seconds[..seconds.IndexOf('s')], CultureInfo.InvariantCulture));
+            }
+
+            if (status.IsError || !status.Text.Contains("warm-up: building", StringComparison.Ordinal) || clock.Elapsed > TimeSpan.FromMinutes(15))
+            {
+                Failures.Add($"The server's background warm-up did not finish: {status.Text}");
+                return clock.Elapsed;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
+        }
     }
 
     /// <summary>Applies the edit, times dotnet_check the way the plugin's hook calls it, then puts the file back.</summary>

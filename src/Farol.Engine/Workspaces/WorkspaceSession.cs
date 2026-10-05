@@ -42,6 +42,8 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     private Exception? _failure;
     private int _evaluationSteps;
     private DateTimeOffset _loadStartedAt;
+    private DateTimeOffset _warmupStartedAt;
+    private long _warmedInTicks = -1;
 
     internal WorkspaceSession(WorkspaceTarget target, MSBuildWorkspaceLoader loader, IReadOnlyDictionary<string, string> properties, ILogger logger)
     {
@@ -86,6 +88,14 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     public int EvaluationSteps => Volatile.Read(ref _evaluationSteps);
 
     public TimeSpan LoadingFor => DateTimeOffset.UtcNow - _loadStartedAt;
+
+    /// <summary>Whether compilations and search indexes are still being built in the background after the load.</summary>
+    public bool IsWarming => Volatile.Read(ref _warmup) is { IsCompleted: false };
+
+    public TimeSpan WarmingFor => DateTimeOffset.UtcNow - _warmupStartedAt;
+
+    /// <summary>How long the background warm-up of the current load took; null while it runs or if it did not finish.</summary>
+    public TimeSpan? WarmedIn => Volatile.Read(ref _warmedInTicks) is >= 0 and var ticks ? TimeSpan.FromTicks(ticks) : null;
 
     /// <summary>False when file changes cannot be observed (e.g. the file watcher could not start).</summary>
     public bool TracksFileChanges => Volatile.Read(ref _watcher) is not null;
@@ -211,6 +221,8 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
                 _loaded = loaded;
                 _watcher = watcher;
                 _snapshot = new WorkspaceSnapshot(loaded.Solution, 1, projects, new WorkspaceLoad(loaded.Solution, DateTimeOffset.UtcNow));
+                _warmupStartedAt = DateTimeOffset.UtcNow;
+                _warmedInTicks = -1;
                 _warmup = Task.Run(() => WarmAsync(loaded.Solution, cancellationToken), CancellationToken.None);
             }
         }
@@ -233,6 +245,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         try
         {
             await WorkspaceWarmup.RunAsync(solution, cancellationToken);
+            Volatile.Write(ref _warmedInTicks, clock.Elapsed.Ticks);
             LogWarm(_logger, Target.Path, clock.Elapsed.TotalSeconds);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

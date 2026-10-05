@@ -28,6 +28,7 @@ internal static class Report
         text.AppendLine(Invariant($"| Peak memory of the server | | | | {Gb(run.PeakWorkingSet)} | under {Gb(BenchmarkRun.MemoryTarget)} | {Verdict(run.PeakWorkingSet < BenchmarkRun.MemoryTarget)} |"));
         text.AppendLine(Invariant($"| tools/list after the process started | | | | {Ms(server.ToolsListed.TotalMilliseconds)} | before the load ends | {Verdict(server.ToolsListed < run.Load)} |"));
         text.AppendLine(Invariant($"| Workspace load | | | | {run.Load.TotalSeconds:N0} s | | |"));
+        text.AppendLine(Invariant($"| Background warm-up after the load (the calls are timed after it) | | | | {run.WarmUp.TotalSeconds:N0} s | | |"));
         text.AppendLine();
 
         foreach (var series in new[] { run.SymbolQueries, run.FindReferences, run.Check })
@@ -68,6 +69,7 @@ internal static class Report
             ["os"] = RuntimeInformation.OSDescription,
             ["toolsListedMilliseconds"] = Math.Round(server.ToolsListed.TotalMilliseconds),
             ["loadSeconds"] = Math.Round(run.Load.TotalSeconds, 1),
+            ["warmUpSeconds"] = Math.Round(run.WarmUp.TotalSeconds, 1),
             ["peakWorkingSetBytes"] = run.PeakWorkingSet,
             ["passed"] = run.Passed,
             ["failures"] = new JsonArray([.. run.Failures.Select(f => (JsonNode)f)]),
@@ -93,7 +95,7 @@ internal static class Report
     {
         var series = new[] { run.SymbolQueries, run.FindReferences, run.Check };
         var results = string.Join("; ", series.Select(s => Invariant($"{s.Name} p95 {Ms(s.P95)} (target {Ms(s.TargetMilliseconds)})")))
-            + Invariant($"; peak memory {Gb(run.PeakWorkingSet)}; load {run.Load.TotalSeconds:N0} s; tools/list {Ms(server.ToolsListed.TotalMilliseconds)}; {Environment.ProcessorCount} logical processors.");
+            + Invariant($"; peak memory {Gb(run.PeakWorkingSet)}; load {run.Load.TotalSeconds:N0} s; warm-up {run.WarmUp.TotalSeconds:N0} s; tools/list {Ms(server.ToolsListed.TotalMilliseconds)}; {Environment.ProcessorCount} logical processors.");
         yield return Command("notice", Invariant($"AC-35 on {corpus.Name}: {(run.Passed ? "met" : "not met")}"), results);
 
         foreach (var missed in series.Where(s => s.Samples.Count > 0 && !s.Passed))

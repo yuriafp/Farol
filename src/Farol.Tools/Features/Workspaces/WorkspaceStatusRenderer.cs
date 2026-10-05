@@ -19,6 +19,15 @@ internal static class WorkspaceStatusRenderer
             case WorkspaceState.Ready when report is not null:
                 text.Line($"state: ready · loaded in {Seconds(report.Elapsed)} · loader: {report.Loader}");
                 text.Line($"projects: {report.ProjectFiles} ({report.RoslynProjects} including target-framework variants) · documents: {report.Documents}");
+                if (session.WarmedIn is { } warmedIn)
+                {
+                    text.Line($"warm-up: compilations and search indexes ready in {Seconds(warmedIn)}");
+                }
+                else if (session.IsWarming)
+                {
+                    text.Line($"warm-up: building compilations and search indexes in the background ({Seconds(session.WarmingFor)} so far); searches are slower until it ends");
+                }
+
                 text.Line(session.TracksFileChanges
                     ? $"snapshot: v{session.CurrentSnapshot?.Version} · file changes: tracked automatically"
                     : $"snapshot: v{session.CurrentSnapshot?.Version} · file changes: NOT tracked (call again with action='reload' after edits)");

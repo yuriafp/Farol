@@ -3,6 +3,8 @@ using Farol.Engine.Workspaces;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.FindSymbols;
 using Microsoft.CodeAnalysis.Operations;
+using CSharpSyntax = Microsoft.CodeAnalysis.CSharp.Syntax;
+using VisualBasicSyntax = Microsoft.CodeAnalysis.VisualBasic.Syntax;
 
 namespace Farol.Engine.Navigation;
 
@@ -29,36 +31,42 @@ public static class ReferenceFinder
 
         var definitions = new SourceHitCollector(snapshot);
         var references = new SourceHitCollector(snapshot);
-        var locations = new List<ReferenceLocation>();
+        var uses = new List<(ReferenceLocation Location, ISymbol Symbol)>();
         foreach (var variant in candidate.Variants)
         {
-            var found = await SymbolFinder.FindReferencesAsync(variant.Symbol, snapshot.Solution, cancellationToken);
-
-            // Only the symbol itself: cascaded results (implementations, overrides) belong to dotnet_hierarchy.
-            foreach (var referenced in found.Where(r => SymbolFormatter.Id(r.Definition) == candidate.Id))
+            var found = (await SymbolFinder.FindReferencesAsync(variant.Symbol, snapshot.Solution, cancellationToken)).ToList();
+            foreach (var location in found.Where(r => SymbolFormatter.Id(r.Definition) == candidate.Id).SelectMany(r => r.Definition.Locations).Where(l => l.IsInSource))
             {
-                foreach (var location in referenced.Definition.Locations.Where(l => l.IsInSource))
+                if (snapshot.Solution.GetDocument(location.SourceTree) is { } document)
                 {
-                    if (snapshot.Solution.GetDocument(location.SourceTree) is { } document)
-                    {
-                        await definitions.AddAsync(document, location, "definition", cancellationToken);
-                    }
+                    await definitions.AddAsync(document, location, "definition", cancellationToken);
                 }
-
-                locations.AddRange(referenced.Locations.Where(r => !r.IsImplicit && r.Location.IsInSource));
             }
+
+            uses.AddRange(UsesOf(found, candidate.Id));
         }
 
-        // Classifying binds the code around each use; for a type used a thousand times, one after the other, that was
-        // most of the call. Semantic models are safe to share across threads.
-        var kinds = new string[locations.Count];
+        // Binding the code around every use to classify it cost as much as the search itself, so the syntax decides when
+        // it can (types, calls); the rest binds with one semantic model per document, documents in parallel.
+        var kinds = new string[uses.Count];
         await Parallel.ForEachAsync(
-            Enumerable.Range(0, locations.Count),
+            Enumerable.Range(0, uses.Count).GroupBy(i => uses[i].Location.Document.Id),
             new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = cancellationToken },
-            async (index, token) => kinds[index] = await ClassifyAsync(locations[index], token));
-        for (var index = 0; index < locations.Count; index++)
+            async (inDocument, token) =>
+            {
+                var document = uses[inDocument.First()].Location.Document;
+                var root = await document.GetSyntaxRootAsync(token);
+                SemanticModel? model = null;
+                foreach (var index in inDocument)
+                {
+                    var node = root!.FindNode(uses[index].Location.Location.SourceSpan, getInnermostNodeForTie: true);
+                    kinds[index] = KindFromSyntax(uses[index].Symbol, node)
+                        ?? Classify(node, model ??= (await document.GetSemanticModelAsync(token))!, token);
+                }
+            });
+        for (var index = 0; index < uses.Count; index++)
         {
-            await references.AddAsync(locations[index].Document, locations[index].Location, kinds[index], cancellationToken);
+            await references.AddAsync(uses[index].Location.Document, uses[index].Location.Location, kinds[index], cancellationToken);
         }
 
         var markup = await MarkupIndex.GetAsync(snapshot, cancellationToken);
@@ -70,15 +78,73 @@ public static class ReferenceFinder
         return new ReferenceResult(definitions.ToList(), references.ToList());
     }
 
-    private static async Task<string> ClassifyAsync(ReferenceLocation reference, CancellationToken cancellationToken)
+    /// <summary>
+    /// The uses to report, each with the symbol it refers to: the symbol's own, and for a type its constructors', which
+    /// are where the type is created (Roslyn files them there). Other cascaded results (implementations, overrides)
+    /// belong to dotnet_hierarchy.
+    /// </summary>
+    internal static IEnumerable<(ReferenceLocation Location, ISymbol Symbol)> UsesOf(IEnumerable<ReferencedSymbol> found, string id) =>
+        found
+            .Where(r => SymbolFormatter.Id(r.Definition) == id || IsConstructorOf(r.Definition, id))
+            .SelectMany(r => r.Locations.Where(l => !l.IsImplicit && l.Location.IsInSource).Select(l => (l, r.Definition)));
+
+    private static bool IsConstructorOf(ISymbol symbol, string typeId) =>
+        symbol is IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: { } type } && SymbolFormatter.Id(type) == typeId;
+
+    /// <summary>
+    /// The kind the syntax alone tells, without binding: a type is either created or referenced (as a receiver or a type
+    /// argument it is still a reference, never the member's read or call), and a method whose name is invoked is called.
+    /// </summary>
+    internal static string? KindFromSyntax(ISymbol definition, SyntaxNode node) => definition switch
     {
-        var root = await reference.Document.GetSyntaxRootAsync(cancellationToken);
-        var model = await reference.Document.GetSemanticModelAsync(cancellationToken);
-        var node = root!.FindNode(reference.Location.SourceSpan, getInnermostNodeForTie: true);
+        INamedTypeSymbol => IsCreated(node) ? "new" : "reference",
+        IMethodSymbol { MethodKind: MethodKind.Constructor } when IsCreated(node) => "new",
+        IMethodSymbol { MethodKind: MethodKind.Ordinary or MethodKind.LocalFunction } when IsInvoked(node) => "call",
+        _ => null,
+    };
+
+    /// <summary>Whether a type name is the type of a <c>new</c> expression (C# and VB), qualified or not.</summary>
+    private static bool IsCreated(SyntaxNode node)
+    {
+        var type = node;
+        while ((type.Parent is CSharpSyntax.QualifiedNameSyntax { Right: var right } && right == type)
+            || (type.Parent is CSharpSyntax.AliasQualifiedNameSyntax { Name: var name } && name == type)
+            || (type.Parent is VisualBasicSyntax.QualifiedNameSyntax { Right: var vbRight } && vbRight == type))
+        {
+            type = type.Parent;
+        }
+
+        return (type.Parent is CSharpSyntax.ObjectCreationExpressionSyntax { Type: var created } && created == type)
+            || (type.Parent is VisualBasicSyntax.ObjectCreationExpressionSyntax { Type: var vbCreated } && vbCreated == type);
+    }
+
+    /// <summary>Whether a method name is invoked: <c>M()</c>, <c>x.M()</c>, <c>x?.M()</c> (C# and VB).</summary>
+    private static bool IsInvoked(SyntaxNode node)
+    {
+        SyntaxNode expression = node.Parent switch
+        {
+            CSharpSyntax.MemberAccessExpressionSyntax access when access.Name == node => access,
+            CSharpSyntax.MemberBindingExpressionSyntax binding when binding.Name == node => binding,
+            VisualBasicSyntax.MemberAccessExpressionSyntax access when access.Name == node => access,
+            _ => node,
+        };
+        return (expression.Parent is CSharpSyntax.InvocationExpressionSyntax { Expression: var invoked } && invoked == expression)
+            || (expression.Parent is VisualBasicSyntax.InvocationExpressionSyntax { Expression: var vbInvoked } && vbInvoked == expression);
+    }
+
+    internal static string Classify(SyntaxNode node, SemanticModel model, CancellationToken cancellationToken)
+    {
         var depth = 0;
         for (var current = node; current is not null && depth < 4; current = current.Parent, depth++)
         {
-            switch (model!.GetOperation(current, cancellationToken))
+            // A use in a declaration (a return or parameter type, a base type) is a plain reference; the declaration's
+            // operation would be the whole method body, bound for nothing.
+            if (model.GetDeclaredSymbol(current, cancellationToken) is not null)
+            {
+                break;
+            }
+
+            switch (model.GetOperation(current, cancellationToken))
             {
                 case null:
                     continue;
@@ -87,6 +153,7 @@ public static class ReferenceFinder
                 case IObjectCreationOperation:
                     return "new";
                 case IMethodReferenceOperation:
+                case IDelegateCreationOperation { Target: IMethodReferenceOperation }:
                     return "method group";
                 case IMemberReferenceOperation member when member.Parent is IAssignmentOperation assignment && assignment.Target == member:
                     return "write";
