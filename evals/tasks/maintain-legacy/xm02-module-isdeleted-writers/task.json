@@ -1,0 +1,54 @@
+{
+  "job": "maintain-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the writers block",
+      "patterns": [
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Modules[/\\\\]ModuleInfo\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])TabVersions[/\\\\]TabVersionBuilder\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Steps[/\\\\]ReplacePortalTabModuleStep\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PagesExportService\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Modules[/\\\\]Modulesettings\\.ascx\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Models[/\\\\]ApiToken\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Repositories[/\\\\]ApiTokenRepository\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])UI[/\\\\]RibbonBarManager\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Repositories[/\\\\]WorkflowRepository\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Templates[/\\\\]PortalTemplateImporter\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Tabs[/\\\\]TabController\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Tabs[/\\\\]TabInfo\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Urls[/\\\\]DupKeyCheck\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Users[/\\\\]UserInfo\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Membership[/\\\\]AspNetMembershipProvider\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Journal[/\\\\]JournalItem\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Upgrade[/\\\\]Upgrade\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])DotNetNuke\\.Tests\\.Urls[/\\\\]TestUtil\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])DotNetNuke\\.Tests\\.Urls[/\\\\]UrlRewriteTests\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Pages[/\\\\]BulkPagesController\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Models[/\\\\]PageModelBase\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Models[/\\\\]ModuleInstanceModel\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Dto[/\\\\]UserBasicDto\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Commands[/\\\\]SetUser\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Models[/\\\\]UserModelBase\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PagesController\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Checks[/\\\\]CheckUserProfilePageTests\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Dnn\\.PersonaBar\\.Users\\.Tests[/\\\\]CommandTests\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

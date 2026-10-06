@@ -1,0 +1,3 @@
+We want to remove the cache-bypassing overload `GetTab(int tabId, int portalId, bool ignoreCache)` of `ITabController` and `TabController` (namespace `DotNetNuke.Entities.Tabs`). Before we do, I need every source file that calls that three-argument overload, directly or through `TabController.Instance`, outside the DotNetNuke.Library project and outside the test projects. Calls to the two-argument `GetTab(tabId, portalId)` or to other classes' `GetTab` methods don't count. Don't change any file.
+
+Finish your reply with a code block tagged `callers` that lists the path of each of those files, one per line.

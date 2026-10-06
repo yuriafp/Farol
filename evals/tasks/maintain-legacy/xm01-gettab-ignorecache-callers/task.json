@@ -1,0 +1,77 @@
+{
+  "job": "maintain-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 60,
+  "timeoutMinutes": 30,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])InternalServices[/\\\\]ControlBarController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])InternalServices[/\\\\]ItemListServiceController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])InternalServices[/\\\\]SearchServiceController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])UI[/\\\\]RibbonBarManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])WebControls[/\\\\]DnnPageDropDownList\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])WebControls[/\\\\]DnnPortalPageDropDownList\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Internal[/\\\\]DnnModuleComboBox\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]CoreMessagingBusinessController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Localisation[/\\\\]Localiser\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DDRMenu[/\\\\]MenuBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Groups[/\\\\]ListSettings\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Groups[/\\\\]Setup\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Browser[/\\\\]Browser\\.aspx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DNNConnect\\.CKE[/\\\\]CKEditorOptions\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Modules[/\\\\]Modulesettings\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Skins[/\\\\]BreadCrumb\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Skins[/\\\\]Toast\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Skins[/\\\\]User\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Skins[/\\\\]UserAndLogin\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Tabs[/\\\\]Export\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Tabs[/\\\\]Import\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Pages[/\\\\]BulkPagesController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Pages[/\\\\]PagesControllerImpl\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]SecurityService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Pages[/\\\\]TemplateController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PagesController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]SeoController\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Dnn\\.Modules\\.Console[/\\\\]Settings\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Dnn\\.Modules\\.Console[/\\\\]ViewConsole\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Internal[/\\\\]DnnContextMessageHandler\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])InternalServices[/\\\\]ContentWorkflowServiceController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]MobileHelperController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])WebControls[/\\\\]DnnUrlControl\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PagesExportService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]HtmlTextController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Authentication[/\\\\]Login\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Commands[/\\\\]GetPage\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Commands[/\\\\]Goto\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Commands[/\\\\]NewPage\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Prompt[/\\\\]ModulesController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Commands[/\\\\]PurgePage\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Commands[/\\\\]RestorePage\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Recyclebin[/\\\\]RecyclebinController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Attributes[/\\\\]TabExistAttribute\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Checks[/\\\\]CheckUserProfilePage\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]RecyclebinController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]SecurityController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]SiteSettingsController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Helpers[/\\\\]PageSecurityHelper\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Controllers[/\\\\]ModulesController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])MenuControllers[/\\\\]LinkMenuController\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "job": "modern",
+  "repo": "umbraco",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Implement[/\\\\]MediaCacheRefresher\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Editors[/\\\\]UserEditorAuthorizationHelper\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]UserGroupPermissionService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Search[/\\\\]MediaIndexingNotificationHandler\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]DataValueEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]MediaServiceExtensions\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]MultiNodeTreePickerPropertyEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Implement[/\\\\]MediaListViewService\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

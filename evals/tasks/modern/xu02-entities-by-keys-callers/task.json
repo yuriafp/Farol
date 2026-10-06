@@ -1,0 +1,39 @@
+{
+  "job": "modern",
+  "repo": "umbraco",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Item[/\\\\]ItemDocumentItemController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Item[/\\\\]ItemDocumentBlueprintController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Item[/\\\\]ItemElementItemController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Item[/\\\\]SearchElementItemController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Item[/\\\\]ItemMediaItemController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Entities[/\\\\]ItemAncestorService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]MemberPresentationService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Implement[/\\\\]IndexedEntitySearchService\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Item[/\\\\]ItemFolderItemController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Tree[/\\\\]EntityTreeControllerBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Tree[/\\\\]FolderTreeControllerBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Entities[/\\\\]UserStartNodeEntitiesService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]RelationService\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

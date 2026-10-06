@@ -15,6 +15,9 @@
   "dnn-platform": {
     "corpus": "dnn-platform"
   },
+  "umbraco": {
+    "corpus": "umbraco"
+  },
   "eshop": {
     "repository": "https://github.com/dotnet/eShop",
     "commit": "dc7ea499cd356924fb6689b3702964a5869dbae9",

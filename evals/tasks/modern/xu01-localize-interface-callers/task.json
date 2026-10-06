@@ -1,0 +1,70 @@
+{
+  "job": "modern",
+  "repo": "umbraco",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Factories[/\\\\]WebhookPresentationFactory\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]LocalizedTextServiceExtensions\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]EmailUserForgotPasswordSender\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]EmailUserInviteSender\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Events[/\\\\]UserNotificationsHandler\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Factories[/\\\\]UserSettingsFactory\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Checks[/\\\\]AbstractSettingsCheck\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Configuration[/\\\\]NotificationEmailCheck\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])LiveEnvironment[/\\\\]CompilationDebugCheck\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])LiveEnvironment[/\\\\]RuntimeModeCheck\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Permissions[/\\\\]FolderAndFilePermissionsCheck\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]BaseHttpHeaderCheck\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]ExcessiveHeadersCheck\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]HstsCheck\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]HttpsCheck\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]ImagingHMACSecretKeyCheck\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]UmbracoApplicationUrlCheck\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]SmtpCheck\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])NotificationMethods[/\\\\]EmailNotificationMethod\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Steps[/\\\\]FilePermissionsStep\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]ContentPickerPropertyEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]DecimalPropertyEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]ElementPickerPropertyEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]EntityDataPickerPropertyEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]IntegerPropertyEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]TextOnlyValueEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Validators[/\\\\]EmailValidator\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Validators[/\\\\]MultipleValueValidator\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Routing[/\\\\]PublishedUrlInfoProvider\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Routing[/\\\\]UrlProviderExtensions\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]BlockEditorMinMaxValidatorBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]BlockGridPropertyEditorBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]ColorPickerPropertyEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]DateTimePropertyEditorBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]MediaPicker3PropertyEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]MultiNodeTreePickerPropertyEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]MultipleTextStringPropertyEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]MultiUrlPickerValueEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]RadioButtonsPropertyEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]RichTextAllowedMediaTypeValidator\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]SliderPropertyEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]BackOfficeErrorDescriber\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]MembersErrorDescriber\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]UmbracoErrorDescriberBase\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}
