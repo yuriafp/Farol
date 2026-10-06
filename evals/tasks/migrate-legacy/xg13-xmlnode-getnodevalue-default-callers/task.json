@@ -1,0 +1,42 @@
+{
+  "job": "migrate-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Utilities[/\\\\]XmlUtils\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Modules[/\\\\]ModuleController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Templates[/\\\\]PortalTemplateImporter\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Tabs[/\\\\]TabController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Pages[/\\\\]TemplateController\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])UI[/\\\\]RibbonBarManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Utilities[/\\\\]CBO\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Portals[/\\\\]PortalController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])FolderMappings[/\\\\]FolderMappingsConfigController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Installers[/\\\\]FileInstaller\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Installers[/\\\\]ResourceFileInstaller\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Packages[/\\\\]PackageController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Installer[/\\\\]Util\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Internals[/\\\\]InstallControllerImpl\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Upgrade[/\\\\]Upgrade\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Browser[/\\\\]Browser\\.aspx\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}
