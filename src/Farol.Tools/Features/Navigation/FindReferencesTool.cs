@@ -17,6 +17,7 @@ public sealed class FindReferencesTool(WorkspaceManager workspaces)
         "Compiler-accurate references to one C#/VB symbol across the solution and every target framework, grouped by project, each classified " +
         "as call, new, read, write, method group or reference — plus 'markup' references the compiler never sees: WebForms (.aspx/.ascx/.master " +
         "event handlers, controls, <% %> expressions), .asmx/.svc/.ashx/.asax directives and XAML (x:Class, x:Name, event handlers, converters). " +
+        "A member's uses include those through the interface members it implements or the members it overrides, marked 'via' that type. " +
         "Use instead of grep before changing or removing a symbol.")]
     public Task<string> Run(
         [Description(SymbolArgument.Description)] string symbol,
@@ -45,6 +46,15 @@ public sealed class FindReferencesTool(WorkspaceManager workspaces)
             if (result.Definitions.Count > 0)
             {
                 text.Line($"defined at: {string.Join(", ", result.Definitions.Select(d => DisplayPath.Location(root, d.FilePath, d.Line)))}");
+            }
+
+            foreach (var member in result.Through)
+            {
+                var via = ReferenceFinder.Via(member);
+                if (references.Count(r => r.Via == via) is > 0 and var count)
+                {
+                    text.Line($"{count} of them through {SymbolFormatter.Display(member)} · {SymbolFormatter.Location(member, root)}, marked 'via {via}'");
+                }
             }
 
             if (references.Count == 0)

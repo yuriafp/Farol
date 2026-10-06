@@ -38,7 +38,8 @@ internal static class NavigationText
             }
 
             var frameworks = hit.TargetFrameworks.Count > 1 ? $" · {string.Join(", ", hit.TargetFrameworks)}" : string.Empty;
-            if (!text.TryLine($"- {DisplayPath.Location(root, hit.FilePath, hit.Line)} · {hit.Kind}{frameworks} · {hit.Snippet}"))
+            var via = hit.Via is null ? string.Empty : $" via {hit.Via}";
+            if (!text.TryLine($"- {DisplayPath.Location(root, hit.FilePath, hit.Line)} · {hit.Kind}{via}{frameworks} · {hit.Snippet}"))
             {
                 break;
             }

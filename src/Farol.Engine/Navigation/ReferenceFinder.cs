@@ -8,10 +8,14 @@ using VisualBasicSyntax = Microsoft.CodeAnalysis.VisualBasic.Syntax;
 
 namespace Farol.Engine.Navigation;
 
-/// <summary>One place in source. Found in several target frameworks, it is still one hit that lists them.</summary>
-public sealed record SourceHit(string FilePath, int Line, int Column, string Snippet, string Project, IReadOnlyList<string> TargetFrameworks, string Kind);
+/// <summary>
+/// One place in source. Found in several target frameworks, it is still one hit that lists them. <paramref name="Via"/>
+/// names the type of the interface or base member a use goes through, when it is not a use of the symbol itself.
+/// </summary>
+public sealed record SourceHit(string FilePath, int Line, int Column, string Snippet, string Project, IReadOnlyList<string> TargetFrameworks, string Kind, string? Via = null);
 
-public sealed record ReferenceResult(IReadOnlyList<SourceHit> Definitions, IReadOnlyList<SourceHit> References);
+/// <summary>The symbol's definitions and uses, and the members (see <see cref="ReferenceFinder.ThroughAsync"/>) some uses go through.</summary>
+public sealed record ReferenceResult(IReadOnlyList<SourceHit> Definitions, IReadOnlyList<SourceHit> References, IReadOnlyList<ISymbol> Through);
 
 /// <summary>
 /// Compiler-accurate references for one symbol across every target framework, classified through
@@ -31,19 +35,24 @@ public static class ReferenceFinder
 
         var definitions = new SourceHitCollector(snapshot);
         var references = new SourceHitCollector(snapshot);
-        var uses = new List<(ReferenceLocation Location, ISymbol Symbol)>();
+        var uses = new List<(ReferenceLocation Location, ISymbol Symbol, string? Via)>();
+        var through = new Dictionary<string, ISymbol>(StringComparer.Ordinal);
         foreach (var variant in candidate.Variants)
         {
-            var found = (await SymbolFinder.FindReferencesAsync(variant.Symbol, snapshot.Solution, cancellationToken)).ToList();
+            var (found, members) = await SearchAsync(variant.Symbol, snapshot.Solution, cancellationToken);
             foreach (var location in found.Where(r => SymbolFormatter.Id(r.Definition) == candidate.Id).SelectMany(r => r.Definition.Locations).Where(l => l.IsInSource))
             {
                 if (snapshot.Solution.GetDocument(location.SourceTree) is { } document)
                 {
-                    await definitions.AddAsync(document, location, "definition", cancellationToken);
+                    await definitions.AddAsync(document, location, "definition", via: null, cancellationToken);
                 }
             }
 
-            uses.AddRange(UsesOf(found, candidate.Id));
+            uses.AddRange(UsesOf(found, candidate.Id, members));
+            foreach (var member in members)
+            {
+                through.TryAdd(SymbolFormatter.Id(member), member);
+            }
         }
 
         // Binding the code around every use to classify it cost as much as the search itself, so the syntax decides when
@@ -66,7 +75,7 @@ public static class ReferenceFinder
             });
         for (var index = 0; index < uses.Count; index++)
         {
-            await references.AddAsync(uses[index].Location.Document, uses[index].Location.Location, kinds[index], cancellationToken);
+            await references.AddAsync(uses[index].Location.Document, uses[index].Location.Location, kinds[index], uses[index].Via, cancellationToken);
         }
 
         var markup = await MarkupIndex.GetAsync(snapshot, cancellationToken);
@@ -75,18 +84,97 @@ public static class ReferenceFinder
             references.AddMarkup(reference);
         }
 
-        return new ReferenceResult(definitions.ToList(), references.ToList());
+        return new ReferenceResult(definitions.ToList(), references.ToList(), [.. through.Values]);
     }
 
     /// <summary>
-    /// The uses to report, each with the symbol it refers to: the symbol's own, and for a type its constructors', which
-    /// are where the type is created (Roslyn files them there). Other cascaded results (implementations, overrides)
+    /// Roslyn's references to the symbol, which cascade to related members, and the members a call reaches the symbol
+    /// through, whose references are searched on their own when the cascade left them out.
+    /// </summary>
+    internal static async Task<(List<ReferencedSymbol> Found, IReadOnlyList<ISymbol> Through)> SearchAsync(
+        ISymbol symbol, Solution solution, CancellationToken cancellationToken)
+    {
+        var found = (await SymbolFinder.FindReferencesAsync(symbol, solution, cancellationToken)).ToList();
+        var through = await ThroughAsync(symbol, solution, cancellationToken);
+        foreach (var member in through)
+        {
+            var id = SymbolFormatter.Id(member);
+            if (!found.Exists(r => SymbolFormatter.Id(r.Definition) == id))
+            {
+                found.AddRange((await SymbolFinder.FindReferencesAsync(member, solution, cancellationToken)).Where(r => SymbolFormatter.Id(r.Definition) == id));
+            }
+        }
+
+        return (found, through);
+    }
+
+    /// <summary>
+    /// The members declared in the solution that a call reaches the symbol through: the interface members it implements
+    /// and the members it overrides, and theirs in turn. Members of referenced assemblies (<c>object.ToString</c>,
+    /// <c>IDisposable.Dispose</c>) are left out, since their callers are everywhere.
+    /// </summary>
+    public static async Task<IReadOnlyList<ISymbol>> ThroughAsync(ISymbol symbol, Solution solution, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(symbol);
+        var through = new List<ISymbol>();
+        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default) { symbol.OriginalDefinition };
+        var pending = new Queue<ISymbol>([symbol.OriginalDefinition]);
+        while (pending.TryDequeue(out var member))
+        {
+            var implemented = await SymbolFinder.FindImplementedInterfaceMembersAsync(member, solution, cancellationToken: cancellationToken);
+            foreach (var next in implemented.Append(Overridden(member)).OfType<ISymbol>().Select(s => s.OriginalDefinition))
+            {
+                if (seen.Add(next))
+                {
+                    pending.Enqueue(next);
+                    if (next.Locations.Any(l => l.IsInSource))
+                    {
+                        through.Add(next);
+                    }
+                }
+            }
+        }
+
+        return through;
+    }
+
+    /// <summary>How a use through <paramref name="member"/> is marked: the type it goes through.</summary>
+    public static string Via(ISymbol member)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        return member.ContainingType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+    }
+
+    /// <summary>
+    /// The uses to report, each with the symbol it refers to: the symbol's own; for a type its constructors', which are
+    /// where the type is created (Roslyn files them there); and those through the members in <paramref name="through"/>,
+    /// marked with the type they go through. Other cascaded results (the member's other implementations and overrides)
     /// belong to dotnet_hierarchy.
     /// </summary>
-    internal static IEnumerable<(ReferenceLocation Location, ISymbol Symbol)> UsesOf(IEnumerable<ReferencedSymbol> found, string id) =>
-        found
-            .Where(r => SymbolFormatter.Id(r.Definition) == id || IsConstructorOf(r.Definition, id))
-            .SelectMany(r => r.Locations.Where(l => !l.IsImplicit && l.Location.IsInSource).Select(l => (l, r.Definition)));
+    internal static IEnumerable<(ReferenceLocation Location, ISymbol Symbol, string? Via)> UsesOf(
+        IEnumerable<ReferencedSymbol> found, string id, IEnumerable<ISymbol>? through = null)
+    {
+        var via = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var member in through ?? [])
+        {
+            via.TryAdd(SymbolFormatter.Id(member), Via(member));
+        }
+
+        return found
+            .Select(r => (Group: r, Id: SymbolFormatter.Id(r.Definition)))
+            .Where(r => r.Id == id || IsConstructorOf(r.Group.Definition, id) || via.ContainsKey(r.Id))
+            .SelectMany(r => r.Group.Locations
+                .Where(l => !l.IsImplicit && l.Location.IsInSource)
+                .Select(l => (l, r.Group.Definition, r.Id == id ? null : via.GetValueOrDefault(r.Id))));
+    }
+
+    private static ISymbol? Overridden(ISymbol member) => member switch
+    {
+        IMethodSymbol method => method.OverriddenMethod,
+        IPropertySymbol property => property.OverriddenProperty,
+        IEventSymbol @event => @event.OverriddenEvent,
+        _ => null,
+    };
 
     private static bool IsConstructorOf(ISymbol symbol, string typeId) =>
         symbol is IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: { } type } && SymbolFormatter.Id(type) == typeId;
@@ -173,7 +261,7 @@ internal sealed class SourceHitCollector(WorkspaceSnapshot snapshot)
 {
     private readonly Dictionary<(string Path, int Line, int Column), (SourceHit Hit, SortedSet<string> Frameworks)> _hits = [];
 
-    public async Task AddAsync(Document document, Location location, string kind, CancellationToken cancellationToken)
+    public async Task AddAsync(Document document, Location location, string kind, string? via, CancellationToken cancellationToken)
     {
         if (document.FilePath is null)
         {
@@ -192,7 +280,7 @@ internal sealed class SourceHitCollector(WorkspaceSnapshot snapshot)
                 snippet = string.Concat(snippet.AsSpan(0, ReferenceFinder.MaxSnippetLength), "…");
             }
 
-            entry = (new SourceHit(key.Item1, key.Item2, key.Item3, snippet, project?.Name ?? document.Project.Name, [], kind), new SortedSet<string>(StringComparer.OrdinalIgnoreCase));
+            entry = (new SourceHit(key.Item1, key.Item2, key.Item3, snippet, project?.Name ?? document.Project.Name, [], kind, via), new SortedSet<string>(StringComparer.OrdinalIgnoreCase));
             _hits[key] = entry;
         }
 
