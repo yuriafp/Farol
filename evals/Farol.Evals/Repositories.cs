@@ -135,7 +135,39 @@ internal sealed class Repositories : IDisposable
             }
         }
 
+        await DisableRepositoryMcpServersAsync(directory, cancellationToken);
         return workspace;
+    }
+
+    /// <summary>
+    /// MCP servers a repository declares in its .mcp.json (Umbraco's: its own CMS and a browser) need services of their own
+    /// and are not part of the experiment: both arms get them disabled in .claude/settings.local.json, which git is told to
+    /// ignore, so no check sees it as a change.
+    /// </summary>
+    private static async Task DisableRepositoryMcpServersAsync(string directory, CancellationToken cancellationToken)
+    {
+        var declared = Path.Combine(directory, ".mcp.json");
+        if (!File.Exists(declared))
+        {
+            return;
+        }
+
+        using var document = JsonDocument.Parse(
+            await File.ReadAllTextAsync(declared, cancellationToken),
+            new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+        var names = document.RootElement.TryGetProperty("mcpServers", out var servers) ? servers.EnumerateObject().Select(s => s.Name).ToList() : [];
+        var settings = Path.Combine(directory, ".claude", "settings.local.json");
+        System.IO.Directory.CreateDirectory(Path.GetDirectoryName(settings)!);
+        await File.WriteAllTextAsync(settings, $"{{ \"disabledMcpjsonServers\": [{string.Join(", ", names.Select(n => $"\"{n}\""))}] }}\n", cancellationToken);
+
+        var exclude = (await Git.TryRunAsync(directory, cancellationToken, "rev-parse", "--git-path", "info/exclude")).Output.Trim();
+        exclude = Path.IsPathRooted(exclude) ? exclude : Path.Combine(directory, exclude);
+        const string Entry = "/.claude/settings.local.json";
+        if (!File.Exists(exclude) || !(await File.ReadAllLinesAsync(exclude, cancellationToken)).Contains(Entry))
+        {
+            System.IO.Directory.CreateDirectory(Path.GetDirectoryName(exclude)!);
+            await File.AppendAllTextAsync(exclude, Entry + "\n", cancellationToken);
+        }
     }
 
     private async Task<string> EnsureCacheAsync(EvalRepository repository, CancellationToken cancellationToken)

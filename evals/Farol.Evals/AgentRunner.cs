@@ -186,8 +186,9 @@ internal static class AgentRunner
 
         private void CheckIsolation(JsonElement init)
         {
+            // A repository's own servers are disabled in both arms (Repositories): a disabled server reaches neither.
             var servers = init.TryGetProperty("mcp_servers", out var list)
-                ? list.EnumerateArray().Select(s => $"{Text(s, "name")}={Text(s, "status")}").ToList()
+                ? list.EnumerateArray().Where(s => Text(s, "status") != "disabled").Select(s => $"{Text(s, "name")}={Text(s, "status")}").ToList()
                 : [];
             var plugins = init.TryGetProperty("plugins", out var installed)
                 ? installed.EnumerateArray().Where(p => Text(p, "source")?.EndsWith("@builtin", StringComparison.Ordinal) != true).Select(p => Text(p, "name") ?? "?").ToList()
