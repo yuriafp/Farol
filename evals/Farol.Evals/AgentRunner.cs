@@ -174,7 +174,9 @@ internal static class AgentRunner
                     case "assistant" when root.TryGetProperty("message", out var message):
                         ReadAssistant(message);
                         break;
-                    case "rate_limit_event" when root.TryGetProperty("rate_limit_info", out var info) && Text(info, "status") is { } status && status != "allowed":
+                    // "allowed_warning" only says the window is nearly used up; the session goes on. A refusal stops it.
+                    case "rate_limit_event" when root.TryGetProperty("rate_limit_info", out var info) && Text(info, "status") is { } status
+                        && !status.StartsWith("allowed", StringComparison.Ordinal):
                         RateLimited = true;
                         break;
                     case "result":
