@@ -19,11 +19,15 @@ param(
 $ErrorActionPreference = 'Stop'
 $all = @($Expected) + @($Decoys)
 function Pattern([string]$path) {
+    # The folder and name, with more parent folders when another expected or decoy file shares them.
     $parts = $path.Split('/')
-    $suffix = if ($parts.Count -ge 2) { $parts[-2] + '/' + $parts[-1] } else { $parts[-1] }
+    for ($take = [Math]::Min(2, $parts.Count); $take -le $parts.Count; $take++) {
+        $suffix = $parts[($parts.Count - $take)..($parts.Count - 1)] -join '/'
+        $matching = @($all | Where-Object { $_ -match ('(^|/)' + [regex]::Escape($suffix) + '$') })
+        if ($matching.Count -eq 1) { break }
+    }
+    if ($matching.Count -ne 1) { throw "'$path' is listed twice." }
     $regex = [regex]::Escape($suffix).Replace('/', '[/\\]').Replace('\ ', ' ')
-    $matching = @($all | Where-Object { $_ -match ('(^|/)' + [regex]::Escape($suffix) + '$') })
-    if ($matching.Count -ne 1) { throw "'$suffix' does not single out one file: $($matching -join ', ')" }
     # Inside the tagged block only: from its opening fence to the first file match, never past a closing fence.
     '(?s)```' + $Block + '(?:(?!```).)*?(?<![\w.])' + $regex
 }

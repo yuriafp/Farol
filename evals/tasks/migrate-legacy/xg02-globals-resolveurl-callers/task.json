@@ -1,0 +1,57 @@
+{
+  "job": "migrate-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Internal[/\\\\]TermsSelector\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DDRMenu[/\\\\]MenuNode\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])TemplateEngine[/\\\\]TemplateDefinition\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])AzureFolderProvider[/\\\\]AzureFolderProvider\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Browser[/\\\\]Browser\\.aspx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DNNConnect\\.CKE[/\\\\]Tabs\\.ashx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Web[/\\\\]EditorControl\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])ModuleActions[/\\\\]ModuleActions\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Skins[/\\\\]BreadCrumb\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Sites[/\\\\]SitesController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ConnectorsController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]SiteSettingsController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Common[/\\\\]Utilities\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Containers[/\\\\]PersonaBarContainer\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Controllers[/\\\\]TabsController\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Dnn\\.Modules\\.Console[/\\\\]ViewConsole\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])WebControls[/\\\\]ScriptGenerator\\.vb",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])InternalServices[/\\\\]MessagingServiceController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])UI[/\\\\]Utilities\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])WebControls[/\\\\]Tags\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])UrlRewrite[/\\\\]BasicUrlRewriter\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Common[/\\\\]DNNContext\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])TemplateEngine[/\\\\]XsltFunctions\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])TemplateEngine[/\\\\]XsltTemplateProcessor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Groups[/\\\\]GroupEdit\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DNNConnect\\.CKE[/\\\\]CKEditorOptions\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Module[/\\\\]EditorConfigManager\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DNNConnect\\.CKE[/\\\\]Options\\.aspx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Skins[/\\\\]Search\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Skins[/\\\\]TreeViewMenu\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Website[/\\\\]ErrorPage\\.aspx\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "job": "maintain-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 60,
+  "timeoutMinutes": 30,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DotNetNuke\\.Web\\.Mvc[/\\\\]StandardTabAndModuleInfoProvider\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Internal[/\\\\]DnnContextMessageHandler\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Api[/\\\\]StandardTabAndModuleInfoProvider\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])InternalServices[/\\\\]ControlBarController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])InternalServices[/\\\\]ModuleServiceController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])InternalServices[/\\\\]SearchServiceController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]MobileHelperController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DDRMenu[/\\\\]Controller\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PagesExportService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Groups[/\\\\]Setup\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]HtmlTextController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]HtmlTextUserInfo\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])HTML[/\\\\]EditHtml\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])HTML[/\\\\]Settings\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]JournalParser\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]SettingsManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]SettingsService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DNNConnect\\.CKE[/\\\\]CKEditorOptions\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DNNConnect\\.CKE[/\\\\]Options\\.aspx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Utilities[/\\\\]SettingsUtil\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Containers[/\\\\]Title\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Modules[/\\\\]Export\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Modules[/\\\\]Import\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Modules[/\\\\]ModulePermissions\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Modules[/\\\\]Modulesettings\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Pages[/\\\\]PagesControllerImpl\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Recyclebin[/\\\\]RecyclebinController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DTO[/\\\\]DnnModuleDto\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PagesController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Controllers[/\\\\]ContentEditorManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ContentEditorController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Controllers[/\\\\]ModulesController\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Module[/\\\\]GetModule\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Prompt[/\\\\]IModulesController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Prompt[/\\\\]ModulesController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Commands[/\\\\]PurgeModule\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Controllers[/\\\\]IModulesController\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "job": "migrate-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Data[/\\\\]DataService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Providers[/\\\\]DataProvider\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]AssetsExportService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PageTemplatesExportService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PortalExportService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ProfilePropertiesService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]RolesExportService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]VocabularyService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]WorkflowsExportService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]HtmlTextController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DatabaseServer[/\\\\]DatabaseController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Users[/\\\\]UsersController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Data[/\\\\]UsersDataService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Permissions[/\\\\]MenuPermissionController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Repository[/\\\\]PersonaBarExtensionRepository\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Repository[/\\\\]PersonaBarRepository\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])InternalServices[/\\\\]SearchServiceController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Controllers[/\\\\]EntitiesController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]UsersExportService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Groups[/\\\\]Create\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Groups[/\\\\]ModerationServiceController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]HtmlTextLogController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]HtmlTextUserController\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

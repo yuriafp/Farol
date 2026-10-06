@@ -1,0 +1,29 @@
+{
+  "job": "modern",
+  "repo": "umbraco",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Extensions[/\\\\]StringExtensions\\.Manipulation\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Strings[/\\\\]DefaultShortStringHelper\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Strings[/\\\\]IShortStringHelper\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

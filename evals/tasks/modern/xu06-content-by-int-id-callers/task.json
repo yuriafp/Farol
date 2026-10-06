@@ -1,0 +1,60 @@
+{
+  "job": "modern",
+  "repo": "umbraco",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Editors[/\\\\]UserEditorAuthorizationHelper\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Events[/\\\\]AddDomainWarningsWhenPublishingNotificationHandler\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Events[/\\\\]UserNotificationsHandler\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ContentServiceExtensions\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]DocumentUrlService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PublicAccessServiceExtensions\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]UserGroupPermissionService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Deferred[/\\\\]DeliveryApiContentIndexHandleContentChanges\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Deferred[/\\\\]DeliveryApiContentIndexHandleContentTypeChanges\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Deferred[/\\\\]DeliveryApiContentIndexHandlePublicAccessChanges\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Examine[/\\\\]DeliveryApiContentIndexValueSetBuilder\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Search[/\\\\]ContentIndexingNotificationHandler\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Document[/\\\\]DocumentPreviewUrlController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Implement[/\\\\]ContentCacheRefresher\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Packaging[/\\\\]PackagesRepository\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]ContentPickerPropertyEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]DataValueEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ContentBlueprintEditingService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ContentEditingService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ContentEditingServiceBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ContentEditingServiceWithSortingBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ContentPermissionService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ContentPublishingService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ContentPublishingServiceBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]DocumentUrlAliasService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]DomainService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ElementEditingService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]MediaEditingService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]MemberContentEditingService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PublicAccessService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Querying[/\\\\]ContentQueryService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Implement[/\\\\]CreatedPackageSchemaRepository\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]MultiNodeTreePickerPropertyEditor\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Implement[/\\\\]ContentListViewService\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "job": "maintain-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])InternalServices[/\\\\]FileUploadController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])InternalServices[/\\\\]UserFileController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])WebControls[/\\\\]DnnFilePicker\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Tabs[/\\\\]TabInfo\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Profile[/\\\\]UserProfile\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Roles[/\\\\]RoleInfo\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])FileSystem[/\\\\]FileServerHandler\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Data[/\\\\]DataService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])UI[/\\\\]FavIcon\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]FileUploadController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Journal[/\\\\]FileUploadController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ItemsController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Browser[/\\\\]Browser\\.aspx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Containers[/\\\\]Icon\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Skins[/\\\\]Logo\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Website[/\\\\]Default\\.aspx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Website[/\\\\]ErrorPage\\.aspx\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Utilities[/\\\\]UrlController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Data[/\\\\]DataProvider\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])FileSystem[/\\\\]FileManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])FileSystem[/\\\\]IFileManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])WebControls[/\\\\]CaptchaControl\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

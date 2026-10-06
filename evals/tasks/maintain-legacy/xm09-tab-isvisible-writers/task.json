@@ -1,0 +1,37 @@
+{
+  "job": "maintain-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the writers block",
+      "patterns": [
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])UI[/\\\\]RibbonBarManager\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Tabs[/\\\\]TabController\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Tabs[/\\\\]TabInfo\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Upgrade[/\\\\]Upgrade\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PagesExportService\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Groups[/\\\\]Setup\\.ascx\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Tabs[/\\\\]Import\\.ascx\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Extensions[/\\\\]CreateModuleController\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Pages[/\\\\]BulkPagesController\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Pages[/\\\\]PagesControllerImpl\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])RazorHost[/\\\\]CreateModule\\.ascx\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "job": "maintain-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the writers block",
+      "patterns": [
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Steps[/\\\\]ReplacePortalTabModuleStep\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])InternalServices[/\\\\]ControlBarController\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Modules[/\\\\]ModuleController\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Modules[/\\\\]ModuleInfo\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Prompt[/\\\\]AddModule\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Upgrade[/\\\\]Upgrade\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])ControlPanels[/\\\\]ControlPanelBase\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])UI[/\\\\]UIUtilities\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PagesExportService\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Groups[/\\\\]Setup\\.ascx\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Containers[/\\\\]Title\\.ascx\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Modules[/\\\\]Modulesettings\\.ascx\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]ManageUsers\\.ascx\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Extensions[/\\\\]CreateModuleController\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Pages[/\\\\]PagesControllerImpl\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PagesController\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Controllers[/\\\\]ModulesController\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Prompt[/\\\\]ListModules\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])RazorHost[/\\\\]CreateModule\\.ascx\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])ModuleActions[/\\\\]ModuleActions\\.ascx\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Pages[/\\\\]XssCleaner\\.cs",
+        "(?s)```writers(?:(?!```).)*?(?<![\\w.])Prompt[/\\\\]ModulesController\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

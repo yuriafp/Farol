@@ -1,0 +1,83 @@
+{
+  "job": "maintain-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])WebControls[/\\\\]DnnFilePickerUploader\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Tabs[/\\\\]TabInfo\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])FileSystem[/\\\\]FileUrlHelper\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Upgrade[/\\\\]Upgrade\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])UI[/\\\\]FavIcon\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Containers[/\\\\]Icon\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Skins[/\\\\]Logo\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Website[/\\\\]Default\\.aspx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Website[/\\\\]ErrorPage\\.aspx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Pages[/\\\\]PagesControllerImpl\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]SiteSettingsController\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])InternalServices[/\\\\]FileUploadController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])InternalServices[/\\\\]MessagingServiceController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])UI[/\\\\]RibbonBarManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])WebControls[/\\\\]DnnFileDropDownList\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])WebControls[/\\\\]DnnFilePicker\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])WebControls[/\\\\]DnnUrlControl\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Common[/\\\\]Globals\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Utilities[/\\\\]UrlController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Data[/\\\\]DataProvider\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Content[/\\\\]AttachmentController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Templates[/\\\\]PortalTemplateImporter\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Profile[/\\\\]ProfileController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Tabs[/\\\\]TabController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Profile[/\\\\]UserProfile\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Users[/\\\\]UserController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Roles[/\\\\]RoleInfo\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Assets[/\\\\]AssetManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])FileSystem[/\\\\]FileManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])FileSystem[/\\\\]FileServerHandler\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])FileSystem[/\\\\]FileVersionController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])FileSystem[/\\\\]FolderManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])FileSystem[/\\\\]IFileManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Providers[/\\\\]DatabaseFolderProvider\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])GeneratedImage[/\\\\]DnnImageHandler\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])StartTransform[/\\\\]UserProfilePicTransform\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Data[/\\\\]DataService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Messaging[/\\\\]MessagingController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Scheduler[/\\\\]CoreMessagingScheduler\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])UserProfile[/\\\\]UserProfilePicHandler\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])UserControls[/\\\\]URLControl\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])UserControls[/\\\\]URLTrackingControl\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]MessagingServiceController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Journal[/\\\\]ServicesController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]ItemsManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ItemsController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])AzureFolderProvider[/\\\\]AzureFolderProvider\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Browser[/\\\\]Browser\\.aspx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Browser[/\\\\]ProcessImage\\.ashx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DNNConnect\\.CKE[/\\\\]CKEditorOptions\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Controls[/\\\\]UrlControl\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Utilities[/\\\\]Utility\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Web[/\\\\]EditorControl\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Modules[/\\\\]Import\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Tabs[/\\\\]Import\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Pages[/\\\\]Converters\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Pages[/\\\\]TemplateController\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

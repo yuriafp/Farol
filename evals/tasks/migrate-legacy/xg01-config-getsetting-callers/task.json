@@ -1,0 +1,73 @@
+{
+  "job": "migrate-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Routing[/\\\\]MvcRoutingManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Internal[/\\\\]ServicesRoutingManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Common[/\\\\]DotNetNukeHttpApplication\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Application[/\\\\]Application\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Application[/\\\\]ApplicationStatusInfo\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Common[/\\\\]Globals\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Common[/\\\\]Initialize\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Internal[/\\\\]GlobalsImpl\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Utilities[/\\\\]CBO\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Utilities[/\\\\]Config\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Utilities[/\\\\]DataCache\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Utilities[/\\\\]HtmlUtils\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]PortalSecurity\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Cache[/\\\\]FBCachingProvider\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])GeneratedImage[/\\\\]DnnImageHandler\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Localization[/\\\\]Localization\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Mobile[/\\\\]PreviewProfileController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Upgrade[/\\\\]Upgrade\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]UpgradeController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Website[/\\\\]Default\\.aspx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Install[/\\\\]Install\\.aspx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Install[/\\\\]InstallWizard\\.aspx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]BusinessController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]SecurityController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]UpgradesController\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]AzureConnector\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DotNetNuke\\.Web\\.Client[/\\\\]ClientResourceSettings\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Modules[/\\\\]UserModuleBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Users[/\\\\]UserController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Scheduling[/\\\\]ScheduleItem\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Controllers[/\\\\]SettingsController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Engines[/\\\\]ExportImportEngine\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Interfaces[/\\\\]ISettingsController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PortalExportService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]MemberDirectoryController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])MemberDirectory[/\\\\]View\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])AzureFolderProvider[/\\\\]AzureFolderProvider\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]BaseRemoteStorageProvider\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]ExchangeOnlineOAuthProvider\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Components[/\\\\]GoogleMailOAuthProvider\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]SendPassword\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Authentication[/\\\\]Login\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]EditUser\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]ManageUsers\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]Password\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]Profile\\.ascx\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Security[/\\\\]SecurityRoles\\.ascx\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

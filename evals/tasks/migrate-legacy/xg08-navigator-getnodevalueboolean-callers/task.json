@@ -1,0 +1,32 @@
+{
+  "job": "migrate-legacy",
+  "repo": "dnn-platform",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Templates[/\\\\]PortalTemplateImporter\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Internals[/\\\\]InstallControllerImpl\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])UI[/\\\\]RibbonBarManager\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Utilities[/\\\\]XmlUtils\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Modules[/\\\\]ModuleController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Tabs[/\\\\]TabController\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

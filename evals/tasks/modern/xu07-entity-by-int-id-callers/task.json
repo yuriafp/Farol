@@ -1,0 +1,47 @@
+{
+  "job": "modern",
+  "repo": "umbraco",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Factories[/\\\\]RelationPresentationFactory\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Entities[/\\\\]UserStartNodeEntitiesService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Origin[/\\\\]RootDynamicRootOriginFinder\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Origin[/\\\\]SiteDynamicRootOriginFinder\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Handlers[/\\\\]AuditNotificationsHandler\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])RecycleBin[/\\\\]RecycleBinControllerBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Tree[/\\\\]EntityTreeControllerBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Tree[/\\\\]FolderTreeControllerBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])ServerEvents[/\\\\]ServerEventSender\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Entities[/\\\\]ItemAncestorService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Origin[/\\\\]ByKeyDynamicRootOriginFinder\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ContentVersionServiceBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ElementPermissionService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]PublicAccessService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])RecycleBin[/\\\\]DocumentRecycleBinQueryService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])RecycleBin[/\\\\]ElementRecycleBinQueryService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])RecycleBin[/\\\\]MediaRecycleBinQueryService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]RelationService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]TrackedReferencesService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]UserService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]MultiNodeTreePickerPropertyEditor\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}

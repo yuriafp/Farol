@@ -1,0 +1,48 @@
+{
+  "job": "modern",
+  "repo": "umbraco",
+  "maxTurns": 60,
+  "timeoutMinutes": 20,
+  "checks": [
+    {
+      "type": "answer",
+      "name": "every file in the callers block",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Extensions[/\\\\]PublishedContentExtensions\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])ContentTypeEditing[/\\\\]ContentTypeEditingServiceBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])ContentTypeEditing[/\\\\]MediaTypeEditingService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Navigation[/\\\\]ContentNavigationServiceBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])V_17_4_0[/\\\\]AddDimensionsToSvg\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Packaging[/\\\\]PackageDataInstallation\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PropertyEditors[/\\\\]AllowedMediaTypeHelper\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])PublishedCache[/\\\\]PublishedContentTypeCache\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Models[/\\\\]ProfileModelBuilder\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Models[/\\\\]RegisterModelBuilder\\.cs"
+      ]
+    },
+    {
+      "type": "answer",
+      "name": "no file that only looks like one",
+      "match": "none",
+      "patterns": [
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])DocumentType[/\\\\]ExportDocumentTypeController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])MediaType[/\\\\]ExportMediaTypeController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])MemberType[/\\\\]ExportMemberTypeController\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Packaging[/\\\\]PackagesRepository\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ContentEditingService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ContentEditingServiceBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ContentPublishingServiceBase\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Services[/\\\\]ElementEditingService\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])V_17_0_0[/\\\\]EnsureDefaultMediaFolderHasDefaultCollection\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Implement[/\\\\]CreatedPackageSchemaRepository\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])ValueConverters[/\\\\]BlockListPropertyValueConverter\\.cs",
+        "(?s)```callers(?:(?!```).)*?(?<![\\w.])Controllers[/\\\\]UmbProfileController\\.cs"
+      ]
+    },
+    {
+      "type": "changed",
+      "name": "changes nothing",
+      "only": []
+    }
+  ]
+}
