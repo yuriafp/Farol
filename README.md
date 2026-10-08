@@ -92,7 +92,7 @@ Farol's own options go after `--`, so `dnx` doesn't read them as its own: `"args
 
 ### As a .NET tool
 
-To install Farol once instead of running it through `dnx`, use `dotnet tool install --global Farol.Mcp --prerelease` (and `dotnet tool update` with the same arguments later). The client's command is then `farol`, and Farol's options are its arguments, without the `--`: `"args": ["--read-only"]`. On Windows, close the clients that run it before updating: a running server keeps its files locked, and the update fails with "access denied".
+To install Farol once instead of running it through `dnx`, use `dotnet tool install --global Farol.Mcp --prerelease` (and `dotnet tool update` with the same arguments later). The client's command is then `farol`, and Farol's options are its arguments, without the `--`: `"args": ["--read-only"]`. On Windows, a running server keeps its files locked and the update fails with "access denied": close the clients that run it, then stop any `farol` process still running (Google Antigravity's outlived Visual Studio).
 
 ### From source
 
