@@ -42,8 +42,11 @@ On the first release, ask nuget.org to reserve the `Farol.` ID prefix (the [ID p
 
 ## 4. Tag and announce
 
+Tag the commit the package was packed from, which its `.nuspec` records (`<repository commit="...">`), so the tag
+matches the source nuget.org links to even when commits landed after the pack:
+
 ```bash
-git tag v<version>
+git tag v<version> <commit>
 git push origin v<version>
 ```
 
