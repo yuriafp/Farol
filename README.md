@@ -4,7 +4,7 @@
 
 Farol is an open-source [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI coding agents (Claude Code, GitHub Copilot, Cursor, Codex) compiler-accurate understanding of C# and VB.NET solutions, including the legacy ones other tools skip: classic `.csproj`/`.vbproj`, `packages.config`, WebForms, WCF, ASMX, WinForms and WPF.
 
-**Status:** alpha, [`Farol.Mcp` 0.1.0-alpha.1](https://www.nuget.org/packages/Farol.Mcp/0.1.0-alpha.1) on NuGet. Phase 1 is in progress: all 18 tools are done (workspace, navigation, markup references, edit verification, build and test, packages, legacy modernization), and so are the Claude Code plugin and the performance benchmarks, which meet the spec's targets. The eval suite meets the first exit criterion with Claude Haiku 4.5 on a harder task set, 59% success against 28% for grep + build with 32% fewer tokens ([results](evals/results/2026-10-07-haiku.md)); with Sonnet 5.5, grep + build had already solved every task of the first set ([results](evals/results/2026-10-05.md)). Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
+**Status:** alpha, [`Farol.Mcp` 0.1.0-alpha.2](https://www.nuget.org/packages/Farol.Mcp/0.1.0-alpha.2) on NuGet. Phase 1 is in progress: all 18 tools are done (workspace, navigation, markup references, edit verification, build and test, packages, legacy modernization), and so are the Claude Code plugin and the performance benchmarks, which meet the spec's targets. The eval suite meets the first exit criterion with Claude Haiku 4.5 on a harder task set, 59% success against 28% for grep + build with 32% fewer tokens ([results](evals/results/2026-10-07-haiku.md)); with Sonnet 5.5, grep + build had already solved every task of the first set ([results](evals/results/2026-10-05.md)). Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
 
 ## Tools
 
@@ -58,7 +58,7 @@ To add only the server, without the skill and the hook, put this in the `.mcp.js
   "mcpServers": {
     "farol": {
       "command": "dotnet",
-      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.1", "--yes"]
+      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.2", "--yes"]
     }
   }
 }
@@ -74,7 +74,7 @@ Add the server to a `.mcp.json` next to the solution (or to `%USERPROFILE%\.mcp.
     "farol": {
       "type": "stdio",
       "command": "dotnet",
-      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.1", "--yes"]
+      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.2", "--yes"]
     }
   }
 }
@@ -88,7 +88,7 @@ Not yet validated for the MVP (Claude Code and Visual Studio 2026 are). The same
 
 ### Options
 
-Farol's own options go after `--`, so `dnx` doesn't read them as its own: `"args": ["dnx", "Farol.Mcp@0.1.0-alpha.1", "--yes", "--", "--read-only"]`. The [Configuration](#configuration) table lists them.
+Farol's own options go after `--`, so `dnx` doesn't read them as its own: `"args": ["dnx", "Farol.Mcp@0.1.0-alpha.2", "--yes", "--", "--read-only"]`. The [Configuration](#configuration) table lists them.
 
 ### As a .NET tool
 
@@ -122,7 +122,7 @@ To run a local build instead, point the client at the host assembly:
 | `Farol:BuildTimeoutMinutes` | `--Farol:BuildTimeoutMinutes 30` | `15` | A longer build is stopped with its whole process tree. |
 | `Farol:TestTimeoutMinutes` | `--Farol:TestTimeoutMinutes 30` | `20` | The same, per test project run. |
 
-Settings can also come from `appsettings.json` next to the executable and from environment variables such as `Farol__TrustedPaths__0`.
+Settings can also come from `appsettings.json` next to the executable and from environment variables such as `Farol__TrustedPaths__0`. `--help` prints these options and how a client starts Farol, then exits without starting the server; through `dnx`, it goes after `--` like the others.
 
 **Trust:** loading a solution runs its build logic (MSBuild evaluation, analyzers, source generators), including the code generators a design-time build runs, as Visual Studio does when it opens the solution: one that writes into the source tree, such as a gRPC client with its `OutputDir` there, rewrites those files. Farol only loads solutions, reads paths and writes files inside the root it was started in and `Farol:TrustedPaths`, after resolving `..` and symbolic links; anything else is refused with an error that says how to allow it.
 
@@ -139,7 +139,7 @@ To work on Farol in an IDE, use one that supports .NET 10: Visual Studio 2026 (1
 
 CI builds and tests every push on Windows with Visual Studio 2026. Performance is measured against the spec's targets on Umbraco CMS and DNN Platform: [benchmarks/README.md](benchmarks/README.md). Whether Farol makes Claude Code better at .NET work is measured by an eval suite of 30 tasks run with and without it: [evals/README.md](evals/README.md).
 
-Releasing: [docs/release.md](docs/release.md). Manual smoke tests in Claude Code and Visual Studio 2026: [docs/smoke-tests.md](docs/smoke-tests.md).
+Changes by version: [CHANGELOG.md](CHANGELOG.md). Releasing: [docs/release.md](docs/release.md). Manual smoke tests in Claude Code and Visual Studio 2026: [docs/smoke-tests.md](docs/smoke-tests.md).
 
 ## Architecture
 

@@ -3,6 +3,13 @@
 All notable changes to Farol are recorded in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.1.0-alpha.2] - 2026-10-08
+
+### Added
+
+- `--help` (also `-h`, `-?` and `/?`) prints the version, how an MCP client starts Farol and every option, then exits.
+  It used to start the server, which waited for a client on stdin.
+
 ## [0.1.0-alpha.1] - 2026-10-08
 
 The first alpha.
@@ -25,4 +32,5 @@ The first alpha.
 - A Claude Code plugin: the server, a hook that checks every `.cs` and `.vb` edit, and a .NET Framework modernization
   skill.
 
+[0.1.0-alpha.2]: https://github.com/yuriafp/Farol/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
 [0.1.0-alpha.1]: https://github.com/yuriafp/Farol/releases/tag/v0.1.0-alpha.1
