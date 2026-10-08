@@ -2,7 +2,9 @@
 
 The first exit criterion of [spec 001](../docs/specs/001-mvp.md): 30 tasks, 10 for each job the MVP serves, run three
 times each in Claude Code with Farol and without it. With Farol, the success rate must be **at least 10 points higher**
-and the tokens per task **at least 20% lower** than grep + build.
+and the tokens per task **at least 20% lower** than grep + build. Since grep + build with Sonnet 5.5 solved every one of
+the first 30 tasks, the criterion is measured on [a harder set](#the-harder-set) with Claude Haiku 4.5; the first 30
+stay as a regression set.
 
 ## How a run works
 
@@ -47,7 +49,30 @@ Each task folder holds `prompt.md` (what a developer would ask), `task.json` (re
 good outcome: `reference.md` for answers, `reference.patch` for changes. `validate` proves every task before money is
 spent on it: on an untouched workspace some check fails, and with the reference answer and change every check passes.
 
-Repositories are pinned in [`repos.json`](repos.json); DNN Platform reuses the [benchmark corpus](../benchmarks/README.md).
+Repositories are pinned in [`repos.json`](repos.json); DNN Platform and Umbraco CMS reuse the
+[benchmark corpora](../benchmarks/README.md).
+
+## The harder set
+
+Spec 001's process log (2026-10-05 and 2026-10-06) fixed how this set is chosen before any of its runs:
+
+- **Candidates:** the first 30 tasks plus 35 harder ones. `xm01`–`xm10` and `xg01`–`xg14` run on DNN Platform: the
+  callers of one overload among same-named methods, or the writers of one property. `xu01`–`xu11` run on Umbraco CMS
+  18.2.0: the callers of one overload of a service interface.
+- **Answers:** they come from the compiler. [`oracle.ps1`](oracle.ps1) marks the member `[Obsolete]`, builds the
+  solution and collects the CS0618 and BC40000 warnings. [`new-list-task.ps1`](new-list-task.ps1) writes the task with
+  decoys, files that contain the same text but no use, which a correct answer must not list.
+- **Calibration:** two grep + build runs per candidate on Haiku 4.5, not counted.
+- **Selection:** [`select-calibrated.ps1`](select-calibrated.ps1) takes every candidate that grep + build failed at
+  least once, in task-id order, up to 10 per job.
+- **Measurement:** 3 fresh runs per arm on Haiku 4.5.
+
+The oracle has one known blind spot. The compiler does not warn about an obsolete member used inside code that is itself
+obsolete, so callers in deprecated classes are missing from its answers and can end up as decoys. The
+[results](results/2026-10-07-haiku.md) measure the effect.
+
+Umbraco's repository declares its own MCP servers in `.mcp.json`. They are disabled in both arms through
+`.claude/settings.local.json`, which is kept out of git.
 
 ## Running
 
@@ -63,6 +88,12 @@ dotnet $evals validate                                   # prove the checks (no 
 dotnet $evals run --tasks lm01,md01 --runs 1             # a cheap smoke run
 dotnet $evals run --out artifacts/evals/suite            # the suite: 30 tasks x 2 arms x 3 runs
 dotnet $evals report --out artifacts/evals/suite         # rewrite summary.md
+
+# the harder set: calibrate, select, measure
+$haiku = "claude-haiku-4-5-20251001"
+dotnet $evals run --arms baseline --runs 2 --model $haiku --out artifacts/evals/calibration-haiku
+./evals/select-calibrated.ps1 -Calibration artifacts/evals/calibration-haiku   # ends with "selected: <ids>"
+dotnet $evals run --tasks <ids> --model $haiku --concurrency 4 --out artifacts/evals/suite-haiku
 ```
 
 Options of `run`: `--tasks` (ids or prefixes, comma-separated), `--arms farol,baseline`, `--runs 3`,
@@ -77,3 +108,5 @@ Workspaces live under `%LOCALAPPDATA%\Farol\evals\w` and are removed after each 
 ## Results
 
 - [2026-10-05](results/2026-10-05.md): Sonnet 5.5, 180 runs. Criterion not met: 97% success against 100%, tokens +8%.
+- [2026-10-07](results/2026-10-07-haiku.md): Haiku 4.5 on the harder set, 180 runs. Criterion met: 59% success against
+  28%, tokens −32%.
