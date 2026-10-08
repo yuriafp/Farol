@@ -80,6 +80,8 @@ Add the server to a `.mcp.json` next to the solution (or to `%USERPROFILE%\.mcp.
 }
 ```
 
+Agents that keep their own MCP configuration ignore `.mcp.json`: add Farol to theirs, in the `mcpServers` form shown for Claude Code. Google Antigravity, for example, reads `%USERPROFILE%\.gemini\config\mcp_config.json`.
+
 ### VS Code
 
 Not yet validated for the MVP (Claude Code and Visual Studio 2026 are). The same configuration goes in `.vscode/mcp.json`.
@@ -87,6 +89,10 @@ Not yet validated for the MVP (Claude Code and Visual Studio 2026 are). The same
 ### Options
 
 Farol's own options go after `--`, so `dnx` doesn't read them as its own: `"args": ["dnx", "Farol.Mcp@0.1.0-alpha.1", "--yes", "--", "--read-only"]`. The [Configuration](#configuration) table lists them.
+
+### As a .NET tool
+
+To install Farol once instead of running it through `dnx`, use `dotnet tool install --global Farol.Mcp --prerelease` (and `dotnet tool update` with the same arguments later). The client's command is then `farol`, and Farol's options are its arguments, without the `--`: `"args": ["--read-only"]`.
 
 ### From source
 
