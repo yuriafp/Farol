@@ -46,15 +46,15 @@ Setup: Claude Code with the plugin installed (`/plugin marketplace add yuriafp/F
 | C6 | Edit a non-code file (for example `Legacy.sln` comments) through Claude. | No hook output. |
 | C7 | Run the `modernize` prompt from the slash-command menu. | Claude runs inventory, portability, config inspection and the plan; it changes no file. |
 | C8 | Ask: "What is the API of Newtonsoft.Json 12.0.3's JsonConvert?" | Claude calls `dotnet_package_api` and quotes signatures from that version. |
-| C9 | Start Claude Code with the server in read-only mode (`.mcp.json` with `"--", "--read-only"`) and ask for a build. | `dotnet_build` is refused with an explanation. |
+| C9 | Start Claude Code with the server in read-only mode (`.mcp.json` with `"--", "--read-only"`) and ask for a build with `dotnet_build`. | `dotnet_build` is refused with an explanation. (`--read-only` covers Farol's tools, not the agent's own shell: asked only to "build the solution", the agent may run MSBuild itself.) |
 
 ## Visual Studio 2026
 
-Setup: a `.mcp.json` next to `Legacy.sln` in the copy, as in the README, then open the solution. Use GitHub Copilot Chat in agent mode.
+Setup: a `.mcp.json` next to `Legacy.sln` in the copy, as in the README, then open the solution. Use an agent that supports MCP servers in Visual Studio, such as GitHub Copilot Chat in agent mode, and record which one in the results.
 
 | # | Do | Expect |
 |---|---|---|
-| V1 | Open the tools picker in Copilot Chat. | `farol` is listed with its 18 tools. |
+| V1 | Open the agent's list of tools (the tools picker in Copilot Chat). | `farol` is listed with its 18 tools. |
 | V2 | Ask: "Use dotnet_overview to describe this solution." | The tool runs (after a permission prompt) and the answer matches C2. |
 | V3 | Ask: "Find the references to OrderCalculator.GetTotal with Farol." | Results in C# and VB with path:line, matching C3. |
 | V4 | Edit `OrderCalculator.cs` to introduce a type error, then ask: "Run dotnet_check." | The new error is reported with its path:line, and no pre-existing diagnostic. |
@@ -65,4 +65,4 @@ Setup: a `.mcp.json` next to `Legacy.sln` in the copy, as in the README, then op
 
 | Date | Version | Client and version | Result | Notes |
 |---|---|---|---|---|
-| | | | | |
+| 2026-10-08 | 0.1.0-alpha.1 | Claude Code 2.1.286, headless (`claude -p`), model `claude-haiku-5-5`, the plugin from a local copy (`--plugin-dir`), no other MCP server | C1–C9 pass | Run by Claude at the developer's request, so each UI check was verified through its headless equivalent. **C1:** the init message (`farol` connected, 18 tools, 4 prompts). **C4:** the debug log shows the hook ran `dotnet_check` and blocked with CS0029 right after the edit; Claude reported the errors. **C5:** CS0219 reached Claude as additional context, without blocking. **C6:** the hook's conditions skipped the `.sln` edit. **C7:** invoked as `/mcp__plugin_farol_farol__modernize`; no file changed. **C9:** asked only to build, the agent ran MSBuild through its shell; asked for `dotnet_build`, the tool refused and explained. The package was the release candidate, the same file published to nuget.org, where `dnx` from a clean cache also works. |

@@ -11,7 +11,7 @@ Implements [spec 001](../specs/001-mvp.md) (approved 2026-09-30). Each slice end
 | 4 | Build and test: test fixtures, `build`, `test` (affected tests), long operations as tasks | AC-19 – AC-22 | done (127 tests green) |
 | 5 | Packages: packages.config fixture, `packages`, `package_api` | AC-23, AC-24 | done (151 tests green) |
 | 6 | Legacy: `legacy_inventory`, `config_inspect`, `portability`, `migration_plan` | AC-25 – AC-28 | done (182 tests green) |
-| 7 | Plugin and distribution: Claude Code plugin (skill, hook, prompts), NuGet `McpServer` package, client docs, smoke tests | AC-33, AC-34, AC-36 | done (189 tests green); publishing to nuget.org and the AC-36 manual run are the developer's |
+| 7 | Plugin and distribution: Claude Code plugin (skill, hook, prompts), NuGet `McpServer` package, client docs, smoke tests | AC-33, AC-34, AC-36 | done (189 tests green); `Farol.Mcp` 0.1.0-alpha.1 published on nuget.org (2026-10-08); AC-36: the Claude Code checks pass, the Visual Studio 2026 checks are the developer's |
 | 8 | Evals and benchmarks: CI performance benchmarks, 30-task eval suite (DNN Platform, dotnet/eShop, fixtures) | AC-35, exit criteria | built (211 tests green); AC-35 met in CI on both corpora; exit criterion 1 met with Claude Haiku 4.5 on the harder task set ([results](../../evals/results/2026-10-07-haiku.md)), after Sonnet 5.5 solved the first set with grep + build ([results](../../evals/results/2026-10-05.md)) |
 
 Cross-cutting, checked in every slice: AC-29 (tool conventions), AC-30 (relative paths), AC-31 (clean stdout).
