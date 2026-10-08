@@ -16,6 +16,9 @@ later shadow the published package.
   `claude --plugin-dir <the plugin copy>`. The skill, the hook and the prompts are the plugin as it will ship.
 - **Visual Studio 2026:** put the same `command`, `args` and `env` in the `.mcp.json` next to `Legacy.sln`, under
   `servers`.
+- **An agent that runs the .NET tool** (`"command": "farol"`): run
+  `dotnet tool update --global Farol.Mcp --version <version> --add-source <repository>/artifacts/packages` (`install`
+  the first time). The tool keeps its package in its own store, not in the NuGet cache.
 
 ```json
 {
