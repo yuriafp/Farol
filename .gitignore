@@ -18,3 +18,6 @@ tests/fixtures/**/packages/
 
 # Snapshot test output awaiting review
 *.received.json
+
+# Drafts of the GitHub release pages; CHANGELOG.md is the record
+docs/releases/

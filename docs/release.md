@@ -14,6 +14,8 @@ The version appears in these files, and the test `Every_distribution_file_names_
 
 Breaking changes to tool or prompt names, parameters or annotations need a new major version; the `mcp-surface.json` snapshot test points them out.
 
+Add the version's section to `CHANGELOG.md`, with the release date.
+
 ## 2. Verify
 
 ```bash
@@ -50,6 +52,6 @@ git tag v<version> <commit>
 git push origin v<version>
 ```
 
-Write the GitHub release notes from the plan's slice notes. Claude Code users receive the new plugin version when they update the marketplace (`/plugin marketplace update farol`); the plugin then runs the new server version.
+Create the GitHub release from the tag, with the version's `CHANGELOG.md` section as its notes. Claude Code users receive the new plugin version when they update the marketplace (`/plugin marketplace update farol`); the plugin then runs the new server version.
 
 The MCP Registry listing (`server.json` is ready for it) comes in Phase 2.
