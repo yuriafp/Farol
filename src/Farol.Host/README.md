@@ -33,6 +33,6 @@ Classic .NET Framework projects need Windows with Visual Studio 2022+ or Build T
 - **Packages:** `dotnet_packages` (resolved versions, vulnerable and deprecated packages) and `dotnet_package_api` (the exact API of a package version).
 - **Modernization:** `dotnet_legacy_inventory`, `dotnet_portability`, `dotnet_config_inspect` and `dotnet_migration_plan`.
 
-Options: `--read-only` refuses writing files, building and running tests; `--offline` never touches the network; `--workspace <path>` picks the solution.
+Options, which go after `--` in the `dnx` arguments: `--read-only` refuses writing files, building and running tests; `--offline` never touches the network; `--workspace <path>` picks the solution; `--help` lists them all.
 
 Documentation, source and issues: [github.com/yuriafp/Farol](https://github.com/yuriafp/Farol). License: MIT.

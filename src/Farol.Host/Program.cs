@@ -8,6 +8,13 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Protocol;
 
+// MCP clients never ask for help: a person or an agent checking the install does, so the server does not start.
+if (Usage.IsRequested(args))
+{
+    Console.Out.WriteLine(Usage.Text);
+    return;
+}
+
 args = HostConfiguration.ExpandFlags(args);
 var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
 {

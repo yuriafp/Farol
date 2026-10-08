@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+using Farol.Core.Execution;
 using Farol.Testing;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -7,9 +9,10 @@ namespace Farol.Tools.Tests;
 
 /// <summary>
 /// AC-31 (and Spike B): the real Farol executable over stdio, as Claude Code or Visual Studio launch it.
-/// Any log line written to stdout would corrupt the JSON-RPC stream and fail these tests.
+/// Any log line written to stdout would corrupt the JSON-RPC stream and fail these tests. AC-38: the help it prints
+/// for whoever runs it in a terminal.
 /// </summary>
-public sealed class StdioEndToEndTests(ModernCopyFixture fixture) : IClassFixture<ModernCopyFixture>
+public sealed partial class StdioEndToEndTests(ModernCopyFixture fixture) : IClassFixture<ModernCopyFixture>
 {
     [Fact]
     public async Task AC31_the_host_answers_over_stdio_with_a_clean_stdout()
@@ -61,7 +64,32 @@ public sealed class StdioEndToEndTests(ModernCopyFixture fixture) : IClassFixtur
         Assert.Contains(fixture.Copy.Root.Replace('\\', '/'), Text(outside), StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("--help")]
+    [InlineData("-h")]
+    [InlineData("-?")]
+    [InlineData("/?")]
+    public async Task AC38_help_prints_the_version_and_every_option_and_exits_without_starting_the_server(string help)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var run = await new LocalProcessRunner().RunAsync(
+            new ProcessSpec("dotnet", [HostAssemblyPath(), "--read-only", help], fixture.Copy.Root, TimeSpan.FromMinutes(1)),
+            ct);
+
+        // The server logs to stderr as soon as it starts, so an empty stderr means it never did.
+        Assert.Equal((0, ""), (run.ExitCode, run.StandardError));
+        Assert.StartsWith($"Farol {DistributionTests.Version}:", run.StandardOutput, StringComparison.Ordinal);
+        Assert.Contains($"Farol.Mcp@{DistributionTests.Version}", run.StandardOutput, StringComparison.Ordinal);
+        var documented = ConfigurationSwitch().Matches(await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "README.md"), ct)).Select(m => m.Groups["switch"].Value).ToList();
+        Assert.Contains("--read-only", documented);
+        Assert.All(documented, option => Assert.Contains(option, run.StandardOutput, StringComparison.Ordinal));
+    }
+
     private static string Text(CallToolResult result) => string.Join('\n', result.Content.OfType<TextContentBlock>().Select(t => t.Text));
+
+    // The command-line column of the README's Configuration table.
+    [GeneratedRegex(@"^\| `Farol:\w+` \| `(?<switch>--[^ `]+)", RegexOptions.Multiline)]
+    private static partial Regex ConfigurationSwitch();
 
     // The host is built alongside the tests (see the project reference); run the same configuration.
     private static string HostAssemblyPath()

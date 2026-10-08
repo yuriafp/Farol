@@ -19,7 +19,7 @@ public sealed partial class DistributionTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static string Version => XDocument.Load(Path.Combine(TestPaths.RepoRoot, "Directory.Build.props")).Descendants("Version").Single().Value;
+    internal static string Version => XDocument.Load(Path.Combine(TestPaths.RepoRoot, "Directory.Build.props")).Descendants("Version").Single().Value;
 
     [Fact]
     public async Task Every_distribution_file_names_the_same_version()
