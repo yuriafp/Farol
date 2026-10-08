@@ -4,6 +4,34 @@ AC-36 of [spec 001](specs/001-mvp.md): before each release, a person runs these 
 
 Use the repository's fixtures as the solutions under test: `tests/fixtures/legacy` (classic .NET Framework) and `tests/fixtures/modern` (.NET 10). Work on a copy, since some steps edit files.
 
+## Before the package is published
+
+The setups below run the published package from nuget.org. To check a release candidate instead, pack it first
+(`dotnet pack src/Farol.Host -c Release -o artifacts/packages`, as in [release.md](release.md)) and point the clients
+at that folder with a throwaway NuGet cache. The candidate has the release's version, so in your real cache it would
+later shadow the published package.
+
+- **Claude Code:** instead of installing the plugin from the marketplace, copy `plugins/farol` to a folder outside the
+  fixture copy and replace the copy's `.mcp.json` with the one below. Then start Claude Code in the fixture copy with
+  `claude --plugin-dir <the plugin copy>`. The skill, the hook and the prompts are the plugin as it will ship.
+- **Visual Studio 2026:** put the same `command`, `args` and `env` in the `.mcp.json` next to `Legacy.sln`, under
+  `servers`.
+
+```json
+{
+  "mcpServers": {
+    "farol": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": ["dnx", "Farol.Mcp@<version>", "--yes", "--add-source", "<repository>/artifacts/packages"],
+      "env": { "NUGET_PACKAGES": "<a new, empty folder>" }
+    }
+  }
+}
+```
+
+For C9, append `"--", "--read-only"` to `args`. Delete the throwaway cache folder when you are done.
+
 ## Claude Code
 
 Setup: Claude Code with the plugin installed (`/plugin marketplace add yuriafp/Farol`, then `/plugin install farol@farol`), started in a copy of `tests/fixtures/legacy`.
