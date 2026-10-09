@@ -80,7 +80,7 @@ Add the server to a `.mcp.json` next to the solution (or to `%USERPROFILE%\.mcp.
 }
 ```
 
-Agents that keep their own MCP configuration ignore `.mcp.json`: add Farol to theirs, in the `mcpServers` form shown for Claude Code. Google Antigravity, for example, reads `%USERPROFILE%\.gemini\config\mcp_config.json`.
+Agents that keep their own MCP configuration ignore `.mcp.json`: add Farol to theirs, in the `mcpServers` form shown for Claude Code. Google Antigravity, for example, reads `%USERPROFILE%\.gemini\config\mcp_config.json`, and may start Farol outside the solution's folder, where loading the solution is refused: pass `--root` with the folder that holds your repositories.
 
 ### VS Code
 
