@@ -20,10 +20,12 @@ The two arms differ only by Farol's plugin:
 | Built-in tools | Bash, PowerShell, Read, Edit, Write, Glob, Grep, NotebookEdit, Task (subagents), task list, Skill, ToolSearch | the same |
 | Added | nothing | the Farol plugin: its MCP server (the host built from this repository), its skill and its edit hook |
 
-Nothing of the machine's own configuration reaches either arm: no user settings, installed plugins, MCP servers,
-claude.ai connectors or auto-memory (`--setting-sources project,local`, `ENABLE_CLAUDEAI_MCP_SERVERS=false`,
-`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`), and no session is saved. The session's init message proves it: a run whose MCP
-servers or plugins differ from the arm's is reported and not counted. Web tools are off in both arms, so the tasks
+Nothing of the machine's own configuration reaches either arm: no user settings or instructions, installed plugins,
+MCP servers, claude.ai connectors or auto-memory (`--setting-sources project,local`, `ENABLE_CLAUDEAI_MCP_SERVERS=false`,
+`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, and `claudeMdExcludes` for the user's own `CLAUDE.md` and rules, which
+`--setting-sources` still loads), and no session is saved. The repository's own `CLAUDE.md` files stay: they are part
+of the task. The session's init message shows the MCP servers and plugins: a run whose servers or plugins differ from
+the arm's is reported and not counted. Web tools are off in both arms, so the tasks
 stand on the repository alone. Builds may take minutes in both arms (shell and MCP timeouts are raised alike).
 
 ## What is measured

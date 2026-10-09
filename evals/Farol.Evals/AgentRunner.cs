@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Farol.Evals;
 
@@ -30,8 +31,9 @@ internal sealed record AgentOutcome(
 
 /// <summary>
 /// One headless Claude Code session (claude -p) in a run's workspace. Both arms get the same built-in tools, and nothing
-/// of the machine's own configuration: no user settings, plugins, MCP servers, claude.ai connectors or auto-memory. The
-/// Farol arm adds the plugin (MCP server, skill, hook) and nothing else; the session's init message proves it.
+/// of the machine's own configuration: no user settings or instructions, plugins, MCP servers, claude.ai connectors or
+/// auto-memory. The Farol arm adds the plugin (MCP server, skill, hook) and nothing else; the session's init message
+/// proves it.
 /// </summary>
 internal static class AgentRunner
 {
@@ -58,6 +60,7 @@ internal static class AgentRunner
             "--model", model,
             "--max-turns", task.Definition.MaxTurns.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "--setting-sources", "project,local",
+            "--settings", UserInstructionsExcluded(),
             "--no-session-persistence",
             "--permission-mode", "bypassPermissions",
             "--tools", string.Join(',', Tools),
@@ -124,6 +127,19 @@ internal static class AgentRunner
             transcript.IsolationProblem,
             transcript.RateLimited,
             clock.Elapsed);
+    }
+
+    /// <summary>
+    /// Settings that leave out the user's own instructions, the CLAUDE.md and rules in Claude Code's config folder, which
+    /// <c>--setting-sources project,local</c> still loads. The repository's CLAUDE.md files stay: they are part of the task.
+    /// </summary>
+    private static string UserInstructionsExcluded()
+    {
+        var config = Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR") is { Length: > 0 } custom
+            ? custom
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
+        var folder = Path.GetFullPath(config).Replace('\\', '/').TrimEnd('/');
+        return new JsonObject { ["claudeMdExcludes"] = new JsonArray(folder + "/CLAUDE.md", folder + "/rules/**") }.ToJsonString();
     }
 
     /// <summary>The stream-json transcript, read line by line.</summary>
