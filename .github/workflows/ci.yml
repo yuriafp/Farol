@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Weekly too: the runner image updates Visual Studio, the SDK and MSBuild under unchanged code.
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: read

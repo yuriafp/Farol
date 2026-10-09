@@ -52,6 +52,8 @@ git tag v<version> <commit>
 git push origin v<version>
 ```
 
-Create the GitHub release from the tag, with the version's `CHANGELOG.md` section as its notes. Claude Code users receive the new plugin version when they update the marketplace (`/plugin marketplace update farol`); the plugin then runs the new server version.
+Create the GitHub release from the tag, with the version's `CHANGELOG.md` section as its notes. Publishing it starts the
+Published package workflow, which installs the version the plugin runs from nuget.org and checks it on the fixtures;
+it also runs every week. Claude Code users receive the new plugin version when they update the marketplace (`/plugin marketplace update farol`); the plugin then runs the new server version.
 
 The MCP Registry listing (`server.json` is ready for it) comes in Phase 2.

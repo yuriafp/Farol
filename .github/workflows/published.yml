@@ -1,0 +1,59 @@
+name: Published package
+
+# What users install: the Farol.Mcp version the plugin and the README pin, from nuget.org, checked on the fixtures with
+# the runner's current Visual Studio and SDK. Weekly, after each GitHub release, and when this check changes.
+on:
+  schedule:
+    - cron: '30 5 * * 1'
+  release:
+    types: [published]
+  push:
+    branches: [main]
+    paths: ['.github/workflows/published.yml', 'tests/Farol.Tools.Tests/PublishedPackageTests.cs']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  published:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      DOTNET_NOLOGO: true
+    steps:
+      # main pins only published versions; a release's own tag may predate this check.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Read the version the plugin runs
+        id: pin
+        shell: pwsh
+        run: |
+          $package = (Get-Content plugins/farol/.mcp.json -Raw | ConvertFrom-Json).mcpServers.farol.args | Where-Object { $_ -like 'Farol.Mcp@*' }
+          "version=$($package -replace '^Farol\.Mcp@', '')" >> $env:GITHUB_OUTPUT
+
+      # The plugin and the README's client configurations start it this way.
+      - name: Start it through dnx
+        shell: pwsh
+        run: |
+          $help = dotnet dnx "Farol.Mcp@${{ steps.pin.outputs.version }}" --yes -- --help
+          if ($LASTEXITCODE -ne 0 -or -not ($help | Where-Object { $_.StartsWith("Farol ${{ steps.pin.outputs.version }}:") })) { $help; exit 1 }
+
+      # A short path: Visual Studio's build host for .NET Framework projects, which Farol starts from its install
+      # folder, does not start from a path longer than 260 characters.
+      - name: Install it as a .NET tool
+        run: dotnet tool install Farol.Mcp --version ${{ steps.pin.outputs.version }} --tool-path ${{ runner.temp }}/farol
+
+      - name: Build the tests
+        run: dotnet build tests/Farol.Tools.Tests -c Release
+
+      - name: Test the published package
+        env:
+          FAROL_PUBLISHED_TOOL: ${{ runner.temp }}/farol/farol.exe
+        run: dotnet test --project tests/Farol.Tools.Tests -c Release --no-build --filter-class Farol.Tools.Tests.PublishedPackageTests

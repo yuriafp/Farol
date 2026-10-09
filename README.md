@@ -139,7 +139,7 @@ dotnet test --solution Farol.slnx
 
 To work on Farol in an IDE, use one that supports .NET 10: Visual Studio 2026 (18.0+), VS Code with C# Dev Kit, or a recent Rider. **Visual Studio 2022 cannot open the solution:** the .NET 10 SDK requires MSBuild 18.0, and Visual Studio 2022 ships MSBuild 17.14. Farol can still analyze your solutions with Visual Studio 2022 installed; this only concerns building Farol itself.
 
-CI builds and tests every push on Windows with Visual Studio 2026. Performance is measured against the spec's targets on Umbraco CMS and DNN Platform: [benchmarks/README.md](benchmarks/README.md). Whether Farol makes Claude Code better at .NET work is measured by an eval suite of 30 tasks run with and without it: [evals/README.md](evals/README.md).
+CI builds and tests every push, and once a week, on Windows with Visual Studio 2026. Another workflow installs the published package from nuget.org every week and after each release, and checks it on the fixtures. Performance is measured against the spec's targets on Umbraco CMS and DNN Platform: [benchmarks/README.md](benchmarks/README.md). Whether Farol makes Claude Code better at .NET work is measured by an eval suite of 30 tasks run with and without it: [evals/README.md](evals/README.md).
 
 Changes by version: [CHANGELOG.md](CHANGELOG.md). Releasing: [docs/release.md](docs/release.md). Manual smoke tests in Claude Code and Visual Studio 2026: [docs/smoke-tests.md](docs/smoke-tests.md).
 
