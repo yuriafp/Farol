@@ -1,0 +1,49 @@
+name: Bug report
+description: Something in Farol did not work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you asked for, what Farol answered, and what you expected instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: blocks
+    attributes:
+      label: Does it block your work?
+      description: It blocks when you could not do the task with Farol and found no way around it.
+      options:
+        - "No: I worked around it"
+        - "Yes: I could not do the task with Farol"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Farol version
+      description: The first line of `farol --help`.
+      placeholder: Farol 0.1.0-alpha.3
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: Client
+      placeholder: Claude Code 2.1.286, or Visual Studio 2026 with GitHub Copilot
+  - type: dropdown
+    id: solution
+    attributes:
+      label: Kind of solution
+      options:
+        - Classic .NET Framework projects
+        - SDK-style .NET Framework projects
+        - Modern .NET
+        - A mix
+  - type: textarea
+    id: details
+    attributes:
+      label: Tool call, response and logs
+      description: The tool call and its response, and Farol's stderr if the client keeps it. Leave out anything confidential.
+      render: text
