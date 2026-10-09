@@ -52,7 +52,7 @@ var server = builder.Services
         options.ServerInstructions = ServerInstructions.For(readOnly, offline);
     })
     .WithStdioServerTransport()
-    .WithToolsFromAssembly(ToolsAssembly.Assembly)
+    .WithFarolTools()
     .WithPromptsFromAssembly(ToolsAssembly.Assembly);
 
 if (usage.Enabled)

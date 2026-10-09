@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -6,7 +7,9 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Farol.Core.Execution;
 using Farol.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Client;
+using ModelContextProtocol.Server;
 using Xunit;
 
 namespace Farol.Tools.Tests;
@@ -135,6 +138,73 @@ public sealed partial class DistributionTests
                 $"The MCP surface changed; the new one is in {received}. If the change is intended, replace {Path.GetFileName(snapshot)} with it, " +
                 "and bump the major version when a tool, prompt or parameter was removed or renamed, or a parameter became required.");
         }
+    }
+
+    /// <summary>
+    /// Servers built at the same moment in one process, as the tests build them, list the same tools. AIFunctionFactory
+    /// matches the parameters the SDK binds by <c>ParameterInfo</c> instance, and a method hands different instances to
+    /// threads that ask for its parameters first at the same time: with the SDK's own registration, a server now and then
+    /// listed the progress reporter as a <c>progress</c> argument. Each attempt loads a fresh copy of Farol.Tools, whose
+    /// methods have not handed out their parameters yet.
+    /// </summary>
+    [Fact]
+    public async Task Servers_built_together_list_the_same_tools()
+    {
+        var expected = Assert.Single(await ToolSchemasAsync(ToolsAssembly.Assembly, servers: 1));
+        var image = await File.ReadAllBytesAsync(ToolsAssembly.Assembly.Location, Ct);
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            Assert.All(await ToolSchemasAsync(Assembly.Load(image), servers: 8), actual => Assert.Equal(expected, actual));
+        }
+    }
+
+    /// <summary>
+    /// Creates every tool <c>WithFarolTools</c> registers from <paramref name="tools"/> once per server, each tool on all the
+    /// servers' threads at the same moment, and returns the input schemas each server got.
+    /// </summary>
+    private static async Task<string[]> ToolSchemasAsync(Assembly tools, int servers)
+    {
+        var services = new ServiceCollection();
+        tools.GetType(typeof(ToolsMcpServerBuilderExtensions).FullName!, throwOnError: true)!
+            .GetMethod(nameof(ToolsMcpServerBuilderExtensions.WithFarolTools))!
+            .Invoke(null, [services.AddMcpServer()]);
+        var factories = services.Where(s => s.ServiceType == typeof(McpServerTool)).Select(s => s.ImplementationFactory!).ToList();
+        using var provider = services.BuildServiceProvider();
+
+        // The threads spin between tools instead of blocking, so they reach each tool method within microseconds of
+        // each other; one that fails still arrives at the tools it did not reach, so the others never wait for it.
+        var arrivals = 0;
+        return await Task.WhenAll(Enumerable.Range(0, servers).Select(_ => Task.Factory.StartNew(
+            () =>
+            {
+                var schemas = new List<string>();
+                var reached = 0;
+                try
+                {
+                    foreach (var create in factories)
+                    {
+                        reached++;
+                        Interlocked.Increment(ref arrivals);
+                        var spinner = default(SpinWait);
+                        while (Volatile.Read(ref arrivals) < servers * reached)
+                        {
+                            spinner.SpinOnce(sleep1Threshold: -1);
+                        }
+
+                        var tool = (McpServerTool)create(provider);
+                        schemas.Add($"{tool.ProtocolTool.Name} {tool.ProtocolTool.InputSchema.GetRawText()}");
+                    }
+                }
+                finally
+                {
+                    Interlocked.Add(ref arrivals, factories.Count - reached);
+                }
+
+                return string.Join('\n', schemas.Order(StringComparer.Ordinal));
+            },
+            Ct,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default)));
     }
 
     private static JsonNode Describe(McpClientTool tool)
