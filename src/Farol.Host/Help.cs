@@ -1,7 +1,7 @@
 namespace Farol.Host;
 
 /// <summary>What <c>farol --help</c> prints, for whoever runs Farol in a terminal to check the install.</summary>
-internal static class Usage
+internal static class Help
 {
     private static readonly HashSet<string> Switches = new(StringComparer.OrdinalIgnoreCase) { "--help", "-h", "-?", "/?" };
 
@@ -32,13 +32,20 @@ internal static class Usage
           --autoload false                 Don't start loading the solution at startup.
           --read-only                      Refuse writing files, building and running tests.
           --offline                        Never touch the network.
+          --usage-log                      Keep a usage log on this machine, without code, arguments,
+                                           paths or names. Off by default; see --usage-report.
+          --Farol:UsageLogDirectory <dir>  Where the usage log goes. Default: Farol/usage in the local
+                                           application data folder.
           --Farol:TrustedPaths:0 <dir>     More directories whose solutions may be loaded and whose files
                                            may be read or written (:1, :2 and so on for more).
           --Farol:BuildTimeoutMinutes <n>  Stop a longer build with its whole process tree. Default: 15.
           --Farol:TestTimeoutMinutes <n>   The same, per test project run. Default: 20.
           -h, --help                       Show this help.
 
-        Settings can also come from environment variables, such as Farol__ReadOnly=true, and from
+        Commands:
+          --usage-report [--days N]        Sum up the usage log of the last N days (default 14) and exit.
+
+        Settings can also come from environment variables, such as Farol__UsageLog=true, and from
         appsettings.json next to the executable. Documentation: https://github.com/yuriafp/Farol
         """;
 }

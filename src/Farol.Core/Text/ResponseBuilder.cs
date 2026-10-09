@@ -1,4 +1,5 @@
 using System.Text;
+using Farol.Core.Usage;
 
 namespace Farol.Core.Text;
 
@@ -35,7 +36,7 @@ public sealed class ResponseBuilder
         ArgumentNullException.ThrowIfNull(line);
         if (_text.Length + line.Length + 1 > _maxChars - TruncationReserve)
         {
-            Truncated = true;
+            MarkTruncated();
             return false;
         }
 
@@ -48,11 +49,17 @@ public sealed class ResponseBuilder
     {
         if (omitted > 0)
         {
-            Truncated = true;
+            MarkTruncated();
             Line(hint is null ? $"- … {omitted} more" : $"- … {omitted} more ({hint})");
         }
 
         return this;
+    }
+
+    private void MarkTruncated()
+    {
+        Truncated = true;
+        ToolCallOutcome.Current?.MarkCut();
     }
 
     /// <summary>

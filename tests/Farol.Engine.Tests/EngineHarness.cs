@@ -1,3 +1,4 @@
+using Farol.Core.Usage;
 using Farol.Engine.Toolchain;
 using Farol.Engine.Workspaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,9 +19,10 @@ internal sealed class EngineHarness : IAsyncDisposable
 
     public ToolchainProbe Toolchain => _services.GetRequiredService<ToolchainProbe>();
 
-    public static EngineHarness Create(string rootDirectory) =>
+    public static EngineHarness Create(string rootDirectory, IUsageLog? usage = null) =>
         new(new ServiceCollection()
             .AddLogging()
+            .AddSingleton(usage ?? NullUsageLog.Instance)
             .AddFarolEngine(o =>
             {
                 o.RootDirectory = rootDirectory;

@@ -14,10 +14,11 @@ internal static class HostConfiguration
         ["--autoload"] = $"{Section}:AutoLoad",
         ["--read-only"] = $"{Section}:ReadOnly",
         ["--offline"] = $"{Section}:Offline",
+        ["--usage-log"] = $"{Section}:UsageLog",
     };
 
     // Switches that may be passed bare: "--read-only" means "--read-only true".
-    private static readonly HashSet<string> Flags = new(StringComparer.OrdinalIgnoreCase) { "--read-only", "--autoload", "--offline" };
+    private static readonly HashSet<string> Flags = new(StringComparer.OrdinalIgnoreCase) { "--read-only", "--autoload", "--offline", "--usage-log" };
 
     public static string Version { get; } =
         typeof(HostConfiguration).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]

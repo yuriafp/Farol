@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Farol.Core.Paths;
+using Farol.Core.Usage;
 using Farol.Engine.Loading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -11,7 +12,7 @@ namespace Farol.Engine.Workspaces;
 /// workspace explicitly (or rely on the default), which keeps state out of the protocol session and
 /// lets a future HTTP gateway route calls by workspace.
 /// </summary>
-public sealed class WorkspaceManager(MSBuildWorkspaceLoader loader, PathSandbox paths, IOptions<FarolEngineOptions> options, ILoggerFactory loggerFactory) : IAsyncDisposable
+public sealed class WorkspaceManager(MSBuildWorkspaceLoader loader, PathSandbox paths, IOptions<FarolEngineOptions> options, ILoggerFactory loggerFactory, IUsageLog usage) : IAsyncDisposable
 {
     private readonly ConcurrentDictionary<string, WorkspaceSession> _sessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly FarolEngineOptions _options = options.Value;
@@ -37,7 +38,7 @@ public sealed class WorkspaceManager(MSBuildWorkspaceLoader loader, PathSandbox 
         paths.Demand(target.Path, $"Workspace '{target.DisplayName}'");
         return _sessions.GetOrAdd(
             target.Path,
-            _ => new WorkspaceSession(target, loader, _options.MSBuildProperties.AsReadOnly(), loggerFactory.CreateLogger<WorkspaceSession>()));
+            _ => new WorkspaceSession(target, loader, _options.MSBuildProperties.AsReadOnly(), loggerFactory.CreateLogger<WorkspaceSession>(), usage));
     }
 
     public async ValueTask DisposeAsync()

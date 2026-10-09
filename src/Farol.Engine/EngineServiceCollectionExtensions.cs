@@ -1,6 +1,7 @@
 using Farol.Core;
 using Farol.Core.Execution;
 using Farol.Core.Paths;
+using Farol.Core.Usage;
 using Farol.Engine.Building;
 using Farol.Engine.Loading;
 using Farol.Engine.Packages;
@@ -25,8 +26,9 @@ public static class EngineServiceCollectionExtensions
 
         options.PostConfigure(o => o.RootDirectory = Path.GetFullPath(o.RootDirectory));
 
-        // Hosts may replace the runner (e.g. a sandboxed runner on a shared server).
+        // Hosts may replace the runner (e.g. a sandboxed runner on a shared server), and turn the usage log on.
         services.TryAddSingleton<IProcessRunner, LocalProcessRunner>();
+        services.TryAddSingleton<IUsageLog>(NullUsageLog.Instance);
         services.AddSingleton(sp =>
         {
             var o = sp.GetRequiredService<IOptions<FarolEngineOptions>>().Value;

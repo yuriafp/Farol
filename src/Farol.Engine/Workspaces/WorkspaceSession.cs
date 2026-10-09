@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text;
 using Farol.Core;
+using Farol.Core.Usage;
 using Farol.Engine.Loading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
@@ -29,6 +30,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     private readonly MSBuildWorkspaceLoader _loader;
     private readonly IReadOnlyDictionary<string, string> _properties;
     private readonly ILogger _logger;
+    private readonly IUsageLog _usage;
     private readonly Lock _gate = new();
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
@@ -45,12 +47,13 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     private DateTimeOffset _warmupStartedAt;
     private long _warmedInTicks = -1;
 
-    internal WorkspaceSession(WorkspaceTarget target, MSBuildWorkspaceLoader loader, IReadOnlyDictionary<string, string> properties, ILogger logger)
+    internal WorkspaceSession(WorkspaceTarget target, MSBuildWorkspaceLoader loader, IReadOnlyDictionary<string, string> properties, ILogger logger, IUsageLog usage)
     {
         Target = target;
         _loader = loader;
         _properties = properties;
         _logger = logger;
+        _usage = usage;
     }
 
     public WorkspaceTarget Target { get; }
@@ -225,6 +228,8 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
                 _warmedInTicks = -1;
                 _warmup = Task.Run(() => WarmAsync(loaded.Solution, cancellationToken), CancellationToken.None);
             }
+
+            RecordUsage(UsageEventKind.Load, loaded.Report.Elapsed, loaded.Report);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -236,6 +241,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         {
             Volatile.Write(ref _failure, ex);
             LogLoadFailed(_logger, ex, Target.Path);
+            RecordUsage(UsageEventKind.Load, LoadingFor, error: ex);
         }
     }
 
@@ -247,6 +253,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
             await WorkspaceWarmup.RunAsync(solution, cancellationToken);
             Volatile.Write(ref _warmedInTicks, clock.Elapsed.Ticks);
             LogWarm(_logger, Target.Path, clock.Elapsed.TotalSeconds);
+            RecordUsage(UsageEventKind.Warm, clock.Elapsed);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -257,7 +264,30 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
 #pragma warning restore CA1031
         {
             LogWarmFailed(_logger, ex, Target.Path);
+            RecordUsage(UsageEventKind.Warm, clock.Elapsed, error: ex);
         }
+    }
+
+    /// <summary>A load or warm-up for the usage log: the workspace only as a hash of its file name.</summary>
+    private void RecordUsage(string kind, TimeSpan elapsed, LoadReport? report = null, Exception? error = null)
+    {
+        if (!_usage.Enabled)
+        {
+            return;
+        }
+
+        _usage.Write(new UsageEvent
+        {
+            Kind = kind,
+            Workspace = UsageEvent.HashName(Target.Path),
+            Outcome = error is null ? UsageOutcome.Ok : UsageOutcome.Error,
+            Error = error is null ? null : (error as FarolException)?.Code ?? ErrorCodes.Unexpected,
+            Exception = error is null or FarolException ? null : error.GetType().Name,
+            Ms = (long)elapsed.TotalMilliseconds,
+            Projects = report?.ProjectFiles,
+            LoadErrors = report?.Issues.Count(i => i.Severity == "error"),
+            LoadWarnings = report?.Issues.Count(i => i.Severity == "warning"),
+        });
     }
 
     private WorkspaceWatcher? StartWatcher(ProjectCatalog projects)
