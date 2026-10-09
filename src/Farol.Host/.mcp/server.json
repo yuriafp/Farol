@@ -2,13 +2,13 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
   "name": "io.github.yuriafp/farol",
   "description": "Compiler-accurate C#/VB code intelligence for AI agents, from .NET Framework to modern .NET.",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "packages": [
     {
       "registryType": "nuget",
       "registryBaseUrl": "https://api.nuget.org",
       "identifier": "Farol.Mcp",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "transport": {
         "type": "stdio"
       },

@@ -3,7 +3,7 @@
     "farol": {
       "type": "stdio",
       "command": "dotnet",
-      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.2", "--yes"]
+      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.3", "--yes"]
     }
   }
 }

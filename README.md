@@ -4,7 +4,7 @@
 
 Farol is an open-source [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI coding agents (Claude Code, GitHub Copilot, Cursor, Codex) compiler-accurate understanding of C# and VB.NET solutions, including the legacy ones other tools skip: classic `.csproj`/`.vbproj`, `packages.config`, WebForms, WCF, ASMX, WinForms and WPF.
 
-**Status:** alpha, [`Farol.Mcp` 0.1.0-alpha.2](https://www.nuget.org/packages/Farol.Mcp/0.1.0-alpha.2) on NuGet. Phase 1 is in progress: all 18 tools are done (workspace, navigation, markup references, edit verification, build and test, packages, legacy modernization), and so are the Claude Code plugin and the performance benchmarks, which meet the spec's targets. The eval suite meets the first exit criterion with Claude Haiku 4.5 on a harder task set, 59% success against 28% for grep + build with 32% fewer tokens ([results](evals/results/2026-10-07-haiku.md)); with Sonnet 5.5, grep + build had already solved every task of the first set ([results](evals/results/2026-10-05.md)). Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
+**Status:** alpha, [`Farol.Mcp` 0.1.0-alpha.3](https://www.nuget.org/packages/Farol.Mcp/0.1.0-alpha.3) on NuGet. Phase 1 is in progress: all 18 tools are done (workspace, navigation, markup references, edit verification, build and test, packages, legacy modernization), and so are the Claude Code plugin and the performance benchmarks, which meet the spec's targets. The eval suite meets the first exit criterion with Claude Haiku 4.5 on a harder task set, 59% success against 28% for grep + build with 32% fewer tokens ([results](evals/results/2026-10-07-haiku.md)); with Sonnet 5.5, grep + build had already solved every task of the first set ([results](evals/results/2026-10-05.md)). Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
 
 ## Tools
 
@@ -58,7 +58,7 @@ To add only the server, without the skill and the hook, put this in the `.mcp.js
   "mcpServers": {
     "farol": {
       "command": "dotnet",
-      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.2", "--yes"]
+      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.3", "--yes"]
     }
   }
 }
@@ -74,7 +74,7 @@ Add the server to a `.mcp.json` next to the solution (or to `%USERPROFILE%\.mcp.
     "farol": {
       "type": "stdio",
       "command": "dotnet",
-      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.2", "--yes"]
+      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.3", "--yes"]
     }
   }
 }
@@ -88,7 +88,7 @@ Not yet validated for the MVP (Claude Code and Visual Studio 2026 are). The same
 
 ### Options
 
-Farol's own options go after `--`, so `dnx` doesn't read them as its own: `"args": ["dnx", "Farol.Mcp@0.1.0-alpha.2", "--yes", "--", "--read-only"]`. The [Configuration](#configuration) table lists them.
+Farol's own options go after `--`, so `dnx` doesn't read them as its own: `"args": ["dnx", "Farol.Mcp@0.1.0-alpha.3", "--yes", "--", "--read-only"]`. The [Configuration](#configuration) table lists them.
 
 ### As a .NET tool
 
@@ -118,11 +118,13 @@ To run a local build instead, point the client at the host assembly:
 | `Farol:AutoLoad` | `--autoload false` | `true` | Start loading the default workspace at startup. |
 | `Farol:ReadOnly` | `--read-only` | `false` | Refuse writing files, building and running tests; tools explain the refusal. |
 | `Farol:Offline` | `--offline` | `false` | Never touch the network: `dotnet_packages` reports the vulnerabilities the last restore recorded, and `dotnet_package_api` reads only packages already in the local NuGet caches. |
+| `Farol:UsageLog` | `--usage-log` | `false` | Keep a usage log on this machine: one JSON line per session, workspace load and tool call, with durations and error codes but no code, arguments, paths or names (a solution appears as a hash of its file name). |
+| `Farol:UsageLogDirectory` | `--Farol:UsageLogDirectory <dir>` | `Farol/usage` in the local application data folder | Where the usage log goes. Files older than 30 days are deleted. |
 | `Farol:TrustedPaths` | `--Farol:TrustedPaths:0 <dir>` | none | More directories whose solutions may be loaded and whose files may be read or written. |
 | `Farol:BuildTimeoutMinutes` | `--Farol:BuildTimeoutMinutes 30` | `15` | A longer build is stopped with its whole process tree. |
 | `Farol:TestTimeoutMinutes` | `--Farol:TestTimeoutMinutes 30` | `20` | The same, per test project run. |
 
-Settings can also come from `appsettings.json` next to the executable and from environment variables such as `Farol__TrustedPaths__0`. `--help` prints these options and how a client starts Farol, then exits without starting the server; through `dnx`, it goes after `--` like the others.
+Settings can also come from `appsettings.json` next to the executable and from environment variables such as `Farol__TrustedPaths__0`. `--help` prints these options and how a client starts Farol, then exits without starting the server; through `dnx`, it goes after `--` like the others. `--usage-report` (`--days N`, default 14) sums the usage log up the same way: the days with use, each tool's calls, errors and p50/p95 durations, the errors by code and the loads per solution. Nothing leaves the machine unless you share the report.
 
 **Trust:** loading a solution runs its build logic (MSBuild evaluation, analyzers, source generators), including the code generators a design-time build runs, as Visual Studio does when it opens the solution: one that writes into the source tree, such as a gRPC client with its `OutputDir` there, rewrites those files. Farol only loads solutions, reads paths and writes files inside the root it was started in and `Farol:TrustedPaths`, after resolving `..` and symbolic links; anything else is refused with an error that says how to allow it.
 

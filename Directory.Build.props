@@ -17,7 +17,7 @@
   <PropertyGroup Label="Package metadata">
     <!-- One version for the package, the server it reports and the Claude Code plugin; the release checklist
          (docs/release.md) lists every file that repeats it, and a test keeps them equal. -->
-    <Version>0.1.0-alpha.2</Version>
+    <Version>0.1.0-alpha.3</Version>
     <Authors>Farol contributors</Authors>
     <Copyright>Copyright (c) 2026 Farol contributors</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

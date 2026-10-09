@@ -14,7 +14,7 @@ With the .NET 10 SDK installed, any MCP client can start Farol from NuGet with `
     "farol": {
       "type": "stdio",
       "command": "dotnet",
-      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.2", "--yes"]
+      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.3", "--yes"]
     }
   }
 }
@@ -33,6 +33,6 @@ Classic .NET Framework projects need Windows with Visual Studio 2022+ or Build T
 - **Packages:** `dotnet_packages` (resolved versions, vulnerable and deprecated packages) and `dotnet_package_api` (the exact API of a package version).
 - **Modernization:** `dotnet_legacy_inventory`, `dotnet_portability`, `dotnet_config_inspect` and `dotnet_migration_plan`.
 
-Options, which go after `--` in the `dnx` arguments: `--read-only` refuses writing files, building and running tests; `--offline` never touches the network; `--workspace <path>` picks the solution; `--help` lists them all.
+Options, which go after `--` in the `dnx` arguments: `--read-only` refuses writing files, building and running tests; `--offline` never touches the network; `--workspace <path>` picks the solution; `--usage-log` keeps a usage log on the machine, which `--usage-report` sums up; `--help` lists them all.
 
 Documentation, source and issues: [github.com/yuriafp/Farol](https://github.com/yuriafp/Farol). License: MIT.

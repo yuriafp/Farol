@@ -3,6 +3,17 @@
 All notable changes to Farol are recorded in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.1.0-alpha.3] - 2026-10-09
+
+### Added
+
+- An opt-in usage log that stays on the machine: `--usage-log`, or `Farol__UsageLog=true` in the environment. It keeps
+  one JSON line per session, workspace load and warm-up, and tool call, with durations, outcomes and error codes, and
+  never code, arguments, paths or names: a solution appears as a hash of its file name. `Farol:UsageLogDirectory` sets
+  where it goes, and files older than 30 days are deleted.
+- `--usage-report [--days N]` sums the usage log up: the days with use, each tool's calls, errors and p50/p95
+  durations, the errors by code and the loads per solution.
+
 ## [0.1.0-alpha.2] - 2026-10-08
 
 ### Added
@@ -32,5 +43,6 @@ The first alpha.
 - A Claude Code plugin: the server, a hook that checks every `.cs` and `.vb` edit, and a .NET Framework modernization
   skill.
 
+[0.1.0-alpha.3]: https://github.com/yuriafp/Farol/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
 [0.1.0-alpha.2]: https://github.com/yuriafp/Farol/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
 [0.1.0-alpha.1]: https://github.com/yuriafp/Farol/releases/tag/v0.1.0-alpha.1
