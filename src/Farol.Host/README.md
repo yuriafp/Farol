@@ -14,7 +14,7 @@ With the .NET 10 SDK installed, any MCP client can start Farol from NuGet with `
     "farol": {
       "type": "stdio",
       "command": "dotnet",
-      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.3", "--yes"]
+      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.4", "--yes"]
     }
   }
 }
