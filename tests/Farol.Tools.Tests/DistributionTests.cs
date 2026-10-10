@@ -86,6 +86,7 @@ public sealed partial class DistributionTests
                     Name = "farol",
                     Command = "dotnet",
                     Arguments = [Path.Combine(tool, "Farol.Host.dll"), "--root", TestPaths.ModernDirectory, "--autoload", "false"],
+                    EnvironmentVariables = ServerEnvironment.WithoutUsageLog(),
                 }),
                 cancellationToken: Ct);
             Assert.Equal(("farol", Version), (client.ServerInfo.Name, client.ServerInfo.Version));

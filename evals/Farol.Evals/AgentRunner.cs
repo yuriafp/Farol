@@ -79,6 +79,11 @@ internal static class AgentRunner
         start.Environment["MCP_TOOL_TIMEOUT"] = "1800000";
         // Pinned commits predate advisories that would fail their restore; the same for both arms.
         start.Environment["NuGetAudit"] = "false";
+        // The developer's usage log (Farol__UsageLog) records their real use: eval runs stay out of it.
+        foreach (var name in start.Environment.Keys.Where(k => k.StartsWith("Farol__UsageLog", StringComparison.OrdinalIgnoreCase)).ToList())
+        {
+            start.Environment.Remove(name);
+        }
 
         var clock = Stopwatch.StartNew();
         var transcript = new Transcript(plugin is not null);

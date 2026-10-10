@@ -25,6 +25,7 @@ public sealed partial class StdioEndToEndTests(ModernCopyFixture fixture) : ICla
             Name = "farol",
             Command = "dotnet",
             Arguments = [HostAssemblyPath(), "--root", fixture.Copy.Root, "--autoload", "true"],
+            EnvironmentVariables = ServerEnvironment.WithoutUsageLog(),
         });
         await using var client = await McpClient.CreateAsync(transport, cancellationToken: ct);
 
@@ -49,6 +50,7 @@ public sealed partial class StdioEndToEndTests(ModernCopyFixture fixture) : ICla
             Name = "farol",
             Command = "dotnet",
             Arguments = [HostAssemblyPath(), "--read-only", "--offline", "--root", fixture.Copy.Root, "--autoload", "false"],
+            EnvironmentVariables = ServerEnvironment.WithoutUsageLog(),
         });
         await using var client = await McpClient.CreateAsync(transport, cancellationToken: ct);
 
@@ -152,6 +154,7 @@ public sealed partial class StdioEndToEndTests(ModernCopyFixture fixture) : ICla
                 Name = "farol",
                 Command = "dotnet",
                 Arguments = [HostAssemblyPath(), "--root", fixture.Copy.Root, "--autoload", "false", .. options],
+                EnvironmentVariables = ServerEnvironment.WithoutUsageLog(),
             }),
             new McpClientOptions { ClientInfo = new Implementation { Name = "farol-tests", Version = "1.2.3" } },
             cancellationToken: ct);

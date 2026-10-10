@@ -100,7 +100,13 @@ public sealed class PublishedPackageTests
 
     private static async Task<McpClient> StartAsync(string root, string[] options) =>
         await McpClient.CreateAsync(
-            new StdioClientTransport(new StdioClientTransportOptions { Name = "farol", Command = Tool!, Arguments = ["--root", root, .. options] }),
+            new StdioClientTransport(new StdioClientTransportOptions
+            {
+                Name = "farol",
+                Command = Tool!,
+                Arguments = ["--root", root, .. options],
+                EnvironmentVariables = ServerEnvironment.WithoutUsageLog(),
+            }),
             new McpClientOptions { ClientInfo = new Implementation { Name = "farol-published-check", Version = "1.0" } },
             cancellationToken: Ct);
 
