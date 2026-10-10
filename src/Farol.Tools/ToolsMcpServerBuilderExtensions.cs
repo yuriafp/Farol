@@ -1,3 +1,4 @@
+using Farol.Tools.Infrastructure;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol;
@@ -22,8 +23,8 @@ public static class ToolsMcpServerBuilderExtensions
 
     /// <summary>
     /// Adds the <see cref="McpServerToolAttribute"/> methods of this assembly's <see cref="McpServerToolTypeAttribute"/>
-    /// types, as the SDK's <c>WithToolsFromAssembly</c> does but with <see cref="SchemaOptions"/>. Each call creates the
-    /// tool's type with the services its constructor takes.
+    /// types, as the SDK's <c>WithToolsFromAssembly</c> does but with <see cref="SchemaOptions"/>, each behind an
+    /// <see cref="ArgumentCheck"/>. Each call creates the tool's type with the services its constructor takes.
     /// </summary>
     public static IMcpServerBuilder WithFarolTools(this IMcpServerBuilder builder)
     {
@@ -31,10 +32,10 @@ public static class ToolsMcpServerBuilderExtensions
         {
             foreach (var method in type.GetMethods().Where(m => m.IsDefined(typeof(McpServerToolAttribute), inherit: false)))
             {
-                builder.Services.AddSingleton(services => McpServerTool.Create(
+                builder.Services.AddSingleton<McpServerTool>(services => new ArgumentCheck(McpServerTool.Create(
                     method,
                     request => ActivatorUtilities.CreateInstance(request.Services!, type),
-                    new McpServerToolCreateOptions { Services = services, SchemaCreateOptions = SchemaOptions }));
+                    new McpServerToolCreateOptions { Services = services, SchemaCreateOptions = SchemaOptions })));
             }
         }
 

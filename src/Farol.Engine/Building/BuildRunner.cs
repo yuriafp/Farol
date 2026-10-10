@@ -28,16 +28,55 @@ public sealed partial class BuildRunner(IProcessRunner runner, ToolchainProbe to
     public async Task<BuildResult> BuildAsync(
         WorkspaceSnapshot snapshot, WorkspaceTarget target, string? projectFile, string configuration, IProgress<string>? progress, CancellationToken cancellationToken)
     {
-        using var turn = await AcquireAsync(target, cancellationToken);
+        using var turn = await AcquireAsync(target, progress, cancellationToken);
         return await BuildCoreAsync(snapshot, target, projectFile, configuration, progress, cancellationToken);
     }
 
-    /// <summary>Two MSBuild processes writing the same obj/ folders fail: one build or test run per workspace at a time.</summary>
-    internal async Task<IDisposable> AcquireAsync(WorkspaceTarget target, CancellationToken cancellationToken)
+    /// <summary>
+    /// Two MSBuild processes writing the same obj/ folders fail: one build or test run per workspace at a time, across
+    /// Farol processes too, as when two clients work on the same repository.
+    /// </summary>
+    internal async Task<IDisposable> AcquireAsync(WorkspaceTarget target, IProgress<string>? progress, CancellationToken cancellationToken)
     {
         var gate = _gates.GetOrAdd(target.Path, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken);
-        return new Turn(gate);
+        try
+        {
+            return new Turn(gate, await HoldTurnFileAsync(target, progress, cancellationToken));
+        }
+        catch
+        {
+            gate.Release();
+            throw;
+        }
+    }
+
+    /// <summary>The file a Farol process holds open while it builds or tests the workspace.</summary>
+    public static string TurnFile(string workspacePath) => Path.Combine(ArtifactDirectory.For("builds", workspacePath), "turn.lock");
+
+    // The system lets the file go when its holder exits, crashed or not, so a turn is never left taken.
+    private async Task<FileStream> HoldTurnFileAsync(WorkspaceTarget target, IProgress<string>? progress, CancellationToken cancellationToken)
+    {
+        var path = TurnFile(target.Path);
+        var waiting = false;
+        while (true)
+        {
+            try
+            {
+                return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException) when (File.Exists(path))
+            {
+                if (!waiting)
+                {
+                    waiting = true;
+                    progress?.Report("waiting for another Farol process that is building or testing this workspace");
+                    LogWaiting(logger, target.Path);
+                }
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
+        }
     }
 
     /// <summary>Builds without taking the workspace's turn: the caller holds it.</summary>
@@ -154,7 +193,10 @@ public sealed partial class BuildRunner(IProcessRunner runner, ToolchainProbe to
 
     private sealed record BuildCommand(string FileName, IReadOnlyList<string> Arguments, string WorkingDirectory, string Toolchain, string Path, string BinaryLog);
 
-    private sealed class Turn(SemaphoreSlim gate) : IDisposable
+    [LoggerMessage(Level = LogLevel.Information, Message = "Waiting for another Farol process that is building or testing {Path}")]
+    private static partial void LogWaiting(ILogger logger, string path);
+
+    private sealed class Turn(SemaphoreSlim gate, FileStream turnFile) : IDisposable
     {
         private int _released;
 
@@ -162,6 +204,7 @@ public sealed partial class BuildRunner(IProcessRunner runner, ToolchainProbe to
         {
             if (Interlocked.Exchange(ref _released, 1) == 0)
             {
+                turnFile.Dispose();
                 gate.Release();
             }
         }

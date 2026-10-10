@@ -141,17 +141,40 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
                     "Retry shortly, or call dotnet_workspace with action='load' to wait for it.");
             }
 
-            await loading.WaitAsync(cancellationToken);
-            if (CurrentSnapshot is null)
+            if ((await LoadedAsync(loading, cancellationToken)).Failure is { } failure)
             {
                 throw new FarolException(
                     ErrorCodes.WorkspaceLoadFailed,
-                    $"Workspace '{Target.DisplayName}' failed to load: {FailureMessage}",
+                    $"Workspace '{Target.DisplayName}' failed to load: {failure.Message}",
                     "Fix the cause, then call dotnet_workspace with action='reload'.");
             }
         }
 
         return await RefreshAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Waits for a load and returns its snapshot, or its failure. A reload can discard the snapshot before this request
+    /// reads it; the request then waits for the new load rather than report a failure that did not happen.
+    /// </summary>
+    private async Task<(WorkspaceSnapshot? Snapshot, Exception? Failure)> LoadedAsync(Task loading, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            await loading.WaitAsync(cancellationToken);
+            if (CurrentSnapshot is { } snapshot)
+            {
+                return (snapshot, null);
+            }
+
+            if (Volatile.Read(ref _failure) is { } failure)
+            {
+                return (null, failure);
+            }
+
+            ObjectDisposedException.ThrowIf(_lifetime.IsCancellationRequested, this);
+            loading = StartLoading();
+        }
     }
 
     public async Task<Solution> GetSolutionAsync(bool wait, CancellationToken cancellationToken) =>
@@ -366,10 +389,10 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         if (changes.ReloadRequired)
         {
             LogReloading(_logger, Target.Path);
-            await ReloadAsync().WaitAsync(cancellationToken);
-            return CurrentSnapshot ?? throw new FarolException(
+            var (reloaded, failure) = await LoadedAsync(ReloadAsync(), cancellationToken);
+            return reloaded ?? throw new FarolException(
                 ErrorCodes.WorkspaceLoadFailed,
-                $"Workspace '{Target.DisplayName}' failed to reload after project changes: {FailureMessage}",
+                $"Workspace '{Target.DisplayName}' failed to reload after project changes: {failure?.Message}",
                 "Fix the project files, then call dotnet_workspace with action='reload'.");
         }
 

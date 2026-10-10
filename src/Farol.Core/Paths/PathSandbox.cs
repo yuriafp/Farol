@@ -38,19 +38,36 @@ public sealed class PathSandbox
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var given = path.Trim();
-        var fullPath = Path.GetFullPath(given, Root);
-        if (fallbackDirectory is not null && !Path.IsPathRooted(given) && !Path.Exists(fullPath))
+        string fullPath;
+        try
         {
-            var alternative = Path.GetFullPath(given, fallbackDirectory);
-            if (Contains(alternative) && Path.Exists(alternative))
+            fullPath = Path.GetFullPath(given, Root);
+            if (fallbackDirectory is not null && !Path.IsPathRooted(given) && !Path.Exists(fullPath))
             {
-                fullPath = alternative;
+                var alternative = Path.GetFullPath(given, fallbackDirectory);
+                if (Contains(alternative) && Path.Exists(alternative))
+                {
+                    fullPath = alternative;
+                }
             }
+        }
+        catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
+        {
+            throw new FarolException(
+                ErrorCodes.InvalidArgument,
+                given.Contains('\0', StringComparison.Ordinal)
+                    ? $"Path '{Echo(given)}' contains a null character."
+                    : $"Path '{Echo(given)}' ({given.Length} characters) is not a path the file system accepts.",
+                "Pass a file or folder path, relative to the root as responses write paths, or absolute.");
         }
 
         Demand(fullPath, $"Path '{given}'");
         return fullPath;
     }
+
+    // A path that is not one can be anything (megabytes, binary): the error quotes only its start.
+    private static string Echo(string given) =>
+        (given.Length > 60 ? given[..60] + "…" : given).Replace("\0", "\\0", StringComparison.Ordinal);
 
     public bool Contains(string fullPath)
     {

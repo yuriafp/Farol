@@ -36,6 +36,24 @@ public sealed class WorkspaceSyncTests
     }
 
     [Fact]
+    public async Task A_request_waiting_for_the_load_gets_the_snapshot_of_a_reload_that_starts_as_the_load_ends()
+    {
+        using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
+        await FixtureRestore.EnsureRestoredAsync(copy.PathOf("Modern.slnx"), Ct);
+        await using var engine = EngineHarness.Create(copy.Root);
+        var session = engine.Workspaces.GetSession(null);
+        var loading = session.StartLoading();
+
+        // Runs as the load ends, before the waiting request reads the snapshot: another call asked for a reload.
+        var reload = loading.ContinueWith(_ => session.ReloadAsync(), Ct, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default).Unwrap();
+        var snapshot = await session.GetSnapshotAsync(wait: true, Ct);
+        await reload;
+
+        Assert.Equal(WorkspaceState.Ready, session.State);
+        Assert.Same(session.CurrentSnapshot, snapshot);
+    }
+
+    [Fact]
     public async Task A_file_put_back_as_it_was_returns_the_snapshot_to_the_loaded_solution()
     {
         using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);

@@ -41,4 +41,23 @@ public sealed class ToolContractTests
             Assert.Equal("Workspace", workspace.GetProperty("x-mcp-header").GetString());
         });
     }
+
+    [Fact]
+    public async Task A_missing_argument_or_one_of_the_wrong_type_is_an_error_that_names_it()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var harness = await McpHarness.StartAsync(TestPaths.ModernDirectory, ct);
+        using var nested = System.Text.Json.JsonDocument.Parse("""{ "a": { "b": [1, 2] } }""");
+
+        var wrongType = await harness.CallAsync("dotnet_outline", new() { ["path"] = nested.RootElement.Clone() }, ct);
+        var wrongNumber = await harness.CallAsync("dotnet_outline", new() { ["path"] = "src/A.cs", ["maxTokens"] = "many" }, ct);
+        var missing = await harness.CallAsync("dotnet_symbol", new() { ["name"] = "PriceCalculator" }, ct);
+
+        Assert.True(wrongType.IsError);
+        Assert.Equal("'path' takes a string, not an object. Pass each argument with the type the tool's input schema gives.", wrongType.Text);
+        Assert.True(wrongNumber.IsError);
+        Assert.StartsWith("'maxTokens' takes a whole number, not a string.", wrongNumber.Text, StringComparison.Ordinal);
+        Assert.True(missing.IsError);
+        Assert.StartsWith("dotnet_symbol needs 'symbol'; it does not take 'name'.", missing.Text, StringComparison.Ordinal);
+    }
 }

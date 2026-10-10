@@ -48,7 +48,7 @@ public sealed partial class TestRunner(BuildRunner builds, IProcessRunner runner
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(targets);
-        using var turn = await builds.AcquireAsync(target, cancellationToken);
+        using var turn = await builds.AcquireAsync(target, progress, cancellationToken);
         var runs = new List<TestProjectRun>();
         foreach (var testTarget in targets)
         {

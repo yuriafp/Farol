@@ -30,6 +30,20 @@ public sealed class PathSandboxTests : IDisposable
     }
 
     [Fact]
+    public void A_path_the_file_system_rejects_is_an_invalid_argument_that_quotes_only_its_start()
+    {
+        var sandbox = new PathSandbox(Root);
+
+        var nul = Assert.Throws<FarolException>(() => sandbox.Resolve("src/A\0.cs"));
+        var huge = Assert.Throws<FarolException>(() => sandbox.Resolve("src/" + new string('a', 100_000) + ".cs"));
+
+        Assert.Equal(ErrorCodes.InvalidArgument, nul.Code);
+        Assert.Equal("Path 'src/A\\0.cs' contains a null character.", nul.Message);
+        Assert.Equal(ErrorCodes.InvalidArgument, huge.Code);
+        Assert.Equal($"Path 'src/{new string('a', 56)}…' (100007 characters) is not a path the file system accepts.", huge.Message);
+    }
+
+    [Fact]
     public void AC42_a_relative_path_missing_under_the_root_resolves_from_the_workspace_folder()
     {
         var workspace = Directory.CreateDirectory(Path.Combine(Root, "App", "src")).Parent!.FullName;

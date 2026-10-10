@@ -51,6 +51,29 @@ public sealed class BuildToolTests
         Assert.Single(Regex.Matches(text, Regex.Escape(Error)));
     }
 
+    [Fact]
+    public async Task A_build_waits_while_another_farol_process_builds_the_same_workspace()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
+        await FixtureRestore.EnsureRestoredAsync(copy.PathOf("Modern.slnx"), ct);
+        await using var harness = await McpHarness.StartAsync(copy.Root, ct);
+        var progress = new Collected();
+
+        Task<ModelContextProtocol.Protocol.CallToolResult> build;
+        using (new FileStream(Farol.Engine.Building.BuildRunner.TurnFile(copy.PathOf("Modern.slnx")), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+        {
+            build = harness.Client.CallToolAsync("dotnet_build", new Dictionary<string, object?>(), progress, cancellationToken: ct).AsTask();
+            await Eventually.MatchesAsync(() => Task.FromResult(progress.Messages), m => m.Any(x => x.StartsWith("waiting for another Farol process", StringComparison.Ordinal)), ct);
+            Assert.False(build.IsCompleted);
+        }
+
+        var result = await build;
+        var text = string.Join('\n', result.Content.OfType<ModelContextProtocol.Protocol.TextContentBlock>().Select(t => t.Text));
+        Assert.NotEqual(true, result.IsError);
+        Assert.Contains("build: succeeded", text, StringComparison.Ordinal);
+    }
+
     private sealed class Collected : IProgress<ModelContextProtocol.ProgressNotificationValue>
     {
         private readonly System.Collections.Concurrent.ConcurrentQueue<string> _messages = new();
