@@ -25,7 +25,7 @@ public sealed class CheckTool(WorkspaceManager workspaces)
         "building: edits on disk are picked up automatically, and it takes about a second. Covers compiler diagnostics; analyzer rules (CA/IDE) show up in dotnet_build.")]
     public Task<string> Run(
         [Description("changed (default): files edited since load, plus the projects that depend on their declarations · file: one file ('path') · project: one project ('project') · solution: every project")] string? scope = null,
-        [Description("Source file for scope=file, relative to the workspace root.")] string? path = null,
+        [Description("Source file for scope=file, relative to the root as responses write paths.")] string? path = null,
         [Description("Project name for scope=project, as dotnet_overview lists it.")] string? project = null,
         [Description("Also list, separately, the diagnostics that already existed when the workspace loaded. Default false.")] bool includeExisting = false,
         [Description("text (default), or hook: the JSON a Claude Code PostToolUse hook returns — the new errors as a blocking reason, new warnings as added context, {} when the edits are clean or the workspace is still loading.")] string format = "text",
@@ -38,20 +38,25 @@ public sealed class CheckTool(WorkspaceManager workspaces)
         {
             var hook = ParseFormat(format);
             var kind = ParseScope(scope, path, project);
-            var fullPath = kind == CheckScope.File && !string.IsNullOrWhiteSpace(path) ? workspaces.Paths.Resolve(path) : null;
             var session = workspaces.GetSession(workspace);
+            var fullPath = kind == CheckScope.File && !string.IsNullOrWhiteSpace(path) ? workspaces.Paths.Resolve(path, session.Target.Directory) : null;
+            if (fullPath is not null && IsSource(fullPath))
+            {
+                // Read before checking, like 'edited': a file created or changed a moment ago is never missed.
+                session.NotifyEdited([fullPath]);
+            }
 
             string? editedFile = null;
             if (!string.IsNullOrWhiteSpace(edited))
             {
                 // A hook fires for every edit the agent makes; one outside the trusted directories or in a non-C#/VB file is not ours to check.
-                if (!workspaces.Paths.Contains(PathSandbox.Canonical(Path.Combine(workspaces.RootDirectory, edited))) || !IsSource(edited))
+                editedFile = TryResolve(edited, session.Target.Directory);
+                if (editedFile is null || !IsSource(editedFile))
                 {
                     return hook ? NothingToSay : throw new FarolException(ErrorCodes.InvalidArgument, $"'{edited}' is not a C# or VB file Farol can read.", "Pass a .cs or .vb file inside the workspace.");
                 }
 
-                editedFile = workspaces.Paths.Resolve(edited);
-                session.NotifyChanged([editedFile]);
+                session.NotifyEdited([editedFile]);
             }
 
             WorkspaceSnapshot snapshot;
@@ -63,6 +68,11 @@ public sealed class CheckTool(WorkspaceManager workspaces)
             catch (FarolException ex) when (hook && ex.Code == ErrorCodes.WorkspaceNotReady)
             {
                 return NothingToSay;
+            }
+
+            if (fullPath is not null)
+            {
+                SourceDocuments.Find(snapshot, fullPath, path!.Trim());
             }
 
             var result = await DiagnosticCheck.RunAsync(snapshot, new CheckRequest(kind, fullPath, project, includeExisting), cancellationToken);
@@ -100,6 +110,18 @@ public sealed class CheckTool(WorkspaceManager workspaces)
                 ["additionalContext"] = $"Farol (dotnet_check) found new compiler warnings {after}:\n{text}",
             },
         }, HookJson);
+    }
+
+    private string? TryResolve(string path, string workspaceDirectory)
+    {
+        try
+        {
+            return workspaces.Paths.Resolve(path, workspaceDirectory);
+        }
+        catch (FarolException ex) when (ex.Code == ErrorCodes.PathNotTrusted)
+        {
+            return null;
+        }
     }
 
     private static bool IsSource(string path) =>

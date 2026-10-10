@@ -30,6 +30,11 @@ internal sealed class WorkspaceWatcher : IDisposable
         "bin", "obj", ".git", ".vs", ".idea", "node_modules",
     };
 
+    // A source the workspace lacks joins it only when the file arrived (created, renamed or moved in): an edit to one the
+    // project leaves out (Compile Remove, a stray copy) must not add it.
+    private const byte Edited = 0;
+    private const byte Arrived = 1;
+
     private readonly List<FileSystemWatcher> _watchers = [];
     private readonly ConcurrentDictionary<string, byte> _sources = new(StringComparer.OrdinalIgnoreCase);
     private int _reloadRequired;
@@ -45,13 +50,13 @@ internal sealed class WorkspaceWatcher : IDisposable
                 InternalBufferSize = 64 * 1024,
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.Size,
             };
-            watcher.Changed += (_, e) => Record(e.FullPath, e.ChangeType);
-            watcher.Created += (_, e) => Record(e.FullPath, e.ChangeType);
-            watcher.Deleted += (_, e) => Record(e.FullPath, e.ChangeType);
+            watcher.Changed += (_, e) => Record(e.FullPath, e.Name, e.ChangeType);
+            watcher.Created += (_, e) => Record(e.FullPath, e.Name, e.ChangeType);
+            watcher.Deleted += (_, e) => Record(e.FullPath, e.Name, e.ChangeType);
             watcher.Renamed += (_, e) =>
             {
-                Record(e.OldFullPath, WatcherChangeTypes.Deleted);
-                Record(e.FullPath, WatcherChangeTypes.Created);
+                Record(e.OldFullPath, e.OldName, WatcherChangeTypes.Deleted);
+                Record(e.FullPath, e.Name, WatcherChangeTypes.Created);
             };
 
             // Buffer overflow: we no longer know what changed, so the only safe answer is a reload.
@@ -63,14 +68,15 @@ internal sealed class WorkspaceWatcher : IDisposable
 
     public bool HasChanges => !_sources.IsEmpty || Volatile.Read(ref _reloadRequired) == 1 || Volatile.Read(ref _markupChanged) == 1;
 
-    public WorkspaceChanges Drain()
+    /// <param name="isDocument">Whether the workspace compiles the file; an edit to one it does not is dropped unless the file arrived.</param>
+    public WorkspaceChanges Drain(Func<string, bool> isDocument)
     {
         var reload = Interlocked.Exchange(ref _reloadRequired, 0) == 1;
         var markup = Interlocked.Exchange(ref _markupChanged, 0) == 1;
         var sources = new List<string>();
         foreach (var path in _sources.Keys)
         {
-            if (_sources.TryRemove(path, out _))
+            if (_sources.TryRemove(path, out var change) && (change == Arrived || isDocument(path)))
             {
                 sources.Add(path);
             }
@@ -79,12 +85,12 @@ internal sealed class WorkspaceWatcher : IDisposable
         return new WorkspaceChanges(sources, reload, markup);
     }
 
-    /// <summary>Puts back sources that could not be read yet (e.g. still locked by the writer).</summary>
+    /// <summary>Puts back sources that could not be read yet (e.g. still locked by the writer); they already passed <see cref="Drain"/>.</summary>
     public void Requeue(IEnumerable<string> paths)
     {
         foreach (var path in paths)
         {
-            _sources.TryAdd(path, 0);
+            _sources[path] = Arrived;
         }
     }
 
@@ -96,9 +102,10 @@ internal sealed class WorkspaceWatcher : IDisposable
         }
     }
 
-    private void Record(string path, WatcherChangeTypes change)
+    // The name is relative to the watched folder: a workspace that itself lives under a folder named bin is still watched.
+    private void Record(string path, string? name, WatcherChangeTypes change)
     {
-        if (IsIgnored(path))
+        if (IsIgnored(name ?? path))
         {
             return;
         }
@@ -106,7 +113,8 @@ internal sealed class WorkspaceWatcher : IDisposable
         var extension = Path.GetExtension(path);
         if (SourceExtensions.Contains(extension))
         {
-            _sources.TryAdd(path, 0);
+            var recorded = change is WatcherChangeTypes.Created ? Arrived : Edited;
+            _sources.AddOrUpdate(path, recorded, (_, earlier) => Math.Max(earlier, recorded));
         }
         else if (Markup.MarkupFiles.Extensions.Contains(extension))
         {
@@ -123,7 +131,7 @@ internal sealed class WorkspaceWatcher : IDisposable
         }
     }
 
-    private static bool IsIgnored(string path) =>
+    internal static bool IsIgnored(string path) =>
         path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(IgnoredSegments.Contains);
 
     private static List<string> OutermostDirectories(IEnumerable<string> roots)

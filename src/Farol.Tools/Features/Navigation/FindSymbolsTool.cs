@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Farol.Core;
 using Farol.Core.Text;
 using Farol.Engine.Navigation;
 using Farol.Engine.Workspaces;
@@ -24,7 +25,19 @@ public sealed class FindSymbolsTool(WorkspaceManager workspaces)
         CancellationToken cancellationToken = default) =>
         ToolGuard.RunAsync(async () =>
         {
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                throw new FarolException(ErrorCodes.InvalidArgument, "'query' is empty.", "Pass a name or the start of one; camel-case humps work too ('OrdCalc' finds OrderCalculator).");
+            }
+
             var snapshot = await workspaces.GetSession(workspace).GetSnapshotAsync(wait: true, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(project) && snapshot.Projects.FindByName(project).Count == 0)
+            {
+                var names = snapshot.Projects.Names;
+                var more = names.Count > 40 ? $", … {names.Count - 40} more" : string.Empty;
+                throw new FarolException(ErrorCodes.InvalidArgument, $"No project named '{project}'.", $"Projects: {string.Join(", ", names.Take(40))}{more}.");
+            }
+
             var candidates = await DeclarationSearch.SearchAsync(snapshot, query, kind, project, cancellationToken);
             var text = new ResponseBuilder(maxTokens);
             if (candidates.Count == 0)

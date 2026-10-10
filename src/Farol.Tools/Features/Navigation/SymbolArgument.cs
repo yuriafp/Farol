@@ -11,7 +11,7 @@ internal static class SymbolArgument
 {
     public const string Description =
         "The symbol: a name (OrderCalculator), a dotted name (OrderCalculator.GetTotal), a documentation comment ID from a previous result " +
-        "(M:Ns.Type.Method(System.Int32)), or a source position (path/File.cs:42 or path/File.cs:42:17, relative to the workspace root).";
+        "(M:Ns.Type.Method(System.Int32)), or a source position (path/File.cs:42 or path/File.cs:42:17, relative to the root as responses write paths).";
 
     /// <summary>
     /// Resolves the argument. An ambiguous name is an answer, not an error: the returned text lists the
@@ -20,13 +20,13 @@ internal static class SymbolArgument
     public static async Task<(SymbolCandidate? Candidate, string? Ambiguity)> ResolveAsync(
         WorkspaceSnapshot snapshot, PathSandbox paths, string symbol, CancellationToken cancellationToken)
     {
-        // A source position is a path argument like any other: it must stay inside the trusted directories.
-        if (SymbolLocator.TryParseLocation(symbol, out var path, out _, out _))
+        if (string.IsNullOrWhiteSpace(symbol))
         {
-            paths.Resolve(path);
+            throw new FarolException(ErrorCodes.InvalidArgument, "'symbol' is empty.", "Pass a name, a dotted name, a documentation comment ID or a path:line position.");
         }
 
-        var candidates = await SymbolLocator.ResolveAsync(snapshot, paths.Root, symbol, cancellationToken);
+        // A source position is a path argument like any other: it must stay inside the trusted directories.
+        var candidates = await SymbolLocator.ResolveAsync(snapshot, path => paths.Resolve(path, snapshot.Target.Directory), symbol, cancellationToken);
         if (candidates.Count == 1)
         {
             return (candidates[0], null);

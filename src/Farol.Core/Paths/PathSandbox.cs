@@ -29,12 +29,26 @@ public sealed class PathSandbox
     /// <summary>Extra directories from configuration, as full paths.</summary>
     public IReadOnlyList<string> TrustedPaths { get; }
 
-    /// <summary>Resolves a tool's path argument (absolute, or relative to the root) and refuses it outside the trusted directories.</summary>
-    public string Resolve(string path)
+    /// <summary>
+    /// Resolves a tool's path argument (absolute, or relative to the root) and refuses it outside the trusted directories.
+    /// A relative path that names nothing under the root but a file or folder under <paramref name="fallbackDirectory"/>
+    /// (the workspace's folder, when the root is above it) resolves there: agents often write paths from the solution's folder.
+    /// </summary>
+    public string Resolve(string path, string? fallbackDirectory = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        var fullPath = Path.GetFullPath(path.Trim(), Root);
-        Demand(fullPath, $"Path '{path.Trim()}'");
+        var given = path.Trim();
+        var fullPath = Path.GetFullPath(given, Root);
+        if (fallbackDirectory is not null && !Path.IsPathRooted(given) && !Path.Exists(fullPath))
+        {
+            var alternative = Path.GetFullPath(given, fallbackDirectory);
+            if (Contains(alternative) && Path.Exists(alternative))
+            {
+                fullPath = alternative;
+            }
+        }
+
+        Demand(fullPath, $"Path '{given}'");
         return fullPath;
     }
 

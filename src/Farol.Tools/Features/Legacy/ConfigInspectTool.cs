@@ -22,7 +22,7 @@ public sealed class ConfigInspectTool(WorkspaceManager workspaces)
         "settings, connection strings, WCF services and endpoints, system.web settings, binding redirects and transforms, plus how each part maps " +
         "onto ASP.NET Core configuration and the appsettings.json to start from. Without path, lists the workspace's configuration files.")]
     public Task<string> Run(
-        [Description("The web.config or app.config, relative to the workspace root (e.g. Legacy.Web/Web.config). Omit to list them.")] string? path = null,
+        [Description("The web.config or app.config, relative to the root as responses write paths (e.g. Legacy.Web/Web.config). Omit to list them.")] string? path = null,
         [McpHeader(ToolParameters.WorkspaceHeader), Description(ToolParameters.WorkspaceDescription)] string? workspace = null,
         [Description(ToolParameters.MaxTokensDescription)] int maxTokens = TokenBudget.DefaultTokens,
         CancellationToken cancellationToken = default) =>
@@ -37,10 +37,17 @@ public sealed class ConfigInspectTool(WorkspaceManager workspaces)
                 return Task.FromResult(text.ToString());
             }
 
-            var file = workspaces.Paths.Resolve(path);
+            var directory = workspaces.TargetDirectory(workspace);
+            var file = workspaces.Paths.Resolve(path, directory);
             if (!File.Exists(file))
             {
-                throw new FarolException(ErrorCodes.InvalidArgument, $"'{path}' does not exist.", "Call without path to list the configuration files, with paths relative to the workspace root.");
+                if (directory is null && !Path.IsPathRooted(path.Trim()))
+                {
+                    // The path may be written from a workspace's folder: when no workspace resolves, that is the error to report.
+                    workspaces.GetSession(workspace);
+                }
+
+                throw new FarolException(ErrorCodes.InvalidArgument, $"'{path}' does not exist.", "Call without path to list the configuration files, then pass one as the list writes it.");
             }
 
             Render(text, ConfigInspector.Read(file), root);

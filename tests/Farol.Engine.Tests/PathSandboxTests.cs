@@ -29,6 +29,41 @@ public sealed class PathSandboxTests : IDisposable
         Assert.Equal(Path.Combine(Root, "src", "A.cs"), sandbox.Resolve("src/A.cs"));
     }
 
+    [Fact]
+    public void AC42_a_relative_path_missing_under_the_root_resolves_from_the_workspace_folder()
+    {
+        var workspace = Directory.CreateDirectory(Path.Combine(Root, "App", "src")).Parent!.FullName;
+        File.WriteAllText(Path.Combine(workspace, "src", "B.cs"), "class B {}");
+        File.WriteAllText(Path.Combine(Root, "src", "A.cs"), "class A {}");
+        File.WriteAllText(Path.Combine(workspace, "src", "A.cs"), "class A {}");
+        var sandbox = new PathSandbox(Root);
+
+        Assert.Equal(Path.Combine(workspace, "src", "B.cs"), sandbox.Resolve("src/B.cs", workspace));
+        Assert.Equal(Path.Combine(Root, "src", "A.cs"), sandbox.Resolve("src/A.cs", workspace));
+        Assert.Equal(Path.Combine(Root, "src", "C.cs"), sandbox.Resolve("src/C.cs", workspace));
+    }
+
+    [Fact]
+    public void The_workspace_folder_cannot_lead_outside_the_root()
+    {
+        var workspace = Directory.CreateDirectory(Path.Combine(Root, "App")).FullName;
+        var sandbox = new PathSandbox(Root);
+
+        Assert.True(File.Exists(Path.Combine(workspace, "..", "..", "elsewhere", "secret.cs")));
+        var error = Assert.Throws<FarolException>(() => sandbox.Resolve("../../elsewhere/secret.cs", workspace));
+        Assert.Equal(ErrorCodes.PathNotTrusted, error.Code);
+    }
+
+    [Fact]
+    public void AC42_a_workspace_under_a_trusted_path_resolves_paths_from_its_folder_only_while_trusted()
+    {
+        var workspace = Directory.CreateDirectory(Path.Combine(Outside, "App", "src")).Parent!.FullName;
+        File.WriteAllText(Path.Combine(workspace, "src", "B.cs"), "class B {}");
+
+        Assert.Equal(Path.Combine(workspace, "src", "B.cs"), new PathSandbox(Root, [Outside]).Resolve("src/B.cs", workspace));
+        Assert.Equal(Path.Combine(Root, "src", "B.cs"), new PathSandbox(Root).Resolve("src/B.cs", workspace));
+    }
+
     [Theory]
     [InlineData("../elsewhere/secret.cs")]
     [InlineData("src/../../elsewhere/secret.cs")]

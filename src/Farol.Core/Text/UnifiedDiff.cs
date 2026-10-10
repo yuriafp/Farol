@@ -5,7 +5,7 @@ namespace Farol.Core.Text;
 
 /// <summary>
 /// Line-based unified diffs (Myers' algorithm, three lines of context): the format agents read best and
-/// <c>git apply</c> accepts. The path is written as given, so callers pass it relative to the workspace root.
+/// <c>git apply</c> accepts. The path is written as given, so callers pass it relative to the root.
 /// </summary>
 public static class UnifiedDiff
 {

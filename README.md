@@ -80,7 +80,7 @@ Add the server to a `.mcp.json` next to the solution (or to `%USERPROFILE%\.mcp.
 }
 ```
 
-Agents that keep their own MCP configuration ignore `.mcp.json`: add Farol to theirs, in the `mcpServers` form shown for Claude Code. Google Antigravity, for example, reads `%USERPROFILE%\.gemini\config\mcp_config.json`, and may start Farol outside the solution's folder, where loading the solution is refused: pass `--root` with the folder that holds your repositories.
+Agents that keep their own MCP configuration ignore `.mcp.json`: add Farol to theirs, in the `mcpServers` form shown for Claude Code. Google Antigravity, for example, reads `%USERPROFILE%\.gemini\config\mcp_config.json`, and starts Farol in the open solution's folder or elsewhere, such as its own installation folder. Trust the folder that holds your repositories with `--Farol:TrustedPaths:0 <folder>` rather than making it the root: a solution in the folder Farol starts in still loads on its own, and any solution under the trusted folder loads once a call names it.
 
 ### VS Code
 
@@ -114,7 +114,7 @@ To run a local build instead, point the client at the host assembly:
 | Setting | Command line | Default | Meaning |
 |---|---|---|---|
 | `Farol:RootDirectory` | `--root <dir>` | working directory | Where the default workspace is discovered. Farol trusts this directory. |
-| `Farol:DefaultWorkspace` | `--workspace <path>` | discovered | The solution or project used when a tool call names none. |
+| `Farol:DefaultWorkspace` | `--workspace <path>` | discovered | The solution or project used when a tool call names none. Without it, Farol uses the one it discovers in the root, or else the one an earlier call named. |
 | `Farol:AutoLoad` | `--autoload false` | `true` | Start loading the default workspace at startup. |
 | `Farol:ReadOnly` | `--read-only` | `false` | Refuse writing files, building and running tests; tools explain the refusal. |
 | `Farol:Offline` | `--offline` | `false` | Never touch the network: `dotnet_packages` reports the vulnerabilities the last restore recorded, and `dotnet_package_api` reads only packages already in the local NuGet caches. |
@@ -152,7 +152,7 @@ Farol.Host    stdio today, HTTP later · configuration · server instructions
             └─ Farol.Core    no Roslyn: token budgets, paths, errors, process execution
 ```
 
-Tools always take the workspace as an explicit parameter (mirrored into the `Mcp-Param-Workspace` header), return edits as diffs and paths relative to the workspace root, so the same code can later run behind a self-hosted gateway.
+Every tool takes the workspace as a parameter (mirrored into the `Mcp-Param-Workspace` header) and keeps nothing in the protocol session; tools return edits as diffs and paths relative to the root. The same code can later run behind a self-hosted gateway that names the workspace on every call.
 
 ## License
 

@@ -53,6 +53,21 @@ public sealed class NavigationTests(LegacyWorkspaceFixture fixture)
     }
 
     [Theory]
+    [InlineData("StringBuilder", "T:System.Text.StringBuilder")]
+    [InlineData("System.Text.StringBuilder", "T:System.Text.StringBuilder")]
+    [InlineData("stringbuilder", "T:System.Text.StringBuilder")]
+    [InlineData("StringBuilder.Capacity", "P:System.Text.StringBuilder.Capacity")]
+    public async Task AC43_names_of_framework_types_and_members_resolve_like_source_ones(string reference, string id)
+    {
+        Assert.SkipUnless(fixture.Available, "Needs Windows with Visual Studio or Build Tools.");
+
+        var candidate = await ResolveSingleAsync(reference);
+
+        Assert.Equal(id, candidate.Id);
+        Assert.True(candidate.Symbol.Locations[0].IsInMetadata);
+    }
+
+    [Theory]
     [InlineData("M:Legacy.Core.Orders.OrderCalculator.GetTotal(System.Int32)")]
     [InlineData("M:Legacy.Core.Orders.OrderCalculator.GetTotal(System.Int32)~System.Decimal")]
     [InlineData("Legacy.Core.Orders.OrderCalculator.GetTotal")]

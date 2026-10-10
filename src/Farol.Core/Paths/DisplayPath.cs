@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace Farol.Core.Paths;
 
-/// <summary>Formats paths the way agents read them best: relative to the workspace root, with '/'.</summary>
+/// <summary>Formats paths the way agents read them best: relative to the root Farol runs in, with '/'.</summary>
 public static class DisplayPath
 {
     public static string From(string root, string fullPath)

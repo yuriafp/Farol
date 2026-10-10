@@ -21,10 +21,20 @@ public sealed record SymbolCandidate(string Id, IReadOnlyList<SymbolVariant> Var
 /// </summary>
 public static partial class SymbolLocator
 {
+    /// <summary>Resolves a reference whose "path:line" form, if it has one, is relative to <paramref name="rootDirectory"/>.</summary>
+    public static Task<IReadOnlyList<SymbolCandidate>> ResolveAsync(
+        WorkspaceSnapshot snapshot, string rootDirectory, string reference, CancellationToken cancellationToken) =>
+        ResolveAsync(snapshot, path => Path.GetFullPath(path, rootDirectory), reference, cancellationToken);
+
+    /// <summary>
+    /// Resolves a reference. <paramref name="resolvePath"/> turns the path of the "path:line" form into a full path,
+    /// and refuses it, before anything is read, when the caller may not read it.
+    /// </summary>
     public static async Task<IReadOnlyList<SymbolCandidate>> ResolveAsync(
-        WorkspaceSnapshot snapshot, string rootDirectory, string reference, CancellationToken cancellationToken)
+        WorkspaceSnapshot snapshot, Func<string, string> resolvePath, string reference, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(resolvePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(reference);
 
         var text = reference.Trim();
@@ -35,7 +45,7 @@ public static partial class SymbolLocator
         }
         else if (TryParseLocation(text, out var path, out var line, out var column))
         {
-            symbols = await FromLocationAsync(snapshot.Solution, rootDirectory, path, line, column, cancellationToken);
+            symbols = await FromLocationAsync(snapshot, resolvePath(path), path, line, column, cancellationToken);
         }
         else
         {
@@ -45,11 +55,10 @@ public static partial class SymbolLocator
         return await GroupAsync(snapshot, symbols, cancellationToken);
     }
 
-    /// <summary>Recognizes the "path:line[:column]" form, so callers can vet the path before anything reads it.</summary>
-    public static bool TryParseLocation(string reference, out string path, out int line, out int? column)
+    /// <summary>Recognizes the "path:line[:column]" form.</summary>
+    private static bool TryParseLocation(string reference, out string path, out int line, out int? column)
     {
-        ArgumentNullException.ThrowIfNull(reference);
-        if (Location().Match(reference.Trim()) is { Success: true } match)
+        if (Location().Match(reference) is { Success: true } match)
         {
             path = match.Groups["path"].Value;
             line = int.Parse(match.Groups["line"].ValueSpan, System.Globalization.CultureInfo.InvariantCulture);
@@ -96,14 +105,55 @@ public static partial class SymbolLocator
 
         var name = segments[^1];
         var qualifier = segments[..^1];
-        var found = (await SymbolFinder.FindSourceDeclarationsAsync(solution, name, ignoreCase: false, SymbolFilter.TypeAndMember, cancellationToken)).ToList();
+        bool Matches(ISymbol symbol) => qualifier.Length == 0 || EndsWithQualifier(symbol, qualifier);
+
+        var found = (await SymbolFinder.FindSourceDeclarationsAsync(solution, name, ignoreCase: false, SymbolFilter.TypeAndMember, cancellationToken)).Where(Matches).ToList();
         if (found.Count == 0)
         {
-            found = [.. await SymbolFinder.FindSourceDeclarationsAsync(solution, name, ignoreCase: true, SymbolFilter.TypeAndMember, cancellationToken)];
+            found = [.. (await SymbolFinder.FindSourceDeclarationsAsync(solution, name, ignoreCase: true, SymbolFilter.TypeAndMember, cancellationToken)).Where(Matches)];
         }
 
-        return qualifier.Length == 0 ? found : [.. found.Where(s => EndsWithQualifier(s, qualifier))];
+        return found.Count > 0 ? found : await FromReferencesAsync(solution, name, qualifier, cancellationToken);
     }
+
+    /// <summary>
+    /// Types and members of packages and the framework, which no source declares, exact case first. The declaration index
+    /// of a project's references holds types only, so a member is looked up in the types its qualifier names. One symbol
+    /// per ID: projects that target different frameworks reference different builds of an assembly, and the first one
+    /// found stands for them all.
+    /// </summary>
+    private static async Task<IReadOnlyList<ISymbol>> FromReferencesAsync(Solution solution, string name, string[] qualifier, CancellationToken cancellationToken)
+    {
+        var found = new Dictionary<string, ISymbol>(StringComparer.Ordinal);
+        foreach (var project in solution.Projects)
+        {
+            foreach (var type in await ReferencedTypesAsync(project, name, qualifier, cancellationToken))
+            {
+                found.TryAdd(SymbolFormatter.Id(type), type);
+            }
+
+            if (qualifier.Length == 0)
+            {
+                continue;
+            }
+
+            foreach (var type in await ReferencedTypesAsync(project, qualifier[^1], qualifier[..^1], cancellationToken))
+            {
+                foreach (var member in type.GetMembers().Where(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    found.TryAdd(SymbolFormatter.Id(member), member);
+                }
+            }
+        }
+
+        var exact = found.Values.Where(s => s.Name.Equals(name, StringComparison.Ordinal)).ToList();
+        return exact.Count > 0 ? exact : [.. found.Values];
+    }
+
+    private static async Task<IEnumerable<INamedTypeSymbol>> ReferencedTypesAsync(Project project, string name, string[] qualifier, CancellationToken cancellationToken) =>
+        (await SymbolFinder.FindDeclarationsAsync(project, name, ignoreCase: true, SymbolFilter.Type, cancellationToken))
+            .OfType<INamedTypeSymbol>()
+            .Where(t => t.Locations.Any(l => l.IsInMetadata) && EndsWithQualifier(t, qualifier));
 
     private static bool EndsWithQualifier(ISymbol symbol, string[] qualifier)
     {
@@ -156,19 +206,9 @@ public static partial class SymbolLocator
     }
 
     private static async Task<IReadOnlyList<ISymbol>> FromLocationAsync(
-        Solution solution, string rootDirectory, string path, int line, int? column, CancellationToken cancellationToken)
+        WorkspaceSnapshot snapshot, string fullPath, string path, int line, int? column, CancellationToken cancellationToken)
     {
-        var fullPath = Path.GetFullPath(Path.IsPathRooted(path) ? path : Path.Combine(rootDirectory, path));
-        var documentIds = solution.GetDocumentIdsWithFilePath(fullPath);
-        if (documentIds.IsEmpty)
-        {
-            throw new FarolException(
-                ErrorCodes.InvalidArgument,
-                $"'{path}' is not a source file of the workspace.",
-                "Use a path relative to the workspace root, as returned by other dotnet_* tools.");
-        }
-
-        var document = solution.GetDocument(documentIds[0])!;
+        var document = snapshot.Solution.GetDocument(SourceDocuments.Find(snapshot, fullPath, path)[0])!;
         var text = await document.GetTextAsync(cancellationToken);
         if (line < 1 || line > text.Lines.Count)
         {
@@ -237,7 +277,8 @@ public static partial class SymbolLocator
         return arity >= 0 ? name[..arity] : name;
     }
 
-    [GeneratedRegex(@"^[TMPFEN]:\S+$")]
+    // "F:\src\A.cs:12" is a path on drive F, not the ID of a field: no ID has a slash right after the colon.
+    [GeneratedRegex(@"^[TMPFEN]:(?![\\/])\S+$")]
     private static partial Regex DocumentationId();
 
     [GeneratedRegex(@"^(?<path>.+?\.(cs|vb)):(?<line>\d+)(:(?<column>\d+))?$", RegexOptions.IgnoreCase)]

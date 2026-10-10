@@ -56,19 +56,19 @@ public static class HierarchyFinder
         if (down && type.TypeKind == TypeKind.Class)
         {
             var derived = await SymbolFinder.FindDerivedClassesAsync(type, solution, transitive: true, cancellationToken: cancellationToken);
-            entries.AddRange(derived.Select(d => new HierarchyEntry("derived", d)));
+            entries.AddRange(InSource(derived).Select(d => new HierarchyEntry("derived", d)));
         }
 
         if (down && type.TypeKind == TypeKind.Interface)
         {
             var derived = await SymbolFinder.FindDerivedInterfacesAsync(type, solution, transitive: true, cancellationToken: cancellationToken);
-            entries.AddRange(derived.Select(d => new HierarchyEntry("derived interface", d)));
+            entries.AddRange(InSource(derived).Select(d => new HierarchyEntry("derived interface", d)));
         }
 
         if (implementations && type.TypeKind == TypeKind.Interface)
         {
             var implementing = await SymbolFinder.FindImplementationsAsync(type, solution, transitive: true, cancellationToken: cancellationToken);
-            entries.AddRange(implementing.Select(i => new HierarchyEntry("implementation", i)));
+            entries.AddRange(InSource(implementing).Select(i => new HierarchyEntry("implementation", i)));
         }
     }
 
@@ -97,15 +97,21 @@ public static class HierarchyFinder
         if (down)
         {
             var overrides = await SymbolFinder.FindOverridesAsync(member, solution, cancellationToken: cancellationToken);
-            entries.AddRange(overrides.Select(o => new HierarchyEntry("overridden by", o)));
+            entries.AddRange(InSource(overrides).Select(o => new HierarchyEntry("overridden by", o)));
         }
 
         if (implementations && (member.ContainingType?.TypeKind == TypeKind.Interface || member.IsAbstract))
         {
             var implementing = await SymbolFinder.FindImplementationsAsync(member, solution, cancellationToken: cancellationToken);
-            entries.AddRange(implementing.Select(i => new HierarchyEntry("implemented by", i)));
+            entries.AddRange(InSource(implementing).Select(i => new HierarchyEntry("implemented by", i)));
         }
     }
+
+    // Downwards, only the workspace's own code: a framework interface such as IDisposable has hundreds of implementations
+    // in referenced assemblies, and none of them changes with the workspace.
+    private static IEnumerable<T> InSource<T>(IEnumerable<T> symbols)
+        where T : ISymbol =>
+        symbols.Where(s => s.Locations.Any(l => l.IsInSource));
 
     private static ISymbol? Overridden(ISymbol symbol) => symbol switch
     {

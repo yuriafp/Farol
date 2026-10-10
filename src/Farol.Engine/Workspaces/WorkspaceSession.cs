@@ -35,6 +35,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
     private readonly ConcurrentDictionary<string, byte> _written = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _edited = new(StringComparer.OrdinalIgnoreCase);
 
     private Task? _loadTask;
     private Task? _warmup;
@@ -169,6 +170,20 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Queues source files an agent says it just changed, so the next snapshot reads them without waiting for file-system
+    /// events. Unlike <see cref="NotifyChanged"/>, a claim never widens the workspace: a file it does not compile joins only
+    /// when it is new since the load and outside bin and obj, so one the project leaves out stays out.
+    /// </summary>
+    public void NotifyEdited(IEnumerable<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        foreach (var path in paths)
+        {
+            _edited.TryAdd(Path.GetFullPath(path), 0);
+        }
+    }
+
     /// <summary>Discards the current snapshot and loads again, e.g. after project files changed.</summary>
     public Task ReloadAsync()
     {
@@ -223,7 +238,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
             {
                 _loaded = loaded;
                 _watcher = watcher;
-                _snapshot = new WorkspaceSnapshot(loaded.Solution, 1, projects, new WorkspaceLoad(loaded.Solution, DateTimeOffset.UtcNow));
+                _snapshot = new WorkspaceSnapshot(loaded.Solution, 1, projects, new WorkspaceLoad(loaded.Solution, DateTimeOffset.UtcNow), Target);
                 _warmupStartedAt = DateTimeOffset.UtcNow;
                 _warmedInTicks = -1;
                 _warmup = Task.Run(() => WarmAsync(loaded.Solution, cancellationToken), CancellationToken.None);
@@ -303,7 +318,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         }
     }
 
-    private bool HasPendingChanges => !_written.IsEmpty || Volatile.Read(ref _watcher) is { HasChanges: true };
+    private bool HasPendingChanges => !_written.IsEmpty || !_edited.IsEmpty || Volatile.Read(ref _watcher) is { HasChanges: true };
 
     private async Task<WorkspaceSnapshot> RefreshAsync(CancellationToken cancellationToken)
     {
@@ -332,7 +347,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     private async Task<WorkspaceSnapshot> ApplyPendingChangesAsync(WorkspaceSnapshot current, CancellationToken cancellationToken)
     {
         var watcher = Volatile.Read(ref _watcher);
-        var changes = DrainChanges(watcher);
+        var changes = DrainChanges(current, watcher);
         if (changes.IsEmpty)
         {
             return current;
@@ -369,18 +384,18 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         return next;
     }
 
-    private WorkspaceChanges DrainChanges(WorkspaceWatcher? watcher)
+    private WorkspaceChanges DrainChanges(WorkspaceSnapshot current, WorkspaceWatcher? watcher)
     {
-        var written = new List<string>();
-        foreach (var path in _written.Keys)
+        DateTimeOffset loadStartedAt;
+        lock (_gate)
         {
-            if (_written.TryRemove(path, out _))
-            {
-                written.Add(path);
-            }
+            loadStartedAt = _loadStartedAt;
         }
 
-        if (watcher?.Drain() is not { } watched)
+        var written = Take(_written);
+        written.AddRange(Take(_edited).Where(path => IsDocument(current, path) || IsNewSource(path, loadStartedAt, Target.Directory)));
+
+        if (watcher?.Drain(path => IsDocument(current, path)) is not { } watched)
         {
             return new WorkspaceChanges(written, ReloadRequired: false, MarkupChanged: false);
         }
@@ -389,6 +404,28 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
             ? watched
             : watched with { TouchedSources = [.. watched.TouchedSources.Union(written, StringComparer.OrdinalIgnoreCase)] };
     }
+
+    private static List<string> Take(ConcurrentDictionary<string, byte> queue)
+    {
+        var taken = new List<string>();
+        foreach (var path in queue.Keys)
+        {
+            if (queue.TryRemove(path, out _))
+            {
+                taken.Add(path);
+            }
+        }
+
+        return taken;
+    }
+
+    private static bool IsDocument(WorkspaceSnapshot current, string path) => current.Solution.GetDocumentIdsWithFilePath(path).Length > 0;
+
+    // Created after the load started, so the load could not have seen it; bin and obj (below the workspace's folder) hold
+    // build output, not sources.
+    private static bool IsNewSource(string path, DateTimeOffset loadStartedAt, string directory) =>
+        File.Exists(path) && File.GetCreationTimeUtc(path) >= loadStartedAt.UtcDateTime
+        && !WorkspaceWatcher.IsIgnored(Path.GetRelativePath(directory, path));
 
     private static async Task<(Solution Solution, IReadOnlyList<string> Unreadable)> ApplyAsync(
         WorkspaceSnapshot current, WorkspaceChanges changes, CancellationToken cancellationToken)
@@ -430,8 +467,14 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
             {
                 // New file: SDK-style projects include it by globbing; classic projects need a project-file change (which reloads).
                 var projects = current.Projects.SdkProjectsContaining(path);
-                if (projects.Count == 0 || await ReadTextAsync(path, null, SourceHashAlgorithm.Sha256, cancellationToken) is not { } text)
+                if (projects.Count == 0)
                 {
+                    continue;
+                }
+
+                if (await ReadTextAsync(path, null, SourceHashAlgorithm.Sha256, cancellationToken) is not { } text)
+                {
+                    unreadable.Add(path);
                     continue;
                 }
 

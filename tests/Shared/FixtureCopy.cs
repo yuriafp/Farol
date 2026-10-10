@@ -22,6 +22,14 @@ public sealed class FixtureCopy : IDisposable
         return new FixtureCopy(root);
     }
 
+    /// <summary>A copy in <paramref name="folder"/> of a new temp directory, which can then be a root above the fixture, like a repos folder.</summary>
+    public static FixtureCopy CreateIn(string fixtureDirectory, string folder)
+    {
+        var root = Directory.CreateTempSubdirectory("farol-fixture-").FullName;
+        Copy(new DirectoryInfo(fixtureDirectory), Path.Combine(root, folder));
+        return new FixtureCopy(root);
+    }
+
     public string PathOf(params string[] parts) => Path.Combine([Root, .. parts]);
 
     public void Dispose()

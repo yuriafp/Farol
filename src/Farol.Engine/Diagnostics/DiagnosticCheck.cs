@@ -158,19 +158,10 @@ public static class DiagnosticCheck
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
-            throw new FarolException(ErrorCodes.InvalidArgument, "scope='file' needs 'path'.", "Pass the source file, relative to the workspace root.");
+            throw new FarolException(ErrorCodes.InvalidArgument, "scope='file' needs 'path'.", "Pass the source file, relative to the root as responses write paths.");
         }
 
-        var ids = snapshot.Solution.GetDocumentIdsWithFilePath(filePath);
-        if (ids.IsEmpty)
-        {
-            throw new FarolException(
-                ErrorCodes.InvalidArgument,
-                $"'{Path.GetFileName(filePath)}' is not a source file of the workspace.",
-                "Use a path relative to the workspace root, as returned by other dotnet_* tools.");
-        }
-
-        return new CheckPlan([], [.. ids], []);
+        return new CheckPlan([], [.. SourceDocuments.Find(snapshot, filePath, Path.GetFileName(filePath))], []);
     }
 
     private static CheckPlan PlanProject(WorkspaceSnapshot snapshot, string? name)

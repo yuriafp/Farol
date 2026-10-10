@@ -16,11 +16,14 @@ public static class WorkspaceDiscovery
         "bin", "obj", ".git", ".vs", ".idea", "node_modules", "packages", "artifacts", "TestResults",
     };
 
+    private static readonly EnumerationOptions Listing = new() { IgnoreInaccessible = true, AttributesToSkip = 0, MatchType = MatchType.Win32 };
+
     public static WorkspaceTarget Resolve(string? requested, string rootDirectory)
     {
+        var root = Path.GetFullPath(rootDirectory);
         var candidate = string.IsNullOrWhiteSpace(requested)
-            ? Path.GetFullPath(rootDirectory)
-            : Path.GetFullPath(Path.IsPathRooted(requested) ? requested : Path.Combine(rootDirectory, requested));
+            ? root
+            : Path.GetFullPath(Path.IsPathRooted(requested) ? requested : Path.Combine(root, requested));
 
         if (File.Exists(candidate))
         {
@@ -29,13 +32,14 @@ public static class WorkspaceDiscovery
 
         if (Directory.Exists(candidate))
         {
-            return FromDirectory(candidate);
+            return FromDirectory(candidate, root);
         }
 
+        var from = Path.IsPathRooted(requested) ? string.Empty : "; a relative path starts at the root, as responses write paths";
         throw new FarolException(
             ErrorCodes.WorkspaceNotFound,
             $"Workspace '{requested}' was not found.",
-            "Pass a .sln, .slnx, .slnf, .csproj or .vbproj file, or a directory that contains one.");
+            $"Pass a .sln, .slnx, .slnf, .csproj or .vbproj file, or a directory that contains one{from}.");
     }
 
     private static WorkspaceTarget FromFile(string path) =>
@@ -50,30 +54,32 @@ public static class WorkspaceDiscovery
                 "Supported: .sln, .slnx, .slnf, .csproj, .vbproj."),
         };
 
-    private static WorkspaceTarget FromDirectory(string directory)
+    // Paths in messages are relative to the root, as everywhere else (AC-30): the candidates can be passed back as they are.
+    private static WorkspaceTarget FromDirectory(string directory, string root)
     {
         var solutions = FindFiles(directory, ["*.slnx", "*.sln"], depth: 0);
         if (solutions.Count > 0)
         {
-            return PickSingle(solutions, directory, WorkspaceTargetKind.Solution);
+            return PickSingle(solutions, root, WorkspaceTargetKind.Solution);
         }
 
         var projects = FindFiles(directory, ["*.csproj", "*.vbproj"], depth: 0);
         if (projects.Count > 0)
         {
-            return PickSingle(projects, directory, WorkspaceTargetKind.Project);
+            return PickSingle(projects, root, WorkspaceTargetKind.Project);
         }
 
         var nested = FindFiles(directory, ["*.slnx", "*.sln"], NestedSearchDepth);
         if (nested.Count > 0)
         {
-            return PickSingle(nested, directory, WorkspaceTargetKind.Solution);
+            return PickSingle(nested, root, WorkspaceTargetKind.Solution);
         }
 
+        var where = string.Equals(directory, root, StringComparison.OrdinalIgnoreCase) ? "the root" : $"'{DisplayPath.From(root, directory)}'";
         throw new FarolException(
             ErrorCodes.WorkspaceNotFound,
-            $"No .sln, .slnx, .csproj or .vbproj found in '{directory}'.",
-            "Pass the workspace path explicitly.");
+            $"No .sln, .slnx, .csproj or .vbproj found in {where}.",
+            "Pass the workspace path explicitly; later calls can then leave it out.");
     }
 
     private static WorkspaceTarget PickSingle(List<string> candidates, string root, WorkspaceTargetKind kind)
@@ -94,15 +100,16 @@ public static class WorkspaceDiscovery
         throw new FarolException(
             ErrorCodes.WorkspaceAmbiguous,
             $"Found {distinct.Count} candidates: {list}.",
-            "Pass one of them in the 'workspace' parameter, or start the server with --workspace.");
+            "Pass one of them in the 'workspace' parameter (later calls can then leave it out), or start the server with --workspace.");
     }
 
+    // A root such as a drive or a user profile holds folders nobody may list; they hold no workspace either.
     private static List<string> FindFiles(string directory, string[] patterns, int depth)
     {
-        var found = patterns.SelectMany(p => Directory.EnumerateFiles(directory, p)).ToList();
+        var found = patterns.SelectMany(p => Directory.EnumerateFiles(directory, p, Listing)).ToList();
         if (depth > 0)
         {
-            foreach (var child in Directory.EnumerateDirectories(directory))
+            foreach (var child in Directory.EnumerateDirectories(directory, "*", Listing))
             {
                 if (!SkippedDirectories.Contains(Path.GetFileName(child)))
                 {

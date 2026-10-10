@@ -71,6 +71,64 @@ public sealed class CheckToolTests
         Assert.Contains("checked projects: Legacy.Core", project, StringComparison.Ordinal);
         Assert.Contains("warning CS0168", project, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task A_file_the_workspace_does_not_compile_is_named_as_given_with_the_reason()
+    {
+        await using var server = await LegacyServer.StartAsync();
+        Assert.SkipUnless(server.Available, "Needs Windows with Visual Studio or Build Tools.");
+        var ct = TestContext.Current.CancellationToken;
+        await File.WriteAllTextAsync(server.Copy.PathOf("Legacy.Core", "Orders", "Unlisted.cs"), "namespace Legacy.Core.Orders { class Unlisted { } }", ct);
+
+        var unlisted = await server.Harness!.CallAsync("dotnet_check", new() { ["path"] = "Legacy.Core/Orders/Unlisted.cs" }, ct);
+        var missing = await server.Harness!.CallAsync("dotnet_check", new() { ["path"] = "Legacy.Core/Orders/Missing.cs" }, ct);
+
+        Assert.True(unlisted.IsError);
+        Assert.Contains("'Legacy.Core/Orders/Unlisted.cs' is not a source file of the workspace.", unlisted.Text, StringComparison.Ordinal);
+        Assert.Contains("Legacy.Core.csproj is a classic project, which compiles only the files it lists", unlisted.Text, StringComparison.Ordinal);
+        Assert.True(missing.IsError);
+        Assert.Contains("'Legacy.Core/Orders/Missing.cs' is not a source file of the workspace.", missing.Text, StringComparison.Ordinal);
+        Assert.Contains("No file has that path", missing.Text, StringComparison.Ordinal);
+    }
+}
+
+/// <summary>
+/// dotnet_check reads the files a call names before checking them, so one created a moment ago is checked; a file the
+/// project leaves out stays out all the same, whichever call names it.
+/// </summary>
+public sealed class ExcludedFileTests
+{
+    [Fact]
+    public async Task A_file_the_project_leaves_out_stays_out_when_a_check_names_it()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
+        var project = copy.PathOf("src", "Modern.Core", "Modern.Core.csproj");
+        var excluding = (await File.ReadAllTextAsync(project, ct)).Replace("</Project>", "  <ItemGroup>\n    <Compile Remove=\"Drafts/**\" />\n  </ItemGroup>\n</Project>", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(project, excluding, ct);
+        const string broken = "namespace Modern.Core;\n\npublic static class Broken\n{\n    public static int One() => \"one\";\n}\n";
+        Directory.CreateDirectory(copy.PathOf("src", "Modern.Core", "Drafts"));
+        Directory.CreateDirectory(copy.PathOf("src", "Modern.Core", "obj"));
+        await File.WriteAllTextAsync(copy.PathOf("src", "Modern.Core", "Drafts", "Draft.cs"), broken, ct);
+        await File.WriteAllTextAsync(copy.PathOf("src", "Modern.Core", "obj", "Stale.cs"), broken, ct);
+        await FixtureRestore.EnsureRestoredAsync(copy.PathOf("Modern.slnx"), ct);
+        await using var harness = await McpHarness.StartAsync(copy.Root, ct);
+
+        var draft = await harness.CallAsync("dotnet_check", new() { ["path"] = "src/Modern.Core/Drafts/Draft.cs" }, ct);
+        var stale = await harness.CallAsync("dotnet_check", new() { ["path"] = "src/Modern.Core/obj/Stale.cs" }, ct);
+        var edited = await harness.CallAsync("dotnet_check", new() { ["edited"] = "src/Modern.Core/Drafts/Draft.cs" }, ct);
+        await File.WriteAllTextAsync(copy.PathOf("src", "Modern.Core", "obj", "Late.cs"), broken, ct);
+        var late = await harness.CallAsync("dotnet_check", new() { ["edited"] = "src/Modern.Core/obj/Late.cs" }, ct);
+
+        Assert.True(draft.IsError);
+        Assert.Contains("'src/Modern.Core/Drafts/Draft.cs' is not a source file of the workspace. Modern.Core.csproj leaves it out", draft.Text, StringComparison.Ordinal);
+        Assert.True(stale.IsError);
+        Assert.Contains("'src/Modern.Core/obj/Stale.cs' is not a source file of the workspace. Modern.Core.csproj leaves it out", stale.Text, StringComparison.Ordinal);
+        Assert.False(edited.IsError, edited.Text);
+        Assert.Contains("no source files changed since the workspace loaded", edited.Text, StringComparison.Ordinal);
+        Assert.False(late.IsError, late.Text);
+        Assert.Contains("no source files changed since the workspace loaded", late.Text, StringComparison.Ordinal); // new, but build output
+    }
 }
 
 /// <summary>dotnet_code_actions through the protocol: list, preview as a diff, apply with a fresh check, and read-only.</summary>

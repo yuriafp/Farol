@@ -10,7 +10,7 @@ internal static class ToolParameters
     public const string WorkspaceHeader = "Workspace";
 
     public const string WorkspaceDescription =
-        "A .sln, .slnx, .slnf, .csproj or .vbproj, or a directory with one; omit for the discovered solution.";
+        "A .sln, .slnx, .slnf, .csproj or .vbproj, or a directory with one; omit for the solution discovered in the root, else the one in use.";
 
     public const string MaxTokensDescription =
         "Response budget in tokens (default 1500, max 8000); a cut list says how much it left out.";

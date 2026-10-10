@@ -21,7 +21,7 @@ public sealed partial class CodeActionsTool(WorkspaceManager workspaces, ServerP
         "and refactorings (extract method, introduce variable…). Without 'action' it lists them; with 'action' it returns the change as a unified diff " +
         "and changes no file; with apply=true it also writes the files and returns a fresh dotnet_check.")]
     public Task<string> Run(
-        [Description("Source file, relative to the workspace root (e.g. src/App/Orders/OrderService.cs).")] string path,
+        [Description("Source file, relative to the root as responses write paths (e.g. src/App/Orders/OrderService.cs).")] string path,
         [Description("1-based line of the diagnostic or code.")] int line,
         [Description("Optional 1-based column: refactorings for the code at that position instead of the whole line.")] int? column = null,
         [Description("Only fixes for this diagnostic id, e.g. CS0246 or BC30451.")] string? diagnosticId = null,
@@ -41,17 +41,16 @@ public sealed partial class CodeActionsTool(WorkspaceManager workspaces, ServerP
                 }
             }
 
-            var root = workspaces.RootDirectory;
-            var fullPath = workspaces.Paths.Resolve(path);
-            var session = workspaces.GetSession(workspace);
-            var snapshot = await session.GetSnapshotAsync(wait: true, cancellationToken);
-            var ids = snapshot.Solution.GetDocumentIdsWithFilePath(fullPath);
-            if (ids.IsEmpty)
+            if (string.IsNullOrWhiteSpace(path))
             {
-                throw new FarolException(ErrorCodes.InvalidArgument, $"'{path}' is not a source file of the workspace.", "Use a path relative to the workspace root, as returned by other dotnet_* tools.");
+                throw new FarolException(ErrorCodes.InvalidArgument, "'path' is empty.", "Pass the source file, relative to the root as responses write paths (e.g. src/App/Orders/OrderService.cs).");
             }
 
-            var document = snapshot.Solution.GetDocument(ids[0])!;
+            var root = workspaces.RootDirectory;
+            var session = workspaces.GetSession(workspace);
+            var fullPath = workspaces.Paths.Resolve(path, session.Target.Directory);
+            var snapshot = await session.GetSnapshotAsync(wait: true, cancellationToken);
+            var document = snapshot.Solution.GetDocument(SourceDocuments.Find(snapshot, fullPath, path.Trim())[0])!;
             var list = await CodeActionFinder.ListAsync(document, line, column, diagnosticId, cancellationToken);
             var where = DisplayPath.Location(root, fullPath, line);
             var text = new ResponseBuilder(maxTokens);

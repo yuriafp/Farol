@@ -98,6 +98,81 @@ public sealed class WorkspaceSyncTests
     }
 
     [Fact]
+    public async Task An_edit_to_a_file_the_project_leaves_out_does_not_add_it()
+    {
+        using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
+        var project = copy.PathOf("src", "Modern.Core", "Modern.Core.csproj");
+        await File.WriteAllTextAsync(project, (await File.ReadAllTextAsync(project, Ct)).Replace("</Project>", "  <ItemGroup>\n    <Compile Remove=\"Drafts/**\" />\n  </ItemGroup>\n</Project>", StringComparison.Ordinal), Ct);
+        var draft = copy.PathOf("src", "Modern.Core", "Drafts", "Draft.cs");
+        Directory.CreateDirectory(Path.GetDirectoryName(draft)!);
+        await File.WriteAllTextAsync(draft, "namespace Modern.Core;\n\npublic static class Draft\n{\n}\n", Ct);
+        await FixtureRestore.EnsureRestoredAsync(copy.PathOf("Modern.slnx"), Ct);
+        await using var engine = EngineHarness.Create(copy.Root);
+        var session = engine.Workspaces.GetSession(null);
+        var loaded = await session.GetSnapshotAsync(wait: true, Ct);
+
+        // The draft first, then a file the project compiles: once that edit shows, the draft's has been seen too.
+        await File.WriteAllTextAsync(draft, "namespace Modern.Core;\n\npublic static class Draft\n{\n    public static int One() => \"one\";\n}\n", Ct);
+        var file = copy.PathOf("src", "Modern.Core", "Pricing", "PriceCalculator.cs");
+        await File.WriteAllTextAsync(file, "// edited\n" + await File.ReadAllTextAsync(file, Ct), Ct);
+        var snapshot = await Eventually.MatchesAsync(() => session.GetSnapshotAsync(wait: true, Ct), s => s.Version > loaded.Version, Ct);
+
+        Assert.True(snapshot.Version > loaded.Version);
+        Assert.Empty(snapshot.Solution.GetDocumentIdsWithFilePath(draft));
+    }
+
+    [Fact]
+    public async Task A_renamed_file_stays_in_its_project()
+    {
+        using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
+        await FixtureRestore.EnsureRestoredAsync(copy.PathOf("Modern.slnx"), Ct);
+        await using var engine = EngineHarness.Create(copy.Root);
+        var session = engine.Workspaces.GetSession(null);
+        await session.GetSnapshotAsync(wait: true, Ct);
+        var file = copy.PathOf("src", "Modern.Core", "Pricing", "PriceCalculator.cs");
+        var renamed = copy.PathOf("src", "Modern.Core", "Pricing", "Pricing.cs");
+
+        // A rename keeps the file's creation time: it arrives all the same.
+        File.Move(file, renamed);
+        var snapshot = await Eventually.MatchesAsync(
+            () => session.GetSnapshotAsync(wait: true, Ct), s => s.Solution.GetDocumentIdsWithFilePath(renamed).Length > 0, Ct);
+
+        Assert.Equal(2, snapshot.Solution.GetDocumentIdsWithFilePath(renamed).Length); // in both target frameworks
+        Assert.Empty(snapshot.Solution.GetDocumentIdsWithFilePath(file));
+    }
+
+    [Fact]
+    public async Task A_new_file_its_writer_still_holds_joins_once_it_can_be_read()
+    {
+        using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
+        await FixtureRestore.EnsureRestoredAsync(copy.PathOf("Modern.slnx"), Ct);
+        await using var engine = EngineHarness.Create(copy.Root);
+        var session = engine.Workspaces.GetSession(null);
+        await session.GetSnapshotAsync(wait: true, Ct);
+        var path = copy.PathOf("src", "Modern.Core", "Pricing", "TaxCalculator.cs");
+
+        var held = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        await held.WriteAsync("namespace Modern.Core.Pricing;\n\npublic sealed class TaxCalculator\n{\n}\n"u8.ToArray(), Ct);
+        await held.FlushAsync(Ct);
+        session.NotifyEdited([path]);
+
+        // Long enough for the file-system events to arrive and fail to read too, while the writer holds the file.
+        var whileHeld = await session.GetSnapshotAsync(wait: true, Ct);
+        for (var deadline = DateTime.UtcNow.AddSeconds(1); DateTime.UtcNow < deadline;)
+        {
+            await Task.Delay(100, Ct);
+            whileHeld = await session.GetSnapshotAsync(wait: true, Ct);
+        }
+
+        await held.DisposeAsync();
+        var released = await Eventually.MatchesAsync(
+            () => session.GetSnapshotAsync(wait: true, Ct), s => s.Solution.GetDocumentIdsWithFilePath(path).Length > 0, Ct, timeoutMs: 3_000);
+
+        Assert.Empty(whileHeld.Solution.GetDocumentIdsWithFilePath(path));
+        Assert.NotEmpty(released.Solution.GetDocumentIdsWithFilePath(path));
+    }
+
+    [Fact]
     public async Task Project_file_change_reloads_the_workspace()
     {
         using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
