@@ -3,7 +3,7 @@
 All notable changes to Farol are recorded in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [0.1.0-alpha.4] - 2026-10-10
+## [0.1.0-alpha.4] - 2026-10-13
 
 ### Changed
 
@@ -40,10 +40,11 @@ All notable changes to Farol are recorded in this file. The format follows
 - `dotnet_config_inspect` with a relative path and no workspace to resolve it from reports why there is none, instead of
   a missing file.
 - Two Farol processes building or testing the same workspace, as two clients on one repository do, no longer fail with
-  an unexpected error: the second waits for the first, and says so in its progress.
+  an unexpected error: the second waits for the first and says so in its progress. After the build and test timeouts
+  it stops waiting with a `conflict` error.
 - A call made while the workspace reloads no longer fails with "failed to load" and no reason: it waits for the reload.
-- A path with a null character or too long to be a path is an `invalid_argument` error that quotes only the start of
-  the path. Before, it was an unexpected error, and the server's log echoed the whole argument.
+- A path or `workspace` with a null character, or too long to be a path, is an `invalid_argument` error that quotes
+  only its start. Before, it was an unexpected error, and the server's log echoed the whole argument.
 - An argument of the wrong JSON type (an object where a string goes) or a missing required argument is an
   `invalid_argument` error that names it. Before, the answer was "An error occurred invoking" with no detail.
 
