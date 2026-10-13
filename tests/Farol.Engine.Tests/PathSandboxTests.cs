@@ -35,10 +35,15 @@ public sealed class PathSandboxTests : IDisposable
         var sandbox = new PathSandbox(Root);
 
         var nul = Assert.Throws<FarolException>(() => sandbox.Resolve("src/A\0.cs"));
-        var huge = Assert.Throws<FarolException>(() => sandbox.Resolve("src/" + new string('a', 100_000) + ".cs"));
+        var emoji = Assert.Throws<FarolException>(() => sandbox.Resolve("src/" + new string('a', 55) + "😀\0.cs"));
 
         Assert.Equal(ErrorCodes.InvalidArgument, nul.Code);
         Assert.Equal("Path 'src/A\\0.cs' contains a null character.", nul.Message);
+        Assert.Equal($"Path 'src/{new string('a', 55)}…' contains a null character.", emoji.Message);
+
+        // Unix has no length limit for a full path; Windows stops at 32,767 characters.
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Paths have a length limit on Windows only.");
+        var huge = Assert.Throws<FarolException>(() => sandbox.Resolve("src/" + new string('a', 100_000) + ".cs"));
         Assert.Equal(ErrorCodes.InvalidArgument, huge.Code);
         Assert.Equal($"Path 'src/{new string('a', 56)}…' (100007 characters) is not a path the file system accepts.", huge.Message);
     }

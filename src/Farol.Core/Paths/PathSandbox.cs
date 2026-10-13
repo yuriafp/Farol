@@ -38,36 +38,48 @@ public sealed class PathSandbox
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var given = path.Trim();
-        string fullPath;
-        try
+        var fullPath = FullPath(given, Root);
+        if (fallbackDirectory is not null && !Path.IsPathRooted(given) && !Path.Exists(fullPath))
         {
-            fullPath = Path.GetFullPath(given, Root);
-            if (fallbackDirectory is not null && !Path.IsPathRooted(given) && !Path.Exists(fullPath))
+            var alternative = FullPath(given, fallbackDirectory);
+            if (Contains(alternative) && Path.Exists(alternative))
             {
-                var alternative = Path.GetFullPath(given, fallbackDirectory);
-                if (Contains(alternative) && Path.Exists(alternative))
-                {
-                    fullPath = alternative;
-                }
+                fullPath = alternative;
             }
-        }
-        catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
-        {
-            throw new FarolException(
-                ErrorCodes.InvalidArgument,
-                given.Contains('\0', StringComparison.Ordinal)
-                    ? $"Path '{Echo(given)}' contains a null character."
-                    : $"Path '{Echo(given)}' ({given.Length} characters) is not a path the file system accepts.",
-                "Pass a file or folder path, relative to the root as responses write paths, or absolute.");
         }
 
         Demand(fullPath, $"Path '{given}'");
         return fullPath;
     }
 
-    // A path that is not one can be anything (megabytes, binary): the error quotes only its start.
-    private static string Echo(string given) =>
-        (given.Length > 60 ? given[..60] + "…" : given).Replace("\0", "\\0", StringComparison.Ordinal);
+    /// <summary>
+    /// The full path of a path a caller supplied. One the file system cannot take (a null character, too long) is an
+    /// <c>invalid_argument</c> error that quotes only its start: such an argument can be megabytes long, or binary.
+    /// </summary>
+    public static string FullPath(string path, string basePath, string subject = "Path")
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        try
+        {
+            return Path.GetFullPath(path, basePath);
+        }
+        catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
+        {
+            throw new FarolException(
+                ErrorCodes.InvalidArgument,
+                path.Contains('\0', StringComparison.Ordinal)
+                    ? $"{subject} '{Echo(path)}' contains a null character."
+                    : $"{subject} '{Echo(path)}' ({path.Length} characters) is not a path the file system accepts.",
+                "Pass a file or folder path, relative to the root as responses write paths, or absolute.");
+        }
+    }
+
+    private static string Echo(string given)
+    {
+        // Never between the two halves of a surrogate pair: the response could not be encoded.
+        var cut = given.Length <= 60 ? given.Length : char.IsHighSurrogate(given[59]) ? 59 : 60;
+        return (cut < given.Length ? given[..cut] + "…" : given).Replace("\0", "\\0", StringComparison.Ordinal);
+    }
 
     public bool Contains(string fullPath)
     {

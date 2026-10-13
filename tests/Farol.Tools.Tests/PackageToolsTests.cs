@@ -20,7 +20,8 @@ public sealed class PackageToolsTests(ModernCopyFixture modern) : IClassFixture<
 
         Assert.False(isError, text);
         Assert.Contains("packages: Modern.slnx · 3 of 3 project(s) use packages · ", text, StringComparison.Ordinal);
-        Assert.Contains(": 3 vulnerable, 7 deprecated,", text, StringComparison.Ordinal);
+        // The counts come from nuget.org, so they change as packages are deprecated or get advisories.
+        Assert.Matches(@" · \d+ package version\(s\): \d+ vulnerable, \d+ deprecated, \d+ direct outdated", text);
         Assert.Contains("Modern.Api (net10.0) · versions in Directory.Packages.props · 1 direct, 7 transitive", text, StringComparison.Ordinal);
         Assert.Matches(@"- Microsoft\.AspNetCore\.Authentication\.JwtBearer 8\.0\.0 · latest \d+\.\d+\.\d+", text);
         Assert.Contains(

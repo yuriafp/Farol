@@ -63,7 +63,7 @@ public sealed class WorkspaceManager(MSBuildWorkspaceLoader loader, PathSandbox 
         var requested = string.IsNullOrWhiteSpace(workspace) ? _options.DefaultWorkspace : workspace.Trim();
         if (!string.IsNullOrWhiteSpace(requested))
         {
-            paths.Demand(Path.GetFullPath(requested, _options.RootDirectory), $"Workspace '{requested}'");
+            paths.Demand(PathSandbox.FullPath(requested, _options.RootDirectory, "Workspace"), $"Workspace '{requested}'");
             return WorkspaceDiscovery.Resolve(requested, _options.RootDirectory);
         }
 

@@ -52,12 +52,25 @@ public sealed class ToolContractTests
         var wrongType = await harness.CallAsync("dotnet_outline", new() { ["path"] = nested.RootElement.Clone() }, ct);
         var wrongNumber = await harness.CallAsync("dotnet_outline", new() { ["path"] = "src/A.cs", ["maxTokens"] = "many" }, ct);
         var missing = await harness.CallAsync("dotnet_symbol", new() { ["name"] = "PriceCalculator" }, ct);
+        var fraction = await harness.CallAsync("dotnet_call_hierarchy", new() { ["symbol"] = "PriceCalculator.Total", ["depth"] = 2.5 }, ct);
+
+        // What the SDK binds still reaches the tool: a number written as a string, and null for an optional argument.
+        var numberAsString = await harness.CallAsync("dotnet_find_symbols", new() { ["query"] = "PriceCalculator", ["maxTokens"] = "500" }, ct);
+        var nullFormat = await harness.CallAsync("dotnet_check", new() { ["format"] = null }, ct);
+        var badWorkspace = await harness.CallAsync("dotnet_overview", new() { ["workspace"] = "Modern\0.slnx" }, ct);
 
         Assert.True(wrongType.IsError);
         Assert.Equal("'path' takes a string, not an object. Pass each argument with the type the tool's input schema gives.", wrongType.Text);
         Assert.True(wrongNumber.IsError);
         Assert.StartsWith("'maxTokens' takes a whole number, not a string.", wrongNumber.Text, StringComparison.Ordinal);
         Assert.True(missing.IsError);
-        Assert.StartsWith("dotnet_symbol needs 'symbol'; it does not take 'name'.", missing.Text, StringComparison.Ordinal);
+        Assert.Equal("dotnet_symbol needs 'symbol'; it does not take 'name'.", missing.Text);
+        Assert.True(fraction.IsError);
+        Assert.StartsWith("'depth' takes a whole number, not 2.5.", fraction.Text, StringComparison.Ordinal);
+        Assert.False(numberAsString.IsError, numberAsString.Text);
+        Assert.Contains("PriceCalculator", numberAsString.Text, StringComparison.Ordinal);
+        Assert.False(nullFormat.IsError, nullFormat.Text);
+        Assert.True(badWorkspace.IsError);
+        Assert.Contains("Workspace 'Modern\\0.slnx' contains a null character.", badWorkspace.Text, StringComparison.Ordinal);
     }
 }
