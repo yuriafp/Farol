@@ -22,6 +22,23 @@ csharp_style_var_elsewhere = true:suggestion
 csharp_prefer_primary_constructors = true:suggestion
 dotnet_style_prefer_collection_expression = true:suggestion
 
+# Naming: interfaces start with I, and async methods end in Async.
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+dotnet_naming_style.prefix_i.required_prefix = I
+dotnet_naming_style.prefix_i.capitalization = pascal_case
+dotnet_naming_rule.interfaces_start_with_i.symbols = interfaces
+dotnet_naming_rule.interfaces_start_with_i.style = prefix_i
+dotnet_naming_rule.interfaces_start_with_i.severity = warning
+
+dotnet_naming_symbols.async_methods.applicable_kinds = method, local_function
+dotnet_naming_symbols.async_methods.required_modifiers = async
+dotnet_naming_style.suffix_async.required_suffix = Async
+dotnet_naming_style.suffix_async.capitalization = pascal_case
+dotnet_naming_rule.async_methods_end_in_async.symbols = async_methods
+dotnet_naming_rule.async_methods_end_in_async.style = suffix_async
+dotnet_naming_rule.async_methods_end_in_async.severity = warning
+dotnet_diagnostic.IDE1006.severity = warning
+
 # Hosts have no SynchronizationContext; ConfigureAwait noise buys nothing here.
 dotnet_diagnostic.CA2007.severity = none
 # Adopt LoggerMessage source generation when logging volume justifies it.
@@ -31,3 +48,5 @@ dotnet_diagnostic.CA1848.severity = suggestion
 # xUnit test names use underscores and test types must be public.
 dotnet_diagnostic.CA1707.severity = none
 dotnet_diagnostic.CA1515.severity = none
+# Test names are sentences that xUnit shows as written, without an Async suffix.
+dotnet_naming_rule.async_methods_end_in_async.severity = none
