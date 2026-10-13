@@ -24,7 +24,7 @@ body:
     attributes:
       label: Farol version
       description: The first line of `farol --help`.
-      placeholder: Farol 0.1.0-alpha.3
+      placeholder: Farol 0.1.0-alpha.4
     validations:
       required: true
   - type: input
