@@ -58,13 +58,16 @@ public sealed class BuildToolTests
         using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
         await FixtureRestore.EnsureRestoredAsync(copy.PathOf("Modern.slnx"), ct);
         await using var harness = await McpHarness.StartAsync(copy.Root, ct);
+        var load = await harness.CallAsync("dotnet_workspace", new() { ["action"] = "load" }, ct);
+        Assert.False(load.IsError, load.Text);
         var progress = new Collected();
 
         Task<ModelContextProtocol.Protocol.CallToolResult> build;
         using (new FileStream(Farol.Engine.Building.BuildRunner.TurnFile(copy.PathOf("Modern.slnx")), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
         {
             build = harness.Client.CallToolAsync("dotnet_build", new Dictionary<string, object?>(), progress, cancellationToken: ct).AsTask();
-            await Eventually.MatchesAsync(() => Task.FromResult(progress.Messages), m => m.Any(x => x.StartsWith("waiting for another Farol process", StringComparison.Ordinal)), ct);
+            var messages = await Eventually.MatchesAsync(() => Task.FromResult(progress.Messages), m => m.Any(x => x.StartsWith("waiting for another Farol process", StringComparison.Ordinal)), ct, timeoutMs: 60_000);
+            Assert.Contains(messages, m => m.StartsWith("waiting for another Farol process that is building or testing this workspace", StringComparison.Ordinal));
             Assert.False(build.IsCompleted);
         }
 

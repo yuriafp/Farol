@@ -23,7 +23,7 @@ public static class WorkspaceDiscovery
         var root = Path.GetFullPath(rootDirectory);
         var candidate = string.IsNullOrWhiteSpace(requested)
             ? root
-            : Path.GetFullPath(Path.IsPathRooted(requested) ? requested : Path.Combine(root, requested));
+            : PathSandbox.FullPath(requested, root, "Workspace");
 
         if (File.Exists(candidate))
         {

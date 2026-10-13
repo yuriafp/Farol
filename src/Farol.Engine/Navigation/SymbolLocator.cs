@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Farol.Core;
+using Farol.Core.Paths;
 using Farol.Engine.Workspaces;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.FindSymbols;
@@ -24,7 +25,7 @@ public static partial class SymbolLocator
     /// <summary>Resolves a reference whose "path:line" form, if it has one, is relative to <paramref name="rootDirectory"/>.</summary>
     public static Task<IReadOnlyList<SymbolCandidate>> ResolveAsync(
         WorkspaceSnapshot snapshot, string rootDirectory, string reference, CancellationToken cancellationToken) =>
-        ResolveAsync(snapshot, path => Path.GetFullPath(path, rootDirectory), reference, cancellationToken);
+        ResolveAsync(snapshot, path => PathSandbox.FullPath(path, rootDirectory), reference, cancellationToken);
 
     /// <summary>
     /// Resolves a reference. <paramref name="resolvePath"/> turns the path of the "path:line" form into a full path,

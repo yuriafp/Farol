@@ -54,30 +54,48 @@ public sealed partial class BuildRunner(IProcessRunner runner, ToolchainProbe to
     /// <summary>The file a Farol process holds open while it builds or tests the workspace.</summary>
     public static string TurnFile(string workspacePath) => Path.Combine(ArtifactDirectory.For("builds", workspacePath), "turn.lock");
 
-    // The system lets the file go when its holder exits, crashed or not, so a turn is never left taken.
+    // The system lets the file go when its holder exits, crashed or not, so a turn is never left taken. The other process
+    // holds it for at most a build and a test run, each bounded by its timeout; progress repeats so clients keep waiting.
     private async Task<FileStream> HoldTurnFileAsync(WorkspaceTarget target, IProgress<string>? progress, CancellationToken cancellationToken)
     {
         var path = TurnFile(target.Path);
-        var waiting = false;
+        var limit = TimeSpan.FromMinutes(Math.Max(1, options.Value.BuildTimeoutMinutes) + Math.Max(1, options.Value.TestTimeoutMinutes));
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        var reported = TimeSpan.MinValue;
         while (true)
         {
             try
             {
                 return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
             }
-            catch (IOException) when (File.Exists(path))
+            catch (IOException ex) when (IsHeldByAnother(ex) && File.Exists(path))
             {
-                if (!waiting)
+                if (waited.Elapsed > limit)
                 {
-                    waiting = true;
-                    progress?.Report("waiting for another Farol process that is building or testing this workspace");
-                    LogWaiting(logger, target.Path);
+                    throw new FarolException(
+                        ErrorCodes.Conflict,
+                        $"Another Farol process has been building or testing {target.DisplayName} for {(int)limit.TotalMinutes} minutes.",
+                        "Wait for that client's build or test run to end, or stop it, then try again.");
+                }
+
+                if (reported == TimeSpan.MinValue || waited.Elapsed - reported >= TimeSpan.FromSeconds(15))
+                {
+                    if (reported == TimeSpan.MinValue)
+                    {
+                        LogWaiting(logger, target.Path);
+                    }
+
+                    reported = waited.Elapsed;
+                    progress?.Report($"waiting for another Farol process that is building or testing this workspace ({(int)waited.Elapsed.TotalSeconds} s)");
                 }
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
         }
     }
+
+    // Windows says which IOException means the file is open elsewhere (sharing or lock violation); elsewhere any one does.
+    private static bool IsHeldByAnother(IOException ex) => !OperatingSystem.IsWindows() || (ex.HResult & 0xFFFF) is 32 or 33;
 
     /// <summary>Builds without taking the workspace's turn: the caller holds it.</summary>
     internal async Task<BuildResult> BuildCoreAsync(
@@ -204,8 +222,14 @@ public sealed partial class BuildRunner(IProcessRunner runner, ToolchainProbe to
         {
             if (Interlocked.Exchange(ref _released, 1) == 0)
             {
-                turnFile.Dispose();
-                gate.Release();
+                try
+                {
+                    turnFile.Dispose();
+                }
+                finally
+                {
+                    gate.Release();
+                }
             }
         }
     }
