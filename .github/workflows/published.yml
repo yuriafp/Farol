@@ -18,7 +18,7 @@ permissions:
 jobs:
   published:
     runs-on: windows-2025
-    timeout-minutes: 30
+    timeout-minutes: 50
     env:
       DOTNET_NOLOGO: true
     steps:
@@ -37,6 +37,19 @@ jobs:
         run: |
           $package = (Get-Content plugins/farol/.mcp.json -Raw | ConvertFrom-Json).mcpServers.farol.args | Where-Object { $_ -like 'Farol.Mcp@*' }
           "version=$($package -replace '^Farol\.Mcp@', '')" >> $env:GITHUB_OUTPUT
+
+      # A GitHub release published right after the package can come before nuget.org lists it for restore.
+      - name: Wait until nuget.org lists it
+        shell: pwsh
+        run: |
+          $version = '${{ steps.pin.outputs.version }}'
+          foreach ($attempt in 1..40) {
+            $listed = (Invoke-RestMethod 'https://api.nuget.org/v3/registration5-gz-semver2/farol.mcp/index.json').items.items.catalogEntry.version
+            if ($listed -contains $version) { exit 0 }
+            Start-Sleep -Seconds 30
+          }
+          "Farol.Mcp $version is not listed on nuget.org after 20 minutes."
+          exit 1
 
       # The plugin and the README's client configurations start it this way.
       - name: Start it through dnx
