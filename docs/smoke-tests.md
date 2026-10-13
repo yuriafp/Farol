@@ -1,6 +1,10 @@
-# Manual smoke tests
+# Smoke tests
 
-AC-36 of [spec 001](specs/001-mvp.md): before each release, a person runs these checks in Claude Code and in Visual Studio 2026 on a Windows machine with Visual Studio installed, and records the result at the end of this file. The automated suite covers the tools; these checks cover what only a real client shows: installation, discovery, the hook, prompts and agent behavior.
+AC-36 of [spec 001](specs/001-mvp.md): before each release, these checks pass on the candidate, on a Windows machine with Visual Studio installed, and their results are recorded at the end of this file. The automated suite covers the tools; these checks cover what a real client starts and shows: installation, discovery, the hook, prompts and agent behavior.
+
+- **Claude Code, C1–C9:** run by a person, or headless (`claude -p`) with each check that needs the interface verified through its headless equivalent.
+- **Visual Studio, scripted:** [`tests/smoke/visual-studio.ps1`](#scripted), for every release.
+- **Visual Studio, V1–V6 by a person:** when what the client shows has changed since the last version a person checked there: the MCP surface (`tests/Farol.Tools.Tests/Snapshots/mcp-surface.json`), the server instructions, the README's Visual Studio setup, or the client (a new Visual Studio major version or another agent).
 
 Use the repository's fixtures as the solutions under test: `tests/fixtures/legacy` (classic .NET Framework) and `tests/fixtures/modern` (.NET 10). Work on a copy, since some steps edit files.
 
@@ -63,6 +67,16 @@ Setup: a `.mcp.json` next to `Legacy.sln` in the copy, as in the README, then op
 | V4 | Edit `OrderCalculator.cs` to introduce a type error, then ask: "Run dotnet_check." | The new error is reported with its path:line, and no pre-existing diagnostic. |
 | V5 | Ask for the migration plan to net10.0. | `dotnet_migration_plan` returns steps starting with Legacy.Core. |
 | V6 | Open the prompts list (`/` in the chat box). | The `explore`, `verify_changes`, `upgrade_package` and `modernize` prompts appear. |
+
+### Scripted
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/smoke/visual-studio.ps1 -Version <version>
+```
+
+The script restores a copy of `tests/fixtures/legacy` in the temporary folder and writes the `.mcp.json` Visual Studio reads next to `Legacy.sln`: the candidate from `artifacts/packages` through `dnx`, with a throwaway NuGet cache (`-Published` starts the package from nuget.org instead). It starts the server from that file in the developer environment of the newest Visual Studio, makes the calls an agent makes in V1–V6 and checks each answer; V1 and V6 compare the lists with `mcp-surface.json`. Each check prints PASS or FAIL, and the exit code is 1 when one fails. The fixture copy and the cache are deleted when every check passes (`-Keep` keeps them). The usage log stays off.
+
+It checks the server as Visual Studio starts it, not the client: the tools picker, the prompts list in the chat box and the permission prompt still need a person, when AC-36 asks for one.
 
 ## Results
 

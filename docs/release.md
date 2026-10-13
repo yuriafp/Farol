@@ -30,7 +30,7 @@ $env:NUGET_PACKAGES = Join-Path $env:TEMP "farol-release-check-$(Get-Random)"
 dotnet dnx Farol.Mcp@<version> --yes --add-source artifacts/packages
 ```
 
-The server waits for an MCP client on stdin; any client configured with the same command must list 18 tools and 4 prompts. Then run the [manual smoke tests](smoke-tests.md).
+The server waits for an MCP client on stdin; any client configured with the same command must list 18 tools and 4 prompts. Then run the [smoke tests](smoke-tests.md): the Claude Code checks, `tests/smoke/visual-studio.ps1 -Version <version>`, and V1–V6 in Visual Studio when AC-36 asks for a person.
 
 ## 3. Publish
 

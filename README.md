@@ -141,7 +141,7 @@ To work on Farol in an IDE, use one that supports .NET 10: Visual Studio 2026 (1
 
 CI builds and tests every push, and once a week, on Windows with Visual Studio 2026. Another workflow installs the published package from nuget.org every week and after each release, and checks it on the fixtures. Performance is measured against the spec's targets on Umbraco CMS and DNN Platform: [benchmarks/README.md](benchmarks/README.md). Whether Farol makes Claude Code better at .NET work is measured by an eval suite of 30 tasks run with and without it: [evals/README.md](evals/README.md).
 
-Changes by version: [CHANGELOG.md](CHANGELOG.md). Releasing: [docs/release.md](docs/release.md). Manual smoke tests in Claude Code and Visual Studio 2026: [docs/smoke-tests.md](docs/smoke-tests.md).
+Changes by version: [CHANGELOG.md](CHANGELOG.md). Releasing: [docs/release.md](docs/release.md). Smoke tests in Claude Code and Visual Studio 2026: [docs/smoke-tests.md](docs/smoke-tests.md).
 
 ## Architecture
 
