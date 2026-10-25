@@ -10,6 +10,8 @@ internal static class TestPaths
 
     public static string ModernSolution => Path.Combine(ModernDirectory, "Modern.slnx");
 
+    public static string GeneratorsDirectory => Path.Combine(Fixtures, "generators");
+
     public static string LegacyDirectory => Path.Combine(Fixtures, "legacy");
 
     public static string LegacySolution => Path.Combine(LegacyDirectory, "Legacy.sln");

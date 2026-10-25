@@ -55,6 +55,7 @@ public sealed partial class MSBuildWorkspaceLoader(ToolchainProbe toolchain, ILo
                 ? (await workspace.OpenProjectAsync(target.Path, progress, cancellationToken)).Solution
                 : await workspace.OpenSolutionAsync(target.Path, progress, cancellationToken);
             (solution, var missingAnalyzers) = WithoutUnresolvedAnalyzers(solution);
+            solution = AnalyzerCopies.WithCopies(solution);
             await ReadAllTextAsync(solution, cancellationToken);
             stopwatch.Stop();
 

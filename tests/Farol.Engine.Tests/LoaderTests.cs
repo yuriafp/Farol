@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Farol.Engine.Loading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -37,5 +38,31 @@ public sealed class LoaderTests
         var issue = Assert.Single(issues);
         Assert.Equal("warning", issue.Severity);
         Assert.Contains(missing, issue.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>AC-47: the analyzer copies of a process that has exited are removed; those of a running one are kept.</summary>
+    [Fact]
+    public void Analyzer_copies_are_removed_once_their_process_has_exited()
+    {
+        var root = Directory.CreateTempSubdirectory("farol-analyzers-").FullName;
+        try
+        {
+            using var exited = Process.Start(new ProcessStartInfo("dotnet", "--version") { RedirectStandardOutput = true })!;
+            exited.WaitForExit();
+            var gone = Directory.CreateDirectory(Path.Combine(root, $"{exited.Id}-0")).FullName;
+            File.WriteAllText(Path.Combine(gone, "Old.Generator.dll"), string.Empty);
+            var running = Directory.CreateDirectory(Path.Combine(root, $"{Environment.ProcessId}-0")).FullName;
+            var other = Directory.CreateDirectory(Path.Combine(root, "not-a-server")).FullName;
+
+            AnalyzerCopies.RemoveLeftovers(root);
+
+            Assert.False(Directory.Exists(gone));
+            Assert.True(Directory.Exists(running));
+            Assert.True(Directory.Exists(other));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 }
