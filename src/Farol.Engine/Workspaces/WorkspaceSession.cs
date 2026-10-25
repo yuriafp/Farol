@@ -47,6 +47,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     private DateTimeOffset _loadStartedAt;
     private DateTimeOffset _warmupStartedAt;
     private long _warmedInTicks = -1;
+    private long _lastLoadTicks = -1;
 
     internal WorkspaceSession(WorkspaceTarget target, MSBuildWorkspaceLoader loader, IReadOnlyDictionary<string, string> properties, ILogger logger, IUsageLog usage)
     {
@@ -92,6 +93,9 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     public int EvaluationSteps => Volatile.Read(ref _evaluationSteps);
 
     public TimeSpan LoadingFor => DateTimeOffset.UtcNow - _loadStartedAt;
+
+    /// <summary>How long the last load of this workspace that completed in this server took; null before one has.</summary>
+    public TimeSpan? LastLoadTook => Volatile.Read(ref _lastLoadTicks) is >= 0 and var ticks ? TimeSpan.FromTicks(ticks) : null;
 
     /// <summary>Whether compilations and search indexes are still being built in the background after the load.</summary>
     public bool IsWarming => Volatile.Read(ref _warmup) is { IsCompleted: false };
@@ -264,6 +268,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
                 _snapshot = new WorkspaceSnapshot(loaded.Solution, 1, projects, new WorkspaceLoad(loaded.Solution, DateTimeOffset.UtcNow), Target);
                 _warmupStartedAt = DateTimeOffset.UtcNow;
                 _warmedInTicks = -1;
+                _lastLoadTicks = loaded.Report.Elapsed.Ticks;
                 _warmup = Task.Run(() => WarmAsync(loaded.Solution, cancellationToken), CancellationToken.None);
             }
 

@@ -33,8 +33,10 @@ internal static class WorkspaceStatusRenderer
                     : $"snapshot: v{session.CurrentSnapshot?.Version} · file changes: NOT tracked (call again with action='reload' after edits)");
                 break;
             case WorkspaceState.Loading:
-                text.Line($"state: loading · {session.EvaluationSteps} project evaluation step(s) done · {Seconds(session.LoadingFor)} elapsed");
-                text.Line("hint: call again with action='load' to wait until it is ready.");
+                // An agent told only to call again went back to grep (AC-45): say that the other tools wait, and for about how long.
+                var last = session.LastLoadTook is { } took ? $" · the last load here took {Seconds(took)}" : string.Empty;
+                text.Line($"state: loading · {session.EvaluationSteps} project evaluation step(s) done · {Seconds(session.LoadingFor)} elapsed{last}");
+                text.Line("hint: the other dotnet_* tools wait for the load to finish, so call the one you need now; action='load' waits for it here.");
                 break;
             case WorkspaceState.Failed:
                 text.Line($"state: failed · {session.FailureMessage}");

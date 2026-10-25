@@ -60,6 +60,28 @@ public sealed class WorkspaceToolsTests(ModernCopyFixture fixture) : IClassFixtu
         Assert.True(isError);
         Assert.Contains("status, load or reload", text, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task AC45_status_while_loading_says_the_other_tools_wait_and_how_long_the_last_load_took()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var harness = await McpHarness.StartAsync(fixture.Copy.Root, ct);
+
+        var first = await harness.CallAsync("dotnet_workspace", [], ct);
+        var load = await harness.CallAsync("dotnet_workspace", new() { ["action"] = "load" }, ct);
+        var reload = harness.CallAsync("dotnet_workspace", new() { ["action"] = "reload" }, ct);
+        var during = await Eventually.MatchesAsync(
+            () => harness.CallAsync("dotnet_workspace", [], ct),
+            status => status.Text.Contains("state: loading", StringComparison.Ordinal),
+            ct);
+        await reload;
+
+        Assert.Contains("state: loading", first.Text, StringComparison.Ordinal);
+        Assert.Contains("hint: the other dotnet_* tools wait for the load to finish, so call the one you need now", first.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("the last load here took", first.Text, StringComparison.Ordinal);
+        Assert.False(load.IsError, load.Text);
+        Assert.Matches(@"state: loading · .* elapsed · the last load here took \d+\.\ds\n", during.Text);
+    }
 }
 
 /// <summary>
