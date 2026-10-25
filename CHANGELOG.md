@@ -29,6 +29,11 @@ Changes from two weeks of real use ([results](docs/real-use/2026-10-23.md), [inv
   solutions loaded with hundreds of errors that a build does not have. Otherwise a load issue names the analyzer, the
   compiler version it needs and the projects missing its code, and says how to fix it.
 
+### Security
+
+- `System.Security.Cryptography.Pkcs`, which NuGet's libraries bring in at 8.0.1, is raised to 10.0.13, which fixes two
+  denial-of-service advisories (GHSA-846f-f764-76mx, GHSA-2fmv-rv2c-59x7).
+
 ## [0.1.0-alpha.4] - 2026-10-13
 
 ### Changed

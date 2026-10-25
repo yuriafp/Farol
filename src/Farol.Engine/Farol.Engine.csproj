@@ -16,6 +16,7 @@
     <PackageReference Include="MSBuild.StructuredLogger" />
     <PackageReference Include="NuGet.Credentials" />
     <PackageReference Include="NuGet.ProjectModel" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
     <PackageReference Include="ICSharpCode.Decompiler" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
