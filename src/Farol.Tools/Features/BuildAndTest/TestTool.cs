@@ -35,7 +35,7 @@ public sealed partial class TestTool(WorkspaceManager workspaces, TestRunner tes
         {
             permissions.Demand("run tests", "Use dotnet_check to verify edits without running code.");
             var root = workspaces.RootDirectory;
-            var session = workspaces.GetSession(workspace);
+            var session = workspaces.GetSession(workspace, SymbolLocator.LocationPath(affectedBy));
             var snapshot = await session.GetSnapshotAsync(wait: true, cancellationToken);
 
             (IReadOnlyList<SymbolVariant> Roots, string Subject)? affected = null;

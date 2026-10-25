@@ -23,7 +23,7 @@ public sealed class HierarchyTool(WorkspaceManager workspaces)
         ToolGuard.RunAsync(async () =>
         {
             var root = workspaces.RootDirectory;
-            var snapshot = await workspaces.GetSession(workspace).GetSnapshotAsync(wait: true, cancellationToken);
+            var snapshot = await workspaces.GetSession(workspace, SymbolLocator.LocationPath(symbol)).GetSnapshotAsync(wait: true, cancellationToken);
             var (candidate, ambiguity) = await SymbolArgument.ResolveAsync(snapshot, workspaces.Paths, symbol, cancellationToken);
             if (candidate is null)
             {

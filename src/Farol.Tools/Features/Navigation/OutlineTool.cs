@@ -31,7 +31,7 @@ public sealed class OutlineTool(WorkspaceManager workspaces)
             }
 
             var root = workspaces.RootDirectory;
-            var session = workspaces.GetSession(workspace);
+            var session = workspaces.GetSession(workspace, path);
             var fullPath = string.IsNullOrWhiteSpace(path) ? null : workspaces.Paths.Resolve(path, session.Target.Directory);
             var snapshot = await session.GetSnapshotAsync(wait: true, cancellationToken);
             IReadOnlyList<OutlineEntry> entries;

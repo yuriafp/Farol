@@ -82,15 +82,42 @@ public static class WorkspaceDiscovery
             "Pass the workspace path explicitly; later calls can then leave it out.");
     }
 
-    private static WorkspaceTarget PickSingle(List<string> candidates, string root, WorkspaceTargetKind kind)
+    /// <summary>
+    /// The solution nearest above <paramref name="file"/> (AC-44): the first folder up from the file's, up to the root,
+    /// that holds exactly one solution. Null when the file is outside the root or no such folder exists. The file need
+    /// not exist yet: an agent may name one it is about to create.
+    /// </summary>
+    public static WorkspaceTarget? NearestAbove(string file, string rootDirectory)
     {
-        // The same solution in both formats is common right after migrating to .slnx: prefer .slnx.
-        var distinct = candidates
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootDirectory));
+        var directory = Path.GetDirectoryName(Path.GetFullPath(file));
+        while (directory is not null && IsSameOrUnder(directory, root))
+        {
+            if (Directory.Exists(directory) && Distinct(FindFiles(directory, ["*.slnx", "*.sln"], depth: 0)) is [var solution])
+            {
+                return new WorkspaceTarget(solution, WorkspaceTargetKind.Solution);
+            }
+
+            directory = Path.GetDirectoryName(directory);
+        }
+
+        return null;
+    }
+
+    private static bool IsSameOrUnder(string directory, string root) =>
+        string.Equals(directory, root, StringComparison.OrdinalIgnoreCase)
+        || directory.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
+    // The same solution in both formats is common right after migrating to .slnx: prefer .slnx.
+    private static List<string> Distinct(List<string> candidates) =>
+        [.. candidates
             .GroupBy(p => Path.ChangeExtension(p, null), StringComparer.OrdinalIgnoreCase)
             .Select(g => g.OrderBy(p => p.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase) ? 0 : 1).First())
-            .Order(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            .Order(StringComparer.OrdinalIgnoreCase)];
 
+    private static WorkspaceTarget PickSingle(List<string> candidates, string root, WorkspaceTargetKind kind)
+    {
+        var distinct = Distinct(candidates);
         if (distinct.Count == 1)
         {
             return new WorkspaceTarget(distinct[0], kind);

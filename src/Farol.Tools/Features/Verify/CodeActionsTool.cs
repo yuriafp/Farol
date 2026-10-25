@@ -47,7 +47,7 @@ public sealed partial class CodeActionsTool(WorkspaceManager workspaces, ServerP
             }
 
             var root = workspaces.RootDirectory;
-            var session = workspaces.GetSession(workspace);
+            var session = workspaces.GetSession(workspace, path);
             var fullPath = workspaces.Paths.Resolve(path, session.Target.Directory);
             var snapshot = await session.GetSnapshotAsync(wait: true, cancellationToken);
             var document = snapshot.Solution.GetDocument(SourceDocuments.Find(snapshot, fullPath, path.Trim())[0])!;

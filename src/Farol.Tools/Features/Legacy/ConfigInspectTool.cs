@@ -32,19 +32,19 @@ public sealed class ConfigInspectTool(WorkspaceManager workspaces)
             var text = new ResponseBuilder(maxTokens);
             if (string.IsNullOrWhiteSpace(path))
             {
-                var session = workspaces.GetSession(workspace);
+                var session = workspaces.GetSession(workspace, path);
                 List(text, session.Target.Directory, root, cancellationToken);
                 return Task.FromResult(text.ToString());
             }
 
-            var directory = workspaces.TargetDirectory(workspace);
+            var directory = workspaces.TargetDirectory(workspace, path);
             var file = workspaces.Paths.Resolve(path, directory);
             if (!File.Exists(file))
             {
                 if (directory is null && !Path.IsPathRooted(path.Trim()))
                 {
                     // The path may be written from a workspace's folder: when no workspace resolves, that is the error to report.
-                    workspaces.GetSession(workspace);
+                    workspaces.GetSession(workspace, path);
                 }
 
                 throw new FarolException(ErrorCodes.InvalidArgument, $"'{path}' does not exist.", "Call without path to list the configuration files, then pass one as the list writes it.");

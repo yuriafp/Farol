@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Farol.Testing;
 using Xunit;
 
@@ -109,5 +110,62 @@ public sealed class RootAboveTheWorkspaceTests
         Assert.Contains("Modern/src/Modern.Core/Fresh.cs:5 · error CS0029", check.Text, StringComparison.Ordinal);
         Assert.Contains("after the edit to Modern/src/Modern.Core/Edited.cs", hook.Text, StringComparison.Ordinal);
         Assert.Contains("Modern/src/Modern.Core/Edited.cs:5 · error CS0029", hook.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AC44_a_call_about_a_file_uses_the_solution_nearest_above_it()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var repos = FixtureCopy.CreateIn(TestPaths.ModernDirectory, "Modern");
+        Directory.CreateDirectory(repos.PathOf("Other"));
+        await File.WriteAllTextAsync(repos.PathOf("Other", "Other.slnx"), "<Solution />", ct);
+        await FixtureRestore.EnsureRestoredAsync(repos.PathOf("Modern", "Modern.slnx"), ct);
+        await using var harness = await McpHarness.StartAsync(repos.Root, ct);
+        const string file = "Modern/src/Modern.Core/Pricing/PriceCalculator.cs";
+
+        var outline = await harness.CallAsync("dotnet_outline", new() { ["path"] = file }, ct);
+        var symbol = await harness.CallAsync("dotnet_symbol", new() { ["symbol"] = $"{file}:13" }, ct);
+        var edited = repos.PathOf("Modern", "src", "Modern.Core", "Edited.cs");
+        await File.WriteAllTextAsync(edited, "namespace Modern.Core;\n\npublic static class Edited\n{\n    public static int Two() => \"two\";\n}\n", ct);
+        var hook = await harness.CallAsync("dotnet_check", new() { ["edited"] = edited, ["format"] = "hook" }, ct);
+        var status = await harness.CallAsync("dotnet_workspace", new(), ct);
+
+        Assert.False(outline.IsError, outline.Text);
+        Assert.Contains("outline of Modern/src/Modern.Core/Pricing/PriceCalculator.cs", outline.Text, StringComparison.Ordinal);
+        Assert.False(symbol.IsError, symbol.Text);
+        Assert.StartsWith("class PriceCalculator\nnamespace: Modern.Core.Pricing", symbol.Text, StringComparison.Ordinal);
+        Assert.False(hook.IsError, hook.Text);
+        Assert.Contains("after the edit to Modern/src/Modern.Core/Edited.cs", hook.Text, StringComparison.Ordinal);
+        Assert.Contains("Modern/src/Modern.Core/Edited.cs:5 · error CS0029", hook.Text, StringComparison.Ordinal);
+        Assert.False(status.IsError, status.Text);
+        Assert.StartsWith("workspace: Modern/Modern.slnx", status.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AC44_the_hook_says_once_when_it_cannot_pick_a_solution()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var repos = FixtureCopy.CreateIn(TestPaths.ModernDirectory, "Modern");
+        Directory.CreateDirectory(repos.PathOf("Other"));
+        await File.WriteAllTextAsync(repos.PathOf("Other", "Other.slnx"), "<Solution />", ct);
+        Directory.CreateDirectory(repos.PathOf("Scripts"));
+        await File.WriteAllTextAsync(repos.PathOf("Scripts", "Tool.cs"), "System.Console.WriteLine();\n", ct);
+        await File.WriteAllTextAsync(repos.PathOf("Scripts", "notes.md"), "# Notes\n", ct);
+        await using var harness = await McpHarness.StartAsync(repos.Root, ct);
+
+        var notCode = await harness.CallAsync("dotnet_check", new() { ["edited"] = repos.PathOf("Scripts", "notes.md"), ["format"] = "hook" }, ct);
+        var first = await harness.CallAsync("dotnet_check", new() { ["edited"] = repos.PathOf("Scripts", "Tool.cs"), ["format"] = "hook" }, ct);
+        var second = await harness.CallAsync("dotnet_check", new() { ["edited"] = repos.PathOf("Scripts", "Tool.cs"), ["format"] = "hook" }, ct);
+        var text = await harness.CallAsync("dotnet_check", new() { ["path"] = "Scripts/Tool.cs" }, ct);
+
+        Assert.Equal((false, "{}"), notCode);
+        Assert.False(first.IsError, first.Text);
+        var context = (string?)JsonNode.Parse(first.Text)!["hookSpecificOutput"]!["additionalContext"];
+        Assert.Contains("could not check the edit to Scripts/Tool.cs: it cannot tell which solution to load.", context, StringComparison.Ordinal);
+        Assert.Contains("Found 2 candidates: Modern/Modern.slnx, Other/Other.slnx.", context, StringComparison.Ordinal);
+        Assert.Contains("dotnet_workspace (action 'load'", context, StringComparison.Ordinal);
+        Assert.Equal((false, "{}"), second);
+        Assert.True(text.IsError);
+        Assert.Contains("Found 2 candidates: Modern/Modern.slnx, Other/Other.slnx.", text.Text, StringComparison.Ordinal);
     }
 }

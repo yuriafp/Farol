@@ -56,6 +56,10 @@ public static partial class SymbolLocator
         return await GroupAsync(snapshot, symbols, cancellationToken);
     }
 
+    /// <summary>The file of a "path:line[:column]" reference, as given; null for any other form.</summary>
+    public static string? LocationPath(string? reference) =>
+        reference is not null && !DocumentationId().IsMatch(reference.Trim()) && TryParseLocation(reference.Trim(), out var path, out _, out _) ? path : null;
+
     /// <summary>Recognizes the "path:line[:column]" form.</summary>
     private static bool TryParseLocation(string reference, out string path, out int line, out int? column)
     {

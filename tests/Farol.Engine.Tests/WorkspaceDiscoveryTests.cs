@@ -164,6 +164,38 @@ public sealed class WorkspaceDiscoveryTests : IDisposable
         Assert.Equal("No .sln, .slnx, .csproj or .vbproj found in the root.", noneInRoot.Message);
     }
 
+    /// <summary>AC-44: the first folder up from a file's that holds one solution, counting both formats of it as one.</summary>
+    [Fact]
+    public void Finds_the_solution_nearest_above_a_file()
+    {
+        var repo = Directory.CreateDirectory(Path.Combine(_temp, "repo", "src", "App")).FullName;
+        File.WriteAllText(Path.Combine(_temp, "repo", "App.sln"), string.Empty);
+        File.WriteAllText(Path.Combine(_temp, "repo", "App.slnx"), "<Solution />");
+        var pair = Directory.CreateDirectory(Path.Combine(_temp, "pair", "src")).FullName;
+        File.WriteAllText(Path.Combine(_temp, "pair", "Alpha.sln"), string.Empty);
+        File.WriteAllText(Path.Combine(_temp, "pair", "Beta.sln"), string.Empty);
+        File.WriteAllText(Path.Combine(_temp, "All.slnx"), "<Solution />");
+        var outside = Directory.CreateTempSubdirectory("farol-outside-").FullName;
+
+        try
+        {
+            var nearest = WorkspaceDiscovery.NearestAbove(Path.Combine(repo, "Program.cs"), _temp);
+            var notYetCreated = WorkspaceDiscovery.NearestAbove(Path.Combine(repo, "New", "Folder", "Later.cs"), _temp);
+            var pastTwo = WorkspaceDiscovery.NearestAbove(Path.Combine(pair, "Shared.cs"), _temp);
+            var notInRoot = WorkspaceDiscovery.NearestAbove(Path.Combine(outside, "Program.cs"), _temp);
+
+            Assert.Equal(Path.Combine(_temp, "repo", "App.slnx"), nearest?.Path, ignoreCase: true);
+            Assert.Equal(WorkspaceTargetKind.Solution, nearest?.Kind);
+            Assert.Equal(nearest?.Path, notYetCreated?.Path);
+            Assert.Equal(Path.Combine(_temp, "All.slnx"), pastTwo?.Path, ignoreCase: true);
+            Assert.Null(notInRoot);
+        }
+        finally
+        {
+            Directory.Delete(outside, recursive: true);
+        }
+    }
+
     private static Undo DenyListing(string directory) =>
         OperatingSystem.IsWindows() ? DenyListingOnWindows(directory) : DenyListingOnUnix(directory);
 

@@ -4,6 +4,7 @@ using System.Text.Json;
 using Farol.Core;
 using Farol.Core.Paths;
 using Farol.Core.Text;
+using Farol.Core.Usage;
 using Farol.Engine.Diagnostics;
 using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
@@ -38,7 +39,24 @@ public sealed class CheckTool(WorkspaceManager workspaces)
         {
             var hook = ParseFormat(format);
             var kind = ParseScope(scope, path, project);
-            var session = workspaces.GetSession(workspace);
+            if (hook && !string.IsNullOrWhiteSpace(edited) && !MayBeOurs(edited.Trim()))
+            {
+                // A hook fires for every edit the agent makes; one outside the trusted directories or in a non-C#/VB file is not ours to check.
+                return NothingToSay;
+            }
+
+            WorkspaceSession session;
+            try
+            {
+                session = workspaces.GetSession(workspace, edited ?? path);
+            }
+            catch (FarolException ex) when (hook && ex.Code is ErrorCodes.WorkspaceAmbiguous or ErrorCodes.WorkspaceNotFound)
+            {
+                // A hook error is never shown to the agent: say it once in its context, and keep the failure in the usage log.
+                ToolCallOutcome.Current?.Fail(ex.Code);
+                return workspaces.FirstUnresolvedNotice() ? UnresolvedNotice(ex, Shown(edited)) : NothingToSay;
+            }
+
             var fullPath = kind == CheckScope.File && !string.IsNullOrWhiteSpace(path) ? workspaces.Paths.Resolve(path, session.Target.Directory) : null;
             if (fullPath is not null && IsSource(fullPath))
             {
@@ -49,7 +67,7 @@ public sealed class CheckTool(WorkspaceManager workspaces)
             string? editedFile = null;
             if (!string.IsNullOrWhiteSpace(edited))
             {
-                // A hook fires for every edit the agent makes; one outside the trusted directories or in a non-C#/VB file is not ours to check.
+                // A relative path can still resolve outside the trusted directories, from the workspace's folder.
                 editedFile = TryResolve(edited, session.Target.Directory);
                 if (editedFile is null || !IsSource(editedFile))
                 {
@@ -111,6 +129,30 @@ public sealed class CheckTool(WorkspaceManager workspaces)
             },
         }, HookJson);
     }
+
+    private static string UnresolvedNotice(FarolException ex, string? edited)
+    {
+        var what = edited is null ? "the edits" : $"the edit to {edited}";
+        return JsonSerializer.Serialize(new Dictionary<string, object>
+        {
+            ["hookSpecificOutput"] = new Dictionary<string, string>
+            {
+                ["hookEventName"] = "PostToolUse",
+                ["additionalContext"] =
+                    $"Farol (dotnet_check) could not check {what}: it cannot tell which solution to load. {ex.Message} " +
+                    "Name the solution once with dotnet_workspace (action 'load', workspace set to it); later edits are then checked " +
+                    "against it. This note is not repeated.",
+            },
+        }, HookJson);
+    }
+
+    // Decided before a workspace is picked: an edit Farol would not check never brings up the note on an unresolved workspace.
+    private bool MayBeOurs(string edited) => IsSource(edited) && (!Path.IsPathRooted(edited) || workspaces.Paths.Contains(edited));
+
+    private string? Shown(string? edited) =>
+        string.IsNullOrWhiteSpace(edited) ? null
+        : Path.IsPathRooted(edited.Trim()) ? DisplayPath.From(workspaces.RootDirectory, edited.Trim())
+        : edited.Trim().Replace('\\', '/');
 
     private string? TryResolve(string path, string workspaceDirectory)
     {
