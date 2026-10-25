@@ -3,6 +3,32 @@
 All notable changes to Farol are recorded in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+Changes from two weeks of real use ([results](docs/real-use/2026-10-23.md), [investigation](docs/real-use/2026-10-25-investigation.md)).
+
+### Changed
+
+- A call about a file (the hook's `edited`, a `path`, or a `path:line` symbol) without `workspace`, in a root that holds
+  no single solution, uses the workspace in use whose folder holds the file, else the solution nearest above the file.
+  Started in a folder of repositories, the plugin's edit hook now checks each edit against its own solution.
+- When the hook still cannot pick a solution, its first answer in a server tells the agent how to name one, as added
+  context: Claude Code never shows an agent a hook's error. Edits to files that are not C# or VB, or that are outside
+  the trusted directories, are passed over before a solution is picked.
+- `dotnet_workspace` status, while a load runs, says that the other tools wait for the load, and how long the last load
+  of that workspace in the same server took. Told only to call again, an agent went back to grep.
+
+### Fixed
+
+- Farol no longer holds the files of analyzers and source generators: it loads copies of them, under the temp
+  directory, so a solution that builds its own generators can rebuild them while Farol runs. A later server removes the
+  copies once the process that made them has exited.
+- An analyzer or source generator built for a newer compiler than Farol runs no longer fails without a word. When it
+  comes with the .NET SDK and no `global.json` pins the SDK, Farol takes it from the newest installed SDK whose
+  compiler it runs, and a load issue says so: on a .NET 11 preview SDK, the Razor generator did not run, and Blazor
+  solutions loaded with hundreds of errors that a build does not have. Otherwise a load issue names the analyzer, the
+  compiler version it needs and the projects missing its code, and says how to fix it.
+
 ## [0.1.0-alpha.4] - 2026-10-13
 
 ### Changed
