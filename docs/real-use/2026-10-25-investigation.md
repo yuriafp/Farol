@@ -37,10 +37,10 @@ an open-source game server, 10-16 to 10-25), and reproductions with 0.1.0-alpha.
 
 ## What the findings ask of the next version
 
-| Finding | Change | Status |
+| Finding | Change | Spec 001 |
 |---|---|---|
-| 1 | A call with a file and no workspace uses the solution nearest above the file; when the hook cannot pick one, it tells the agent once | proposed |
-| 2 | `dotnet_workspace` status, while a load runs, says that the other tools wait for it and how long the last load took | proposed |
-| 3 | A generator or analyzer that needs a newer compiler than Farol's is a load issue, naming the projects that miss its code and the fix | proposed |
+| 1 | A call with a file and no workspace uses the solution nearest above the file; when the hook cannot pick one, it tells the agent once | AC-44 |
+| 2 | `dotnet_workspace` status, while a load runs, says that the other tools wait for it and how long the last load took | AC-45 |
+| 3 | A generator or analyzer that needs a newer compiler than Farol's is a load issue, naming the projects that miss its code and the fix; an SDK's own analyzer comes from an installed SDK whose compiler Farol runs | AC-46 |
 | 3 | Move to the Roslyn of .NET 11 when nuget.org has it | after .NET 11 ships |
-| 4 | Analyzers and generators are loaded from a copy, so building while Farol runs succeeds | proposed |
+| 4 | Analyzers and generators are loaded from a copy, so building while Farol runs succeeds | AC-47 |
