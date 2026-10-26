@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Greeting.Generator\Greeting.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <!-- The generator's dependency, from its own folder, as solutions reference their generators' libraries. -->
+    <ProjectReference Include="..\Greeting.Words\Greeting.Words.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

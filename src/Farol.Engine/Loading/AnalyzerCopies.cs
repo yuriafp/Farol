@@ -1,7 +1,10 @@
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Security;
 using System.Security.Cryptography;
 using System.Text;
+using Farol.Engine.Workspaces;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 
@@ -18,26 +21,33 @@ internal static class AnalyzerCopies
 
     private static readonly Lazy<string> ProcessDirectory = new(CreateDirectory);
 
+    // One loader per set of copies: a reload that copies nothing new runs the assemblies already loaded.
+    private static readonly ConcurrentDictionary<string, CopiedAnalyzerLoader> Loaders = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
-    /// The solution with every analyzer file reference pointing at a copy. The analyzers of one folder are copied together,
-    /// so that they still find each other, into a folder named after their size and time: a rebuilt generator gets a new
-    /// folder, since the copy already loaded cannot be replaced either.
+    /// The solution with every analyzer file reference pointing at a copy, loaded by a <see cref="CopiedAnalyzerLoader"/>
+    /// that knows only these copies. The analyzers of one folder are copied together into a folder named after their sizes
+    /// and times: a rebuilt generator gets a new folder, since the copy already loaded cannot be replaced either. A folder
+    /// that cannot be copied loads from its own files, and a load issue says so.
     /// </summary>
-    public static Solution WithCopies(Solution solution)
+    public static (Solution Solution, List<LoadIssue> Issues) WithCopies(Solution solution)
     {
-        var references = solution.Projects
+        var paths = solution.Projects
             .SelectMany(p => p.AnalyzerReferences.OfType<AnalyzerFileReference>())
-            .Where(r => File.Exists(r.FullPath))
+            .Select(r => r.FullPath)
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        if (references.Count == 0)
+        if (paths.Count == 0)
         {
-            return solution;
+            return (solution, []);
         }
 
         var copies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        try
+        var issues = new List<LoadIssue>();
+        foreach (var folder in paths.GroupBy(p => Path.GetDirectoryName(p)!, StringComparer.OrdinalIgnoreCase))
         {
-            foreach (var folder in references.Select(r => r.FullPath).Distinct(StringComparer.OrdinalIgnoreCase).GroupBy(p => Path.GetDirectoryName(p)!, StringComparer.OrdinalIgnoreCase))
+            try
             {
                 var files = folder.Order(StringComparer.OrdinalIgnoreCase).Select(path => (Path: path, Info: new FileInfo(path))).ToList();
                 var target = Path.Combine(ProcessDirectory.Value, FolderName(folder.Key, files.Select(f => f.Info)));
@@ -53,13 +63,22 @@ internal static class AnalyzerCopies
                     copies[path] = copy;
                 }
             }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // A temp directory Farol cannot write to: the analyzers load from their own files, as Roslyn does by default.
-            return solution;
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or SecurityException)
+            {
+                // A file a build is writing, or a temp directory Farol cannot write to.
+                foreach (var path in folder)
+                {
+                    copies[path] = path;
+                }
+
+                issues.Add(new LoadIssue(
+                    "warning",
+                    $"Farol could not copy the analyzers in {folder.Key} ({ex.Message}): it loads them from their own files, and holds those " +
+                    "until it exits, so rebuilding them fails while it runs."));
+            }
         }
 
+        var loader = Loaders.GetOrAdd(string.Join('|', copies.Values.Order(StringComparer.OrdinalIgnoreCase)), _ => new CopiedAnalyzerLoader(copies.Values));
         foreach (var project in solution.Projects.ToList())
         {
             if (!project.AnalyzerReferences.OfType<AnalyzerFileReference>().Any(r => copies.ContainsKey(r.FullPath)))
@@ -68,19 +87,12 @@ internal static class AnalyzerCopies
             }
 
             solution = solution.WithProjectAnalyzerReferences(project.Id, project.AnalyzerReferences.Select(reference =>
-            {
-                if (reference is not AnalyzerFileReference file || !copies.TryGetValue(file.FullPath, out var copy))
-                {
-                    return reference;
-                }
-
-                // Roslyn resolves an analyzer's dependencies among the locations its loader was given.
-                file.AssemblyLoader.AddDependencyLocation(copy);
-                return new AnalyzerFileReference(copy, file.AssemblyLoader);
-            }));
+                reference is AnalyzerFileReference file && copies.TryGetValue(file.FullPath, out var copy)
+                    ? new AnalyzerFileReference(copy, loader)
+                    : reference));
         }
 
-        return solution;
+        return (solution, issues);
     }
 
     // Two loads in one process may share analyzers (a package's, an SDK's): the copy appears whole, once.
@@ -111,7 +123,8 @@ internal static class AnalyzerCopies
 
     private static string CreateDirectory()
     {
-        RemoveLeftovers(Root);
+        // In the background: the folders of earlier servers can hold tens of megabytes, and this runs inside a load.
+        _ = Task.Run(() => RemoveLeftovers(Root));
         return Directory.CreateDirectory(Path.Combine(Root, $"{Environment.ProcessId}-{Guid.NewGuid():N}")).FullName;
     }
 

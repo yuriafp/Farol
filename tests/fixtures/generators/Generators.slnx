@@ -2,5 +2,6 @@
   <Folder Name="/src/">
     <Project Path="src/Greeting.App/Greeting.App.csproj" />
     <Project Path="src/Greeting.Generator/Greeting.Generator.csproj" />
+    <Project Path="src/Greeting.Words/Greeting.Words.csproj" />
   </Folder>
 </Solution>

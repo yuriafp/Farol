@@ -70,7 +70,7 @@ public sealed class AnalyzerCompatibilityTests : IDisposable
             issues[0].Message,
             StringComparison.Ordinal);
         Assert.Contains("so the code it generates is missing from 1 project(s): Blazor", issues[0].Message, StringComparison.Ordinal);
-        Assert.EndsWith($"{Path.Combine(_temp, "global.json")} pins .NET SDK 11.0.100-rc.2.26504.105; until a Farol version runs compiler 99.0.0.0, pin SDK 10.0.401, which is installed, instead.", issues[0].Message, StringComparison.Ordinal);
+        Assert.EndsWith($"{Path.Combine(_temp, "global.json")} selects .NET SDK 11.0.100-rc.2.26504.105; until a Farol version runs compiler 99.0.0.0, pin SDK 10.0.401, which is installed, instead.", issues[0].Message, StringComparison.Ordinal);
         Assert.EndsWith("Use a version of it built for Microsoft.CodeAnalysis " + typeof(Compilation).Assembly.GetName().Version + " or earlier, or a Farol version that runs compiler 99.0.0.0.", issues[1].Message, StringComparison.Ordinal);
     }
 
@@ -86,6 +86,18 @@ public sealed class AnalyzerCompatibilityTests : IDisposable
         Assert.Equal(Older, AnalyzerCompatibility.CompilerVersion(Package("Shop.Analyzers.dll")));
         Assert.Null(AnalyzerCompatibility.CompilerVersion(Sdk("10.0.401", "Razor.Utilities.dll")));
         Assert.Null(AnalyzerCompatibility.CompilerVersion(Path.Combine(_temp, "dotnet", "dotnet.exe")));
+    }
+
+    [Fact]
+    public void SDK_versions_order_a_release_after_its_previews()
+    {
+        string[] versions = ["11.0.100", "10.0.401", "11.0.100-rc.2.26504.105", "11.0.100-preview.10.1", "11.0.100-preview.9.2", "10.0.102", "11.0.100-rc.1.26425.128"];
+
+        var ordered = versions.Order(AnalyzerCompatibility.SdkVersionComparer.Instance).ToArray();
+
+        Assert.Equal(
+            ["10.0.102", "10.0.401", "11.0.100-preview.9.2", "11.0.100-preview.10.1", "11.0.100-rc.1.26425.128", "11.0.100-rc.2.26504.105", "11.0.100"],
+            ordered);
     }
 
     private string Sdk(string version, string file) => Path.GetFullPath(Path.Combine(_temp, "dotnet", "sdk", version, Generators, file));
@@ -126,7 +138,7 @@ public sealed class AnalyzerCompatibilityTests : IDisposable
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
     }
 
-    private sealed class NoLoader : IAnalyzerAssemblyLoader
+    internal sealed class NoLoader : IAnalyzerAssemblyLoader
     {
         public void AddDependencyLocation(string fullPath)
         {

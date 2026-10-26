@@ -64,7 +64,7 @@ internal static class AnalyzerCompatibility
             var fix = sdk is null
                 ? $"Use a version of it built for {CompilerAssembly} {Compiler} or earlier, or a Farol version that runs compiler {needs}."
                 : pin is not null
-                    ? $"{pin} pins .NET SDK {sdk.Version}; until a Farol version runs compiler {needs}, pin {(other is null ? "an earlier SDK" : $"SDK {other.Version}, which is installed,")} instead."
+                    ? $"{pin} selects .NET SDK {sdk.Version}; until a Farol version runs compiler {needs}, pin {(other is null ? "an earlier SDK" : $"SDK {other.Version}, which is installed,")} instead."
                     : $"Install an earlier .NET SDK and pin it in a global.json, or use a Farol version that runs compiler {needs}.";
             foreach (var (path, needed) in newer)
             {
@@ -196,16 +196,26 @@ internal static class AnalyzerCompatibility
         public string PathOf(string relative) => Path.Combine(Directory, relative);
 
         /// <summary>The newest other installed SDK that has all of these files, each built for a compiler Farol runs.</summary>
-        public SdkFolder? NewestOtherWith(IReadOnlyList<string> files) =>
-            System.IO.Directory.EnumerateDirectories(SdksDirectory)
-                .Select(d => new SdkFolder(SdksDirectory, Path.GetFileName(d)))
-                .Where(s => !string.Equals(s.Version, Version, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(s => s.Version, SdkVersionComparer.Instance)
-                .FirstOrDefault(s => files.All(f => File.Exists(s.PathOf(Relative(f))) && !(CompilerVersion(s.PathOf(Relative(f))) > Compiler)));
+        public SdkFolder? NewestOtherWith(IReadOnlyList<string> files)
+        {
+            try
+            {
+                return System.IO.Directory.EnumerateDirectories(SdksDirectory)
+                    .Select(d => new SdkFolder(SdksDirectory, Path.GetFileName(d)))
+                    .Where(s => !string.Equals(s.Version, Version, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(s => s.Version, SdkVersionComparer.Instance)
+                    .FirstOrDefault(s => files.All(f => File.Exists(s.PathOf(Relative(f))) && !(CompilerVersion(s.PathOf(Relative(f))) > Compiler)));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A .NET installation Farol cannot list offers no other SDK: the analyzer is then a load issue.
+                return null;
+            }
+        }
     }
 
     /// <summary>Orders SDK versions such as 10.0.401 and 11.0.100-rc.2.26504.105: a release after its previews.</summary>
-    private sealed class SdkVersionComparer : IComparer<string>
+    internal sealed class SdkVersionComparer : IComparer<string>
     {
         public static readonly SdkVersionComparer Instance = new();
 

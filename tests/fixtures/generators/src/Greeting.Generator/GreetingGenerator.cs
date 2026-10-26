@@ -9,5 +9,5 @@ public sealed class GreetingGenerator : IIncrementalGenerator
     public void Initialize(IncrementalGeneratorInitializationContext context) =>
         context.RegisterPostInitializationOutput(output => output.AddSource(
             "Generated.g.cs",
-            "namespace Greeting;\n\npublic static class Generated\n{\n    public const string Text = \"Hello\";\n}\n"));
+            $"namespace Greeting;\n\npublic static class Generated\n{{\n    public const string Text = \"{Words.Words.Hello()}\";\n}}\n"));
 }

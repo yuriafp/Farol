@@ -21,6 +21,19 @@ public sealed class PathSandboxTests : IDisposable
         File.WriteAllText(Path.Combine(Outside, "secret.cs"), "class Secret {}");
     }
 
+    /// <summary>AC-44: a root, or a workspace, may sit at the top of a drive.</summary>
+    [Fact]
+    public void A_drive_root_holds_the_paths_below_it()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Drive roots are Windows paths.");
+
+        Assert.True(PathSandbox.IsSameOrUnder(@"D:\repo\src\App.cs", @"D:\"));
+        Assert.True(PathSandbox.IsSameOrUnder(@"D:\", @"D:\"));
+        Assert.True(PathSandbox.IsSameOrUnder(@"D:\repo", @"D:\repo\"));
+        Assert.False(PathSandbox.IsSameOrUnder(@"D:\repository\App.cs", @"D:\repo"));
+        Assert.False(PathSandbox.IsSameOrUnder(@"E:\repo", @"D:\"));
+    }
+
     [Fact]
     public void Relative_paths_resolve_against_the_root()
     {

@@ -20,9 +20,10 @@ Changes from two weeks of real use ([results](docs/real-use/2026-10-23.md), [inv
 
 ### Fixed
 
-- Farol no longer holds the files of analyzers and source generators: it loads copies of them, under the temp
-  directory, so a solution that builds its own generators can rebuild them while Farol runs. A later server removes the
-  copies once the process that made them has exited.
+- Farol no longer holds the files of analyzers and source generators, nor of the libraries they use: it loads copies
+  of them, under the temp directory, so a solution that builds its own generators can rebuild them while Farol runs. A
+  later server removes the copies once the process that made them has exited. Analyzers that cannot be copied, such as
+  ones a build is writing, load from their own files, and a load issue says so.
 - An analyzer or source generator built for a newer compiler than Farol runs no longer fails without a word. When it
   comes with the .NET SDK and no `global.json` pins the SDK, Farol takes it from the newest installed SDK whose
   compiler it runs, and a load issue says so: on a .NET 11 preview SDK, the Razor generator did not run, and Blazor

@@ -85,7 +85,7 @@ public sealed class WorkspaceManager(MSBuildWorkspaceLoader loader, PathSandbox 
             {
                 var holding = _sessions.Values
                     .Select(s => s.Target)
-                    .Where(t => fullFile.StartsWith(t.Directory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    .Where(t => PathSandbox.IsSameOrUnder(fullFile, t.Directory))
                     .MaxBy(t => t.Directory.Length);
                 if ((holding ?? WorkspaceDiscovery.NearestAbove(fullFile, _options.RootDirectory)) is { } target)
                 {

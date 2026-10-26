@@ -164,6 +164,29 @@ public sealed class RootAboveTheWorkspaceTests
     }
 
     [Fact]
+    public async Task AC44_the_workspace_in_use_keeps_a_file_in_its_folder_from_a_nearer_solution()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var repos = FixtureCopy.CreateIn(TestPaths.ModernDirectory, "Modern");
+        Directory.CreateDirectory(repos.PathOf("Other"));
+        await File.WriteAllTextAsync(repos.PathOf("Other", "Other.slnx"), "<Solution />", ct);
+        await FixtureRestore.EnsureRestoredAsync(repos.PathOf("Modern", "Modern.slnx"), ct);
+        await using var harness = await McpHarness.StartAsync(repos.Root, ct);
+        const string file = "Modern/src/Modern.Core/Pricing/PriceCalculator.cs";
+
+        var load = await harness.CallAsync("dotnet_workspace", new() { ["workspace"] = "Modern/Modern.slnx", ["action"] = "load" }, ct);
+        await File.WriteAllTextAsync(repos.PathOf("Modern", "src", "Modern.Core", "Core.slnx"), "<Solution>\n  <Project Path=\"Modern.Core.csproj\" />\n</Solution>\n", ct);
+        var outline = await harness.CallAsync("dotnet_outline", new() { ["path"] = file }, ct);
+        var status = await harness.CallAsync("dotnet_workspace", new(), ct);
+
+        Assert.False(load.IsError, load.Text);
+        Assert.False(outline.IsError, outline.Text);
+        Assert.Contains("outline of Modern/src/Modern.Core/Pricing/PriceCalculator.cs", outline.Text, StringComparison.Ordinal);
+        Assert.False(status.IsError, status.Text);
+        Assert.StartsWith("workspace: Modern/Modern.slnx", status.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task AC44_the_hook_says_once_when_it_cannot_pick_a_solution()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -183,7 +206,7 @@ public sealed class RootAboveTheWorkspaceTests
         Assert.Equal((false, "{}"), notCode);
         Assert.False(first.IsError, first.Text);
         var context = (string?)JsonNode.Parse(first.Text)!["hookSpecificOutput"]!["additionalContext"];
-        Assert.Contains("could not check the edit to Scripts/Tool.cs: it cannot tell which solution to load.", context, StringComparison.Ordinal);
+        Assert.Contains("could not check the edit to Scripts/Tool.cs: it cannot tell which solution the file belongs to.", context, StringComparison.Ordinal);
         Assert.Contains("Found 2 candidates: Modern/Modern.slnx, Other/Other.slnx.", context, StringComparison.Ordinal);
         Assert.Contains("dotnet_workspace (action 'load'", context, StringComparison.Ordinal);
         Assert.Equal((false, "{}"), second);

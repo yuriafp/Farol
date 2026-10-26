@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Farol.Engine.Loading;
+using Farol.Engine.Workspaces;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -38,6 +39,50 @@ public sealed class LoaderTests
         var issue = Assert.Single(issues);
         Assert.Equal("warning", issue.Severity);
         Assert.Contains(missing, issue.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// AC-47: a folder of analyzers that cannot be copied, such as one a build is writing, loads from its own files, with a
+    /// load issue; the other folders still load from copies.
+    /// </summary>
+    [Fact]
+    public void Analyzers_that_cannot_be_copied_load_from_their_own_files_with_a_load_issue()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Only Windows refuses to read a file another program holds.");
+        var temp = Directory.CreateTempSubdirectory("farol-analyzers-").FullName;
+        try
+        {
+            var busy = Path.Combine(temp, "busy", "Busy.Generator.dll");
+            var free = Path.Combine(temp, "free", "Free.Generator.dll");
+            Directory.CreateDirectory(Path.GetDirectoryName(busy)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(free)!);
+            File.WriteAllText(busy, "not built yet");
+            File.WriteAllText(free, "built");
+            using var workspace = new AdhocWorkspace();
+            var loader = new AnalyzerCompatibilityTests.NoLoader();
+            var solution = workspace.AddProject(ProjectInfo.Create(
+                ProjectId.CreateNewId(), VersionStamp.Default, "Shop", "Shop", LanguageNames.CSharp,
+                analyzerReferences: [new AnalyzerFileReference(busy, loader), new AnalyzerFileReference(free, loader)])).Solution;
+
+            (Solution Solution, List<LoadIssue> Issues) result;
+            using (new FileStream(busy, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            {
+                result = AnalyzerCopies.WithCopies(solution);
+            }
+
+            var paths = result.Solution.Projects.Single().AnalyzerReferences.OfType<AnalyzerFileReference>().Select(r => r.FullPath).ToList();
+            Assert.Equal(busy, paths[0]);
+            Assert.NotEqual(free, paths[1]);
+            Assert.EndsWith("Free.Generator.dll", paths[1], StringComparison.Ordinal);
+            var issue = Assert.Single(result.Issues);
+            Assert.Equal("warning", issue.Severity);
+            Assert.StartsWith($"Farol could not copy the analyzers in {Path.GetDirectoryName(busy)} (", issue.Message, StringComparison.Ordinal);
+            Assert.EndsWith("so rebuilding them fails while it runs.", issue.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(temp, recursive: true);
+        }
     }
 
     /// <summary>AC-47: the analyzer copies of a process that has exited are removed; those of a running one are kept.</summary>

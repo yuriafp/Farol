@@ -56,7 +56,7 @@ public sealed partial class MSBuildWorkspaceLoader(ToolchainProbe toolchain, ILo
                 : await workspace.OpenSolutionAsync(target.Path, progress, cancellationToken);
             (solution, var missingAnalyzers) = WithoutUnresolvedAnalyzers(solution);
             (solution, var newerAnalyzers) = AnalyzerCompatibility.WithRunnableAnalyzers(solution, target.Directory);
-            solution = AnalyzerCopies.WithCopies(solution);
+            (solution, var uncopiedAnalyzers) = AnalyzerCopies.WithCopies(solution);
             await ReadAllTextAsync(solution, cancellationToken);
             stopwatch.Stop();
 
@@ -70,7 +70,7 @@ public sealed partial class MSBuildWorkspaceLoader(ToolchainProbe toolchain, ILo
                     kv => kv.Key,
                     kv => (IReadOnlyList<string>)[.. kv.Value.Keys.Order(StringComparer.OrdinalIgnoreCase)],
                     StringComparer.OrdinalIgnoreCase),
-                Issues: [.. Issues(workspace.Diagnostics, solution), .. missingAnalyzers, .. newerAnalyzers]);
+                Issues: [.. Issues(workspace.Diagnostics, solution), .. missingAnalyzers, .. newerAnalyzers, .. uncopiedAnalyzers]);
 
             LogLoaded(logger, target.Path, report.ProjectFiles, report.Documents, report.Issues.Count, report.Elapsed);
             return new LoadedWorkspace(workspace, solution, report);

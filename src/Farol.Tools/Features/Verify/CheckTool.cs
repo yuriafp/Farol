@@ -139,15 +139,26 @@ public sealed class CheckTool(WorkspaceManager workspaces)
             {
                 ["hookEventName"] = "PostToolUse",
                 ["additionalContext"] =
-                    $"Farol (dotnet_check) could not check {what}: it cannot tell which solution to load. {ex.Message} " +
-                    "Name the solution once with dotnet_workspace (action 'load', workspace set to it); later edits are then checked " +
-                    "against it. This note is not repeated.",
+                    $"Farol (dotnet_check) could not check {what}: it cannot tell which solution the file belongs to. {ex.Message} " +
+                    "If it belongs to one, name that solution once with dotnet_workspace (action 'load', workspace set to it); later " +
+                    "edits in its folder are then checked against it. This note is not repeated.",
             },
         }, HookJson);
     }
 
     // Decided before a workspace is picked: an edit Farol would not check never brings up the note on an unresolved workspace.
-    private bool MayBeOurs(string edited) => IsSource(edited) && (!Path.IsPathRooted(edited) || workspaces.Paths.Contains(edited));
+    private bool MayBeOurs(string edited)
+    {
+        try
+        {
+            return IsSource(edited) && (!Path.IsPathRooted(edited) || workspaces.Paths.Contains(edited));
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException or NotSupportedException)
+        {
+            // A path the file system refuses (a null character, a loop of links) is no file Farol could check.
+            return false;
+        }
+    }
 
     private string? Shown(string? edited) =>
         string.IsNullOrWhiteSpace(edited) ? null

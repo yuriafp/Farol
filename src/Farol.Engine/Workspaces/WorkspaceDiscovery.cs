@@ -89,9 +89,9 @@ public static class WorkspaceDiscovery
     /// </summary>
     public static WorkspaceTarget? NearestAbove(string file, string rootDirectory)
     {
-        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootDirectory));
+        var root = Path.GetFullPath(rootDirectory);
         var directory = Path.GetDirectoryName(Path.GetFullPath(file));
-        while (directory is not null && IsSameOrUnder(directory, root))
+        while (directory is not null && PathSandbox.IsSameOrUnder(directory, root))
         {
             if (Directory.Exists(directory) && Distinct(FindFiles(directory, ["*.slnx", "*.sln"], depth: 0)) is [var solution])
             {
@@ -103,10 +103,6 @@ public static class WorkspaceDiscovery
 
         return null;
     }
-
-    private static bool IsSameOrUnder(string directory, string root) =>
-        string.Equals(directory, root, StringComparison.OrdinalIgnoreCase)
-        || directory.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
     // The same solution in both formats is common right after migrating to .slnx: prefer .slnx.
     private static List<string> Distinct(List<string> candidates) =>

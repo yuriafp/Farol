@@ -162,7 +162,8 @@ public sealed class PathSandbox
         }
     }
 
-    private static bool IsSameOrUnder(string path, string directory)
+    /// <summary>Whether <paramref name="path"/> is <paramref name="directory"/> or below it, also when the directory is a drive root such as <c>D:\</c>.</summary>
+    public static bool IsSameOrUnder(string path, string directory)
     {
         var trimmed = directory.TrimEnd(Separators);
         return path.TrimEnd(Separators).Equals(trimmed, Comparison)
