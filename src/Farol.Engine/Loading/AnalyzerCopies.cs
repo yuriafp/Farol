@@ -44,6 +44,7 @@ internal static class AnalyzerCopies
         }
 
         var copies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var copyFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var issues = new List<LoadIssue>();
         foreach (var folder in paths.GroupBy(p => Path.GetDirectoryName(p)!, StringComparer.OrdinalIgnoreCase))
         {
@@ -62,6 +63,8 @@ internal static class AnalyzerCopies
 
                     copies[path] = copy;
                 }
+
+                copyFolders.Add(target);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or SecurityException)
             {
@@ -78,7 +81,7 @@ internal static class AnalyzerCopies
             }
         }
 
-        var loader = Loaders.GetOrAdd(string.Join('|', copies.Values.Order(StringComparer.OrdinalIgnoreCase)), _ => new CopiedAnalyzerLoader(copies.Values));
+        var loader = Loaders.GetOrAdd(string.Join('|', copies.Values.Order(StringComparer.OrdinalIgnoreCase)), _ => new CopiedAnalyzerLoader(copies.Values, copyFolders));
         foreach (var project in solution.Projects.ToList())
         {
             if (!project.AnalyzerReferences.OfType<AnalyzerFileReference>().Any(r => copies.ContainsKey(r.FullPath)))

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Farol.Engine.Loading;
 using Farol.Engine.Workspaces;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.FindSymbols;
@@ -42,8 +43,8 @@ public sealed class LoaderTests
     }
 
     /// <summary>
-    /// AC-47: a folder of analyzers that cannot be copied, such as one a build is writing, loads from its own files, with a
-    /// load issue; the other folders still load from copies.
+    /// AC-47: a folder of analyzers that cannot be copied, such as one a build is writing, loads from its own files once
+    /// the build is done, with a load issue; the other folders still load from copies.
     /// </summary>
     [Fact]
     public void Analyzers_that_cannot_be_copied_load_from_their_own_files_with_a_load_issue()
@@ -54,30 +55,65 @@ public sealed class LoaderTests
         {
             var busy = Path.Combine(temp, "busy", "Busy.Generator.dll");
             var free = Path.Combine(temp, "free", "Free.Generator.dll");
-            Directory.CreateDirectory(Path.GetDirectoryName(busy)!);
-            Directory.CreateDirectory(Path.GetDirectoryName(free)!);
-            File.WriteAllText(busy, "not built yet");
-            File.WriteAllText(free, "built");
-            using var workspace = new AdhocWorkspace();
-            var loader = new AnalyzerCompatibilityTests.NoLoader();
-            var solution = workspace.AddProject(ProjectInfo.Create(
-                ProjectId.CreateNewId(), VersionStamp.Default, "Shop", "Shop", LanguageNames.CSharp,
-                analyzerReferences: [new AnalyzerFileReference(busy, loader), new AnalyzerFileReference(free, loader)])).Solution;
+            Emit(busy, "public static class Busy { }");
+            Emit(free, "public static class Free { }");
 
             (Solution Solution, List<LoadIssue> Issues) result;
             using (new FileStream(busy, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
             {
-                result = AnalyzerCopies.WithCopies(solution);
+                result = AnalyzerCopies.WithCopies(Solution(busy, free));
             }
 
-            var paths = result.Solution.Projects.Single().AnalyzerReferences.OfType<AnalyzerFileReference>().Select(r => r.FullPath).ToList();
-            Assert.Equal(busy, paths[0]);
-            Assert.NotEqual(free, paths[1]);
-            Assert.EndsWith("Free.Generator.dll", paths[1], StringComparison.Ordinal);
+            var references = References(result.Solution);
+            Assert.Equal(busy, references[0].FullPath);
+            Assert.Equal("Busy.Generator", references[0].GetAssembly().GetName().Name);
+            Assert.NotEqual(free, references[1].FullPath);
+            Assert.Equal(references[1].FullPath, references[1].GetAssembly().Location, ignoreCase: true);
             var issue = Assert.Single(result.Issues);
             Assert.Equal("warning", issue.Severity);
             Assert.StartsWith($"Farol could not copy the analyzers in {Path.GetDirectoryName(busy)} (", issue.Message, StringComparison.Ordinal);
             Assert.EndsWith("so rebuilding them fails while it runs.", issue.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(temp, recursive: true);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // The analyzer loaded from its own file stays locked until the test process exits.
+            }
+        }
+    }
+
+    /// <summary>
+    /// AC-47: a reload after a rebuild loads again the analyzers that changed and those that use them, with the new code;
+    /// a folder that needs nothing from the others, such as an SDK's, is loaded once.
+    /// </summary>
+    [Fact]
+    public void A_reload_loads_again_only_the_analyzers_that_changed_or_use_what_changed()
+    {
+        var temp = Directory.CreateTempSubdirectory("farol-analyzers-").FullName;
+        try
+        {
+            var sdk = Path.Combine(temp, "sdk", "Sdk.Analyzers.dll");
+            var words = Path.Combine(temp, "words", "Shop.Words.dll");
+            var generator = Path.Combine(temp, "generator", "Shop.Generator.dll");
+            Emit(sdk, "public static class SdkAnalyzers { }");
+            Emit(words, "public static class Words { public static string Hello() => \"Hello\"; }");
+            Emit(generator, "public static class Generator { public static string Text() => Words.Hello(); }", words);
+            var solution = Solution(sdk, words, generator);
+
+            var first = References(AnalyzerCopies.WithCopies(solution).Solution);
+            var before = Text(first[2]);
+            Emit(words, "public static class Words { public static string Hello() => \"Hi\"; }");
+            var second = References(AnalyzerCopies.WithCopies(solution).Solution);
+
+            Assert.Same(first[0].GetAssembly(), second[0].GetAssembly());
+            Assert.NotSame(first[2].GetAssembly(), second[2].GetAssembly());
+            Assert.Equal("Hello", before);
+            Assert.Equal("Hi", Text(second[2]));
         }
         finally
         {
@@ -109,5 +145,31 @@ public sealed class LoaderTests
         {
             Directory.Delete(root, recursive: true);
         }
+    }
+    private static Solution Solution(params string[] analyzers)
+    {
+        var workspace = new AdhocWorkspace();
+        var loader = new AnalyzerCompatibilityTests.NoLoader();
+        return workspace.AddProject(ProjectInfo.Create(
+            ProjectId.CreateNewId(), VersionStamp.Default, "Shop", "Shop", LanguageNames.CSharp,
+            analyzerReferences: [.. analyzers.Select(a => new AnalyzerFileReference(a, loader))])).Solution;
+    }
+
+    private static AnalyzerFileReference[] References(Solution solution) =>
+        [.. solution.Projects.Single().AnalyzerReferences.OfType<AnalyzerFileReference>()];
+
+    private static string? Text(AnalyzerFileReference generator) =>
+        (string?)generator.GetAssembly().GetType("Generator")!.GetMethod("Text")!.Invoke(null, null);
+
+    private static void Emit(string path, string code, params string[] references)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var result = CSharpCompilation.Create(
+                Path.GetFileNameWithoutExtension(path),
+                [CSharpSyntaxTree.ParseText(code)],
+                [MetadataReference.CreateFromFile(typeof(object).Assembly.Location), .. references.Select(r => MetadataReference.CreateFromFile(r))],
+                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .Emit(path);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
     }
 }

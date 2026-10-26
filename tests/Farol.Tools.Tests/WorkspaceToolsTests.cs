@@ -147,6 +147,7 @@ public sealed class RootAboveTheWorkspaceTests
 
         var outline = await harness.CallAsync("dotnet_outline", new() { ["path"] = file }, ct);
         var symbol = await harness.CallAsync("dotnet_symbol", new() { ["symbol"] = $"{file}:13" }, ct);
+        var outlineOfSymbol = await harness.CallAsync("dotnet_outline", new() { ["path"] = "", ["symbol"] = $"{file}:13" }, ct);
         var edited = repos.PathOf("Modern", "src", "Modern.Core", "Edited.cs");
         await File.WriteAllTextAsync(edited, "namespace Modern.Core;\n\npublic static class Edited\n{\n    public static int Two() => \"two\";\n}\n", ct);
         var hook = await harness.CallAsync("dotnet_check", new() { ["edited"] = edited, ["format"] = "hook" }, ct);
@@ -156,6 +157,8 @@ public sealed class RootAboveTheWorkspaceTests
         Assert.Contains("outline of Modern/src/Modern.Core/Pricing/PriceCalculator.cs", outline.Text, StringComparison.Ordinal);
         Assert.False(symbol.IsError, symbol.Text);
         Assert.StartsWith("class PriceCalculator\nnamespace: Modern.Core.Pricing", symbol.Text, StringComparison.Ordinal);
+        Assert.False(outlineOfSymbol.IsError, outlineOfSymbol.Text);
+        Assert.Contains("PriceCalculator", outlineOfSymbol.Text, StringComparison.Ordinal);
         Assert.False(hook.IsError, hook.Text);
         Assert.Contains("after the edit to Modern/src/Modern.Core/Edited.cs", hook.Text, StringComparison.Ordinal);
         Assert.Contains("Modern/src/Modern.Core/Edited.cs:5 · error CS0029", hook.Text, StringComparison.Ordinal);

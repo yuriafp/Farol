@@ -196,6 +196,18 @@ public sealed class WorkspaceDiscoveryTests : IDisposable
         }
     }
 
+    /// <summary>AC-44: a root at the top of a drive, such as <c>D:\</c>, holds the solutions below it.</summary>
+    [Fact]
+    public void Finds_the_solution_nearest_above_a_file_when_the_root_is_a_drive()
+    {
+        var src = Directory.CreateDirectory(Path.Combine(_temp, "drive", "src")).FullName;
+        File.WriteAllText(Path.Combine(_temp, "drive", "App.slnx"), "<Solution />");
+
+        var nearest = WorkspaceDiscovery.NearestAbove(Path.Combine(src, "Program.cs"), Path.GetPathRoot(_temp)!);
+
+        Assert.Equal(Path.Combine(_temp, "drive", "App.slnx"), nearest?.Path, ignoreCase: true);
+    }
+
     private static Undo DenyListing(string directory) =>
         OperatingSystem.IsWindows() ? DenyListingOnWindows(directory) : DenyListingOnUnix(directory);
 
