@@ -29,7 +29,7 @@ public sealed class CheckTool(WorkspaceManager workspaces)
         [Description("Source file for scope=file, relative to the root as responses write paths.")] string? path = null,
         [Description("Project name for scope=project, as dotnet_overview lists it.")] string? project = null,
         [Description("Also list, separately, the diagnostics that already existed when the workspace loaded. Default false.")] bool includeExisting = false,
-        [Description("text (default), or hook: the JSON a Claude Code PostToolUse hook returns — the new errors as a blocking reason, new warnings as added context, {} when the edits are clean or the workspace is still loading.")] string format = "text",
+        [Description("text (default), or hook: the JSON a Claude Code PostToolUse hook returns — the new errors as a blocking reason, new warnings as added context, {} when the edits are clean, a note while the workspace loads.")] string format = "text",
         [Description("For editor hooks: the file just edited, read before checking so the answer never lags the edit.")] string? edited = null,
         [McpHeader(ToolParameters.WorkspaceHeader), Description(ToolParameters.WorkspaceDescription)] string? workspace = null,
         [Description(ToolParameters.MaxTokensDescription)] int maxTokens = TokenBudget.DefaultTokens,
@@ -85,7 +85,7 @@ public sealed class CheckTool(WorkspaceManager workspaces)
             }
             catch (FarolException ex) when (hook && ex.Code == ErrorCodes.WorkspaceNotReady)
             {
-                return NothingToSay;
+                return LoadingNotice(session, Shown(edited));
             }
 
             if (fullPath is not null)
@@ -126,6 +126,22 @@ public sealed class CheckTool(WorkspaceManager workspaces)
             {
                 ["hookEventName"] = "PostToolUse",
                 ["additionalContext"] = $"Farol (dotnet_check) found new compiler warnings {after}:\n{text}",
+            },
+        }, HookJson);
+    }
+
+    // The edit is not lost: the load keeps it out of its baseline, and the first check after the load reports it.
+    private static string LoadingNotice(WorkspaceSession session, string? edited)
+    {
+        var what = edited is null ? "the edits" : $"the edit to {edited}";
+        return JsonSerializer.Serialize(new Dictionary<string, object>
+        {
+            ["hookSpecificOutput"] = new Dictionary<string, string>
+            {
+                ["hookEventName"] = "PostToolUse",
+                ["additionalContext"] =
+                    $"Farol (dotnet_check): {session.Target.DisplayName} is still loading, so {what} is checked once the load is done, " +
+                    "in the hook answer to the next edit (or call dotnet_check).",
             },
         }, HookJson);
     }

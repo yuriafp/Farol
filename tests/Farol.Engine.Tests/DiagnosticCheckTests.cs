@@ -112,6 +112,34 @@ public sealed class DiagnosticCheckTests
         Assert.Equal(["net48"], error.TargetFrameworks);
     }
 
+    [Fact]
+    public async Task AC48_a_file_changed_while_the_workspace_loads_is_checked_once_it_is_done()
+    {
+        using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
+        await FixtureRestore.EnsureRestoredAsync(copy.PathOf("Modern.slnx"), Ct);
+        using var hold = LoadHold.Create();
+        await using var engine = EngineHarness.Create(copy.Root, configure: o => o.MSBuildProperties.Add(hold.Property));
+        var session = engine.Workspaces.GetSession(null);
+        var file = copy.PathOf("src", "Modern.Core", "Pricing", "PriceCalculator.cs");
+
+        // Nothing tells Farol of this edit (no hook, no path): only the file's time on disk does.
+        var loading = session.StartLoading();
+        await hold.WaitUntilHeldAsync(Ct);
+        await File.WriteAllTextAsync(
+            file, (await File.ReadAllTextAsync(file, Ct)).Replace("return Math.Round(subtotal * (1 - discount), 2);", "return \"total\";", StringComparison.Ordinal), Ct);
+        hold.Release();
+        await loading;
+        var snapshot = await session.GetSnapshotAsync(wait: true, Ct);
+        var changed = await DiagnosticCheck.RunAsync(snapshot, new CheckRequest(CheckScope.Changed), Ct);
+        var project = await DiagnosticCheck.RunAsync(snapshot, new CheckRequest(CheckScope.Project, Project: "Modern.Core"), Ct);
+
+        Assert.True(changed.New.Count == 1, Describe(changed));
+        Assert.Equal(("CS0029", 19), (changed.New[0].Id, changed.New[0].Line));
+        Assert.Equal(file, Assert.Single(changed.ChangedDuringLoad), ignoreCase: true);
+        Assert.Equal("CS0029", Assert.Single(project.New).Id);
+        Assert.Equal(file, Assert.Single(project.ChangedDuringLoad), ignoreCase: true);
+    }
+
     private static string Describe(CheckResult result) =>
         $"new: [{string.Join("; ", result.New.Select(d => $"{d.Id}@{d.Line}"))}] existing: [{string.Join("; ", result.Existing.Select(d => $"{d.Id}@{d.Line}"))}] " +
         $"changed: [{string.Join("; ", result.ChangedFiles.Select(Path.GetFileName))}] projects: [{string.Join("; ", result.CheckedProjects)}] files: [{string.Join("; ", result.CheckedFiles.Select(Path.GetFileName))}]";

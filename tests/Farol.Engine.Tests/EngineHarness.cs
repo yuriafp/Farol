@@ -19,7 +19,7 @@ internal sealed class EngineHarness : IAsyncDisposable
 
     public ToolchainProbe Toolchain => _services.GetRequiredService<ToolchainProbe>();
 
-    public static EngineHarness Create(string rootDirectory, IUsageLog? usage = null) =>
+    public static EngineHarness Create(string rootDirectory, IUsageLog? usage = null, Action<FarolEngineOptions>? configure = null) =>
         new(new ServiceCollection()
             .AddLogging()
             .AddSingleton(usage ?? NullUsageLog.Instance)
@@ -27,6 +27,7 @@ internal sealed class EngineHarness : IAsyncDisposable
             {
                 o.RootDirectory = rootDirectory;
                 o.AutoLoad = false;
+                configure?.Invoke(o);
             })
             .BuildServiceProvider());
 

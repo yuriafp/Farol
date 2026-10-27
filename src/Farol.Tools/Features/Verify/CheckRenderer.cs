@@ -24,6 +24,15 @@ internal static class CheckRenderer
 
         text.Line(result.New.Count == 0 ? "new since load: none — no errors or warnings introduced" : $"new since load: {Counts(result.New)}");
         text.Line(Checked(result, root, scope) + " · " + baseline);
+        if (result.ChangedDuringLoad.Count > 0)
+        {
+            var files = string.Join(", ", result.ChangedDuringLoad.Take(5).Select(f => DisplayPath.From(root, f)));
+            var more = result.ChangedDuringLoad.Count > 5 ? $" and {result.ChangedDuringLoad.Count - 5} more" : string.Empty;
+            text.Line(
+                $"changed while the workspace loaded: {files}{more} — Farol did not see these files before the change, so all of their errors " +
+                "and warnings are listed as new; some may be older.");
+        }
+
         Entries(text, result.New, root, offset);
 
         if (result.Existing.Count > 0)

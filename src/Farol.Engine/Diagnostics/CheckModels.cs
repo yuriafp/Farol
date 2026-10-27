@@ -28,10 +28,13 @@ public sealed record DiagnosticEntry(
 /// <summary>
 /// New diagnostics (absent from the load baseline) and, when asked, the existing ones, plus what was checked: the
 /// edited files and the files that use changed declarations, or whole projects when a change's reach has no bound.
+/// <paramref name="ChangedDuringLoad"/> lists the checked files that changed while the workspace loaded: Farol never saw
+/// them before the change, so every diagnostic in them counts as new.
 /// </summary>
 public sealed record CheckResult(
     IReadOnlyList<DiagnosticEntry> New,
     IReadOnlyList<DiagnosticEntry> Existing,
     IReadOnlyList<string> ChangedFiles,
     IReadOnlyList<string> CheckedProjects,
-    IReadOnlyList<string> CheckedFiles);
+    IReadOnlyList<string> CheckedFiles,
+    IReadOnlyList<string> ChangedDuringLoad);

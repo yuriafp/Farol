@@ -27,6 +27,9 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
 {
     private const int ReadAttempts = 5;
 
+    // File times can lag the clock by a timer tick: a file written as the load starts may carry a slightly earlier time.
+    private static readonly TimeSpan FileTimeSlack = TimeSpan.FromSeconds(1);
+
     private readonly MSBuildWorkspaceLoader _loader;
     private readonly IReadOnlyDictionary<string, string> _properties;
     private readonly ILogger _logger;
@@ -36,6 +39,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly ConcurrentDictionary<string, byte> _written = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _edited = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _editedBeforeLoad = new(StringComparer.OrdinalIgnoreCase);
 
     private Task? _loadTask;
     private Task? _warmup;
@@ -200,14 +204,25 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     /// <summary>
     /// Queues source files an agent says it just changed, so the next snapshot reads them without waiting for file-system
     /// events. Unlike <see cref="NotifyChanged"/>, a claim never widens the workspace: a file it does not compile joins only
-    /// when it is new since the load and outside bin and obj, so one the project leaves out stays out.
+    /// when it is new since the load and outside bin and obj, so one the project leaves out stays out. A claim made before
+    /// the load is done keeps the file out of the load's baseline: the load may read it already edited.
     /// </summary>
     public void NotifyEdited(IEnumerable<string> paths)
     {
         ArgumentNullException.ThrowIfNull(paths);
         foreach (var path in paths)
         {
-            _edited.TryAdd(Path.GetFullPath(path), 0);
+            var fullPath = Path.GetFullPath(path);
+            lock (_gate)
+            {
+                // Under the gate, so a load cannot publish its snapshot between this test and the record.
+                if (_snapshot is null)
+                {
+                    _editedBeforeLoad.Add(fullPath);
+                }
+            }
+
+            _edited.TryAdd(fullPath, 0);
         }
     }
 
@@ -261,11 +276,22 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
             var loaded = await _loader.LoadAsync(Target, _properties, OnProgress, cancellationToken);
             var projects = ProjectCatalog.Build(loaded.Solution, loaded.Report);
             var watcher = StartWatcher(projects);
+            var writtenDuringLoad = WrittenSince(loaded.Solution, _loadStartedAt - FileTimeSlack);
             lock (_gate)
             {
+                var changedDuringLoad = new HashSet<string>(
+                    writtenDuringLoad.Concat(_editedBeforeLoad.Where(path => IsDocument(loaded.Solution, path))), StringComparer.OrdinalIgnoreCase);
+                _editedBeforeLoad.Clear();
+
+                // Read again before the next request: the watcher started after the load, so it never saw these changes.
+                foreach (var path in changedDuringLoad)
+                {
+                    _edited.TryAdd(path, 0);
+                }
+
                 _loaded = loaded;
                 _watcher = watcher;
-                _snapshot = new WorkspaceSnapshot(loaded.Solution, 1, projects, new WorkspaceLoad(loaded.Solution, DateTimeOffset.UtcNow), Target);
+                _snapshot = new WorkspaceSnapshot(loaded.Solution, 1, projects, new WorkspaceLoad(loaded.Solution, DateTimeOffset.UtcNow, changedDuringLoad), Target);
                 _warmupStartedAt = DateTimeOffset.UtcNow;
                 _warmedInTicks = -1;
                 _lastLoadTicks = loaded.Report.Elapsed.Ticks;
@@ -447,7 +473,48 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         return taken;
     }
 
-    private static bool IsDocument(WorkspaceSnapshot current, string path) => current.Solution.GetDocumentIdsWithFilePath(path).Length > 0;
+    private static bool IsDocument(WorkspaceSnapshot current, string path) => IsDocument(current.Solution, path);
+
+    private static bool IsDocument(Solution solution, string path) => solution.GetDocumentIdsWithFilePath(path).Length > 0;
+
+    /// <summary>
+    /// The C# and VB sources of the solution written since <paramref name="since"/>: changed while the load ran, for a
+    /// client that never says what it edits. Build output in bin and obj (which the load itself writes) does not count.
+    /// </summary>
+    private static List<string> WrittenSince(Solution solution, DateTimeOffset since)
+    {
+        var written = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var project in solution.Projects)
+        {
+            var directory = Path.GetDirectoryName(project.FilePath);
+            foreach (var path in project.Documents.Select(d => d.FilePath).OfType<string>())
+            {
+                if (seen.Add(path) && IsSourceFile(path) && (directory is null || !WorkspaceWatcher.IsIgnored(Path.GetRelativePath(directory, path)))
+                    && WrittenAt(path) >= since.UtcDateTime)
+                {
+                    written.Add(path);
+                }
+            }
+        }
+
+        return written;
+    }
+
+    private static bool IsSourceFile(string path) =>
+        path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".vb", StringComparison.OrdinalIgnoreCase);
+
+    private static DateTime WrittenAt(string path)
+    {
+        try
+        {
+            return File.GetLastWriteTimeUtc(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return DateTime.MinValue;
+        }
+    }
 
     // Created after the load started, so the load could not have seen it; bin and obj (below the workspace's folder) hold
     // build output, not sources.

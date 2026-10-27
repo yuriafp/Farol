@@ -76,7 +76,9 @@ public sealed class PluginTests
 
         var text = await Hook(harness, copy.PathOf("src", "Modern.Core", "Pricing", "PriceCalculator.cs"));
 
-        Assert.Equal("{}", text);
+        // Never held, the agent is told that the edit is checked once the load is done (AC-48).
+        Assert.Contains("\"additionalContext\":\"Farol (dotnet_check): Modern.slnx is still loading", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"decision\"", text, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -3,6 +3,17 @@
 All notable changes to Farol are recorded in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- An edit made while the workspace loads is no longer lost. The load could read the file already edited and take the
+  edit into its baseline, so no later check reported it. A C# or VB file that Farol hears of before the load is done
+  (the hook's `edited`, or a `path`), or whose time on disk is later than the load's start, is now kept out of the
+  baseline: the next `dotnet_check` that covers it, once the load is done, lists all of its errors and warnings as new
+  and says that Farol did not see the file before the change, so some may be older. The hook still does not wait for
+  the load; during it, the hook tells the agent, as added context, that the edit is checked once the load is done.
+
 ## [0.1.0-alpha.5] - 2026-10-26
 
 Changes from two weeks of real use ([results](docs/real-use/2026-10-23.md), [investigation](docs/real-use/2026-10-25-investigation.md)).

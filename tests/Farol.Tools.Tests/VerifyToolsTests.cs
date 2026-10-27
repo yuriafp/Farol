@@ -131,6 +131,46 @@ public sealed class ExcludedFileTests
     }
 }
 
+/// <summary>
+/// An edit made while the workspace loads: the hook does not wait for the load, and the load may read the file already
+/// edited, so the file is kept out of the load's baseline and checked once the load is done.
+/// </summary>
+public sealed class EditDuringLoadTests
+{
+    private const string Calculator = "src/Modern.Core/Pricing/PriceCalculator.cs";
+
+    [Fact]
+    public async Task AC48_an_edit_made_while_the_workspace_loads_is_reported_once_the_load_is_done()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
+        await FixtureRestore.EnsureRestoredAsync(copy.PathOf("Modern.slnx"), ct);
+        using var hold = LoadHold.Create();
+        await using var harness = await McpHarness.StartAsync(copy.Root, ct, o => o.MSBuildProperties.Add(hold.Property));
+        var file = copy.PathOf("src", "Modern.Core", "Pricing", "PriceCalculator.cs");
+        var hook = new Dictionary<string, object?> { ["format"] = "hook", ["edited"] = Calculator };
+
+        await File.WriteAllTextAsync(
+            file, (await File.ReadAllTextAsync(file, ct)).Replace("return Math.Round(subtotal * (1 - discount), 2);", "return \"total\";", StringComparison.Ordinal), ct);
+        var duringLoad = await harness.CallAsync("dotnet_check", hook, ct); // starts the load, which the hold keeps going
+        await hold.WaitUntilHeldAsync(ct);
+        var stillLoading = await harness.CallAsync("dotnet_check", hook, ct);
+        hold.Release();
+        var afterLoad = await Eventually.MatchesAsync(
+            () => harness.CallAsync("dotnet_check", hook, ct), r => !r.Text.Contains("is still loading", StringComparison.Ordinal), ct, timeoutMs: 120_000);
+        var text = await harness.CallAsync("dotnet_check", [], ct);
+
+        Assert.False(duringLoad.IsError, duringLoad.Text);
+        Assert.Contains("\"additionalContext\":\"Farol (dotnet_check): Modern.slnx is still loading, so the edit to src/Modern.Core/Pricing/PriceCalculator.cs is checked once the load is done", duringLoad.Text, StringComparison.Ordinal);
+        Assert.Equal(duringLoad.Text, stillLoading.Text);
+        Assert.Contains("\"decision\":\"block\"", afterLoad.Text, StringComparison.Ordinal);
+        Assert.Contains("PriceCalculator.cs:19 · error CS0029", afterLoad.Text, StringComparison.Ordinal);
+        Assert.Contains("Farol did not see these files before the change", afterLoad.Text, StringComparison.Ordinal);
+        Assert.Contains("new since load: 1 error(s)", text.Text, StringComparison.Ordinal);
+        Assert.Contains($"changed while the workspace loaded: {Calculator} — Farol did not see these files before the change", text.Text, StringComparison.Ordinal);
+    }
+}
+
 /// <summary>dotnet_code_actions through the protocol: list, preview as a diff, apply with a fresh check, and read-only.</summary>
 public sealed class CodeActionsToolTests
 {

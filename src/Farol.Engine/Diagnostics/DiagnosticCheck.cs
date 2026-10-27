@@ -31,6 +31,7 @@ public static class DiagnosticCheck
 
         var solution = snapshot.Solution;
         var loaded = snapshot.Load.Solution;
+        var unseen = snapshot.Load.ChangedDuringLoad;
         var baseline = DiagnosticBaseline.For(loaded);
         var compilations = CheckCompilations.For(loaded, solution);
         var found = new ConcurrentBag<(ProjectId Project, List<Diagnostic> New, List<Diagnostic> Existing)>();
@@ -45,7 +46,7 @@ public static class DiagnosticCheck
         {
             var atLoad = baseline.ProjectAsync(id, token);
             var current = CompilerDiagnostics.ForCompilation(await compilations.GetAsync(id, token), token);
-            var (fresh, existing) = (await atLoad).Split(current);
+            var (fresh, existing) = Unseen((await atLoad).Split(current), unseen);
             found.Add((id, fresh, existing));
         });
 
@@ -60,7 +61,7 @@ public static class DiagnosticCheck
             var current = compilations.IsEdited(id.ProjectId)
                 ? await CompilerDiagnostics.ForDocumentAsync(solution.GetDocument(id)!, token)
                 : CompilerDiagnostics.ForTree(await compilations.GetAsync(id.ProjectId, token), await loaded.GetDocument(id)!.GetSyntaxTreeAsync(token), token);
-            var (fresh, existing) = current.IsEmpty ? ([], []) : (await (atLoad ?? baseline.DocumentAsync(id, token))).Split(current);
+            var (fresh, existing) = current.IsEmpty ? ([], []) : Unseen((await (atLoad ?? baseline.DocumentAsync(id, token))).Split(current), unseen);
             found.Add((id.ProjectId, fresh, existing));
         });
 
@@ -69,7 +70,24 @@ public static class DiagnosticCheck
             request.IncludeExisting ? Merge(snapshot, found.SelectMany(f => f.Existing.Select(d => (f.Project, d)))) : [],
             plan.ChangedFiles,
             [.. plan.Projects.Select(id => ProjectName(snapshot, id)).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)],
-            [.. plan.Documents.Select(id => solution.GetDocument(id)?.FilePath).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)]);
+            [.. plan.Documents.Select(id => solution.GetDocument(id)?.FilePath).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)],
+            [.. unseen.Where(path => solution.GetDocumentIdsWithFilePath(path).Any(id => plan.Projects.Contains(id.ProjectId) || plan.Documents.Contains(id)))
+                .Order(StringComparer.OrdinalIgnoreCase)]);
+    }
+
+    /// <summary>
+    /// A file that changed while the workspace loaded may have been read already changed: its load diagnostics are no
+    /// baseline, so all of its diagnostics are new.
+    /// </summary>
+    private static (List<Diagnostic> New, List<Diagnostic> Existing) Unseen((List<Diagnostic> New, List<Diagnostic> Existing) split, IReadOnlySet<string> unseen)
+    {
+        if (unseen.Count == 0)
+        {
+            return split;
+        }
+
+        var moved = split.Existing.Where(d => d.Location.SourceTree?.FilePath is { } path && unseen.Contains(path)).ToList();
+        return moved.Count == 0 ? split : ([.. split.New, .. moved], [.. split.Existing.Except(moved)]);
     }
 
     private static async Task<CheckPlan> PlanChangedAsync(WorkspaceSnapshot snapshot, bool includeExisting, CancellationToken cancellationToken)
@@ -80,6 +98,18 @@ public static class DiagnosticCheck
         var documents = new HashSet<DocumentId>();
         var wholeProjects = new HashSet<ProjectId>();
         var withDependents = new HashSet<ProjectId>();
+
+        // Changed while the workspace loaded, a file can equal its load text: it is checked as an edited file all the same.
+        foreach (var path in snapshot.Load.ChangedDuringLoad)
+        {
+            var ids = current.GetDocumentIdsWithFilePath(path);
+            if (ids.Length > 0)
+            {
+                changedFiles.Add(path);
+                documents.UnionWith(ids);
+            }
+        }
+
         foreach (var project in current.GetChanges(loaded).GetProjectChanges())
         {
             var added = project.GetAddedDocuments().ToList();
