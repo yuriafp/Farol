@@ -46,7 +46,7 @@ public static class DiagnosticCheck
         {
             var atLoad = baseline.ProjectAsync(id, token);
             var current = CompilerDiagnostics.ForCompilation(await compilations.GetAsync(id, token), token);
-            var (fresh, existing) = Unseen((await atLoad).Split(current), unseen);
+            var (fresh, existing) = WithUnseenAsNew((await atLoad).Split(current), unseen);
             found.Add((id, fresh, existing));
         });
 
@@ -61,7 +61,7 @@ public static class DiagnosticCheck
             var current = compilations.IsEdited(id.ProjectId)
                 ? await CompilerDiagnostics.ForDocumentAsync(solution.GetDocument(id)!, token)
                 : CompilerDiagnostics.ForTree(await compilations.GetAsync(id.ProjectId, token), await loaded.GetDocument(id)!.GetSyntaxTreeAsync(token), token);
-            var (fresh, existing) = current.IsEmpty ? ([], []) : Unseen((await (atLoad ?? baseline.DocumentAsync(id, token))).Split(current), unseen);
+            var (fresh, existing) = current.IsEmpty ? ([], []) : WithUnseenAsNew((await (atLoad ?? baseline.DocumentAsync(id, token))).Split(current), unseen);
             found.Add((id.ProjectId, fresh, existing));
         });
 
@@ -79,7 +79,7 @@ public static class DiagnosticCheck
     /// A file that changed while the workspace loaded may have been read already changed: its load diagnostics are no
     /// baseline, so all of its diagnostics are new.
     /// </summary>
-    private static (List<Diagnostic> New, List<Diagnostic> Existing) Unseen((List<Diagnostic> New, List<Diagnostic> Existing) split, IReadOnlySet<string> unseen)
+    private static (List<Diagnostic> New, List<Diagnostic> Existing) WithUnseenAsNew((List<Diagnostic> New, List<Diagnostic> Existing) split, IReadOnlySet<string> unseen)
     {
         if (unseen.Count == 0)
         {
