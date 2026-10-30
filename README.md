@@ -4,7 +4,7 @@
 
 Farol is an open-source [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI coding agents (Claude Code, GitHub Copilot, Cursor, Codex) compiler-accurate understanding of C# and VB.NET solutions, including the legacy ones other tools skip: classic `.csproj`/`.vbproj`, `packages.config`, WebForms, WCF, ASMX, WinForms and WPF.
 
-**Status:** alpha, [`Farol.Mcp` 0.1.0-alpha.5](https://www.nuget.org/packages/Farol.Mcp/0.1.0-alpha.5) on NuGet. Phase 1 is in progress: all 18 tools are done (workspace, navigation, markup references, edit verification, build and test, packages, legacy modernization), and so are the Claude Code plugin and the performance benchmarks, which meet the spec's targets. The eval suite meets the first exit criterion with Claude Haiku 4.5 on a harder task set, 59% success against 28% for grep + build with 32% fewer tokens ([results](evals/results/2026-10-07-haiku.md)); with Sonnet 5.5, grep + build had already solved every task of the first set ([results](evals/results/2026-10-05.md)). The second exit criterion, two weeks of real use, was counted as met; it showed the plugin's edit hook failing in folders that hold several solutions, which 0.1.0-alpha.5 fixes ([results](docs/real-use/2026-10-23.md)). Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
+**Status:** alpha, [`Farol.Mcp` 0.1.0-alpha.6](https://www.nuget.org/packages/Farol.Mcp/0.1.0-alpha.6) on NuGet. Phase 1 is in progress: all 18 tools are done (workspace, navigation, markup references, edit verification, build and test, packages, legacy modernization), and so are the Claude Code plugin and the performance benchmarks, which meet the spec's targets. The eval suite meets the first exit criterion with Claude Haiku 4.5 on a harder task set, 59% success against 28% for grep + build with 32% fewer tokens ([results](evals/results/2026-10-07-haiku.md)); with Sonnet 5.5, grep + build had already solved every task of the first set ([results](evals/results/2026-10-05.md)). The second exit criterion, two weeks of real use, was counted as met; it showed the plugin's edit hook failing in folders that hold several solutions, which 0.1.0-alpha.5 fixes ([results](docs/real-use/2026-10-23.md)). Scope: [spec 001](docs/specs/001-mvp.md) · progress: [Phase 1 plan](docs/plans/phase-1.md) · spike results: [Phase 0](docs/spikes/phase-0-results.md).
 
 ## Tools
 
@@ -58,7 +58,7 @@ To add only the server, without the skill and the hook, put this in the `.mcp.js
   "mcpServers": {
     "farol": {
       "command": "dotnet",
-      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.5", "--yes"]
+      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.6", "--yes"]
     }
   }
 }
@@ -74,7 +74,7 @@ Add the server to a `.mcp.json` next to the solution (or to `%USERPROFILE%\.mcp.
     "farol": {
       "type": "stdio",
       "command": "dotnet",
-      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.5", "--yes"]
+      "args": ["dnx", "Farol.Mcp@0.1.0-alpha.6", "--yes"]
     }
   }
 }
@@ -88,7 +88,7 @@ Not yet validated for the MVP (Claude Code and Visual Studio 2026 are). The same
 
 ### Options
 
-Farol's own options go after `--`, so `dnx` doesn't read them as its own: `"args": ["dnx", "Farol.Mcp@0.1.0-alpha.5", "--yes", "--", "--read-only"]`. The [Configuration](#configuration) table lists them.
+Farol's own options go after `--`, so `dnx` doesn't read them as its own: `"args": ["dnx", "Farol.Mcp@0.1.0-alpha.6", "--yes", "--", "--read-only"]`. The [Configuration](#configuration) table lists them.
 
 ### As a .NET tool
 
