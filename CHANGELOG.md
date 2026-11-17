@@ -3,6 +3,14 @@
 All notable changes to Farol are recorded in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Farol runs the compiler of .NET 11 (Microsoft.CodeAnalysis 5.12). The analyzers and source generators of the .NET 11
+  SDK, such as the Razor generator, now run inside Farol from the SDK the solution builds with: they no longer come from
+  an older installed SDK, and on a machine with only the .NET 11 SDK their projects no longer miss their code.
+
 ## [0.1.0-alpha.6] - 2026-10-30
 
 ### Fixed
