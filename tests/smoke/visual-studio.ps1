@@ -22,7 +22,7 @@ Start the version published on nuget.org instead of a local candidate.
 Keep the fixture copy and the throwaway NuGet cache. Both are deleted when every check passes.
 
 .EXAMPLE
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/smoke/visual-studio.ps1 -Version 0.1.0-alpha.5
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/smoke/visual-studio.ps1 -Version 0.1.0
 #>
 param(
     [Parameter(Mandatory)][string]$Version,
