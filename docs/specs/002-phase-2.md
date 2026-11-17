@@ -51,6 +51,9 @@
 - 2026-11-17 — **Approved by the developer**, with the **(proposed)** items as written. One correction of fact at
   approval: the benchmarks have no synthetic solution; the startup target is measured on their corpora (Umbraco, 0.77M
   lines, and DNN Platform, 0.58M lines of C# and VB).
+- 2026-11-17 — **Slice 0 done** ([results](../spikes/phase-2-results.md)): `dotnet_rename` uses Roslyn's `Renamer`, and
+  `dotnet_extract_method` its extract-method provider; `dotnet_change_signature` and `dotnet_move_type` are Farol's own
+  implementations on public APIs, since Roslyn offers them only through dialog services.
 
 ## Problem
 
