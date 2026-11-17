@@ -19,7 +19,7 @@ Implements [spec 001](../specs/001-mvp.md) (approved 2026-09-30). Each slice end
 | 12 | The Roslyn of .NET 11: Microsoft.CodeAnalysis 5.12, so the .NET 11 SDK's analyzers and generators run without the AC-46 fallback | AC-46 (follow-up) | done on main (2026-11-17): the five Roslyn packages moved from 5.9.0 to 5.12.0 with no code change; full suite passes (275, 3 skipped); the game server fork on SDK 11 RC2 loads with no compiler errors and no fallback; released in 0.1.0 (row 13) |
 | 13 | 0.1.0, the first release that is not an alpha, and the wiki | AC-36 | done: published 2026-11-17 from `f53405a` (tag `v0.1.0`), after the smoke tests; V1–V6 then ran in Google Antigravity's CLI at the developer's request (V1–V5 pass, V6 not visible there); see the [results](../smoke-tests.md#results); the wiki brought up to date with AC-44 to AC-48 and Roslyn 5.12 |
 | 14 | After 0.1.0: the hook waits for a load done within `Farol:HookLoadWaitSeconds` of its start | AC-49 | done: implemented with tests and a second review; ships in 0.1.1 (row 15) |
-| 15 | 0.1.1: AC-49 | AC-36 | in progress: candidate packed from `4078b5a` on `release/v0.1.1`, smoke tests recorded (see the [results](../smoke-tests.md#results)); next: the developer publishes the package, then the tag, the GitHub release and the wiki |
+| 15 | 0.1.1: AC-49 | AC-36 | done: published 2026-11-17 from `4078b5a` (tag `v0.1.1`), after the smoke tests (see the [results](../smoke-tests.md#results)); GitHub release and wiki updated |
 
 Cross-cutting, checked in every slice: AC-29 (tool conventions), AC-30 (relative paths), AC-31 (clean stdout).
 
