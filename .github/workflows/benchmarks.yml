@@ -4,7 +4,8 @@ name: Benchmarks
 on:
   push:
     branches: [main]
-    paths: ['src/**', 'benchmarks/**', '.github/workflows/benchmarks.yml']
+    # Package and build settings too: a dependency update, such as Roslyn's, can change the timings.
+    paths: ['src/**', 'benchmarks/**', 'Directory.Packages.props', 'Directory.Build.props', '.github/workflows/benchmarks.yml']
   schedule:
     - cron: '0 6 * * 1'
   workflow_dispatch:
