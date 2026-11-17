@@ -2,7 +2,7 @@
 
 Farol is an open-source [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI coding agents (Claude Code, GitHub Copilot, Cursor, Codex) compiler-accurate understanding of C# and VB.NET solutions, including legacy .NET Framework ones: classic `.csproj`/`.vbproj`, `packages.config`, WebForms, WCF, ASMX, WinForms and WPF.
 
-**Status:** 0.1.0, the first release that is not an alpha.
+**Status:** 0.1.1. 0.1.0 was the first release that is not an alpha.
 
 ## Run it
 
@@ -14,7 +14,7 @@ With the .NET 10 SDK installed, any MCP client can start Farol from NuGet with `
     "farol": {
       "type": "stdio",
       "command": "dotnet",
-      "args": ["dnx", "Farol.Mcp@0.1.0", "--yes"]
+      "args": ["dnx", "Farol.Mcp@0.1.1", "--yes"]
     }
   }
 }

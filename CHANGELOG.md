@@ -3,7 +3,7 @@
 All notable changes to Farol are recorded in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.1] - 2026-11-17
 
 ### Changed
 
@@ -150,7 +150,7 @@ The first alpha.
 - A Claude Code plugin: the server, a hook that checks every `.cs` and `.vb` edit, and a .NET Framework modernization
   skill.
 
-[Unreleased]: https://github.com/yuriafp/Farol/compare/v0.1.0...HEAD
+[0.1.1]: https://github.com/yuriafp/Farol/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/yuriafp/Farol/compare/v0.1.0-alpha.6...v0.1.0
 [0.1.0-alpha.6]: https://github.com/yuriafp/Farol/compare/v0.1.0-alpha.5...v0.1.0-alpha.6
 [0.1.0-alpha.5]: https://github.com/yuriafp/Farol/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
