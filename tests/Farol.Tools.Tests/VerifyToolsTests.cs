@@ -1,3 +1,4 @@
+using Farol.Engine;
 using Farol.Testing;
 using Xunit;
 
@@ -132,7 +133,8 @@ public sealed class ExcludedFileTests
 }
 
 /// <summary>
-/// An edit made while the workspace loads: the hook does not wait for the load, and the load may read the file already
+/// An edit made while the workspace loads: the hook waits for the load only until it has run for Farol:HookLoadWaitSeconds
+/// (AC-49), and the load may read the file already
 /// edited, so the file is kept out of the load's baseline and checked once the load is done.
 /// </summary>
 public sealed class EditDuringLoadTests
@@ -146,7 +148,11 @@ public sealed class EditDuringLoadTests
         using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
         await FixtureRestore.EnsureRestoredAsync(copy.PathOf("Modern.slnx"), ct);
         using var hold = LoadHold.Create();
-        await using var harness = await McpHarness.StartAsync(copy.Root, ct, o => o.MSBuildProperties.Add(hold.Property));
+        await using var harness = await McpHarness.StartAsync(copy.Root, ct, o =>
+        {
+            o.MSBuildProperties.Add(hold.Property);
+            o.HookLoadWaitSeconds = 1; // AC-49: the hold outlasts the hook's wait
+        });
         var file = copy.PathOf("src", "Modern.Core", "Pricing", "PriceCalculator.cs");
         var hook = new Dictionary<string, object?> { ["format"] = "hook", ["edited"] = Calculator };
 
@@ -168,6 +174,58 @@ public sealed class EditDuringLoadTests
         Assert.Contains("Farol did not see these files before the change", afterLoad.Text, StringComparison.Ordinal);
         Assert.Contains("new since load: 1 error(s)", text.Text, StringComparison.Ordinal);
         Assert.Contains($"changed while the workspace loaded: {Calculator} — Farol did not see these files before the change", text.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AC49_the_hook_waits_for_a_load_done_within_its_wait_and_answers_with_the_check()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
+        await FixtureRestore.EnsureRestoredAsync(copy.PathOf("Modern.slnx"), ct);
+        await using var harness = await McpHarness.StartAsync(copy.Root, ct, o =>
+        {
+            o.AutoLoad = false;
+            o.HookLoadWaitSeconds = FarolEngineOptions.MaxHookLoadWaitSeconds;
+        });
+        var file = copy.PathOf("src", "Modern.Core", "Pricing", "PriceCalculator.cs");
+
+        await File.WriteAllTextAsync(
+            file, (await File.ReadAllTextAsync(file, ct)).Replace("return Math.Round(subtotal * (1 - discount), 2);", "return \"total\";", StringComparison.Ordinal), ct);
+        var first = await harness.CallAsync("dotnet_check", new() { ["format"] = "hook", ["edited"] = Calculator }, ct); // starts the load and waits for it
+
+        Assert.False(first.IsError, first.Text);
+        Assert.DoesNotContain("is still loading", first.Text, StringComparison.Ordinal);
+        Assert.Contains("\"decision\":\"block\"", first.Text, StringComparison.Ordinal);
+        Assert.Contains("PriceCalculator.cs:19 · error CS0029", first.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AC49_the_hook_waits_only_until_the_load_has_run_for_its_wait_so_later_edits_are_not_held_again()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
+        await FixtureRestore.EnsureRestoredAsync(copy.PathOf("Modern.slnx"), ct);
+        using var hold = LoadHold.Create();
+        await using var harness = await McpHarness.StartAsync(copy.Root, ct, o =>
+        {
+            o.AutoLoad = false;
+            o.MSBuildProperties.Add(hold.Property);
+            o.HookLoadWaitSeconds = 3;
+        });
+        var hook = new Dictionary<string, object?> { ["format"] = "hook", ["edited"] = Calculator };
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var first = await harness.CallAsync("dotnet_check", hook, ct); // starts the load, which the hold keeps going
+        var firstTook = clock.Elapsed;
+        await hold.WaitUntilHeldAsync(ct);
+        clock.Restart();
+        var second = await harness.CallAsync("dotnet_check", hook, ct);
+        var secondTook = clock.Elapsed;
+
+        Assert.Contains("is still loading", first.Text, StringComparison.Ordinal);
+        Assert.InRange(firstTook, TimeSpan.FromSeconds(2.5), TimeSpan.FromSeconds(30));
+        Assert.Contains("is still loading", second.Text, StringComparison.Ordinal);
+        Assert.InRange(secondTook, TimeSpan.Zero, TimeSpan.FromSeconds(5)); // well below the 3 s wait: not held again
     }
 }
 

@@ -3,6 +3,15 @@
 All notable changes to Farol are recorded in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The edit hook waits for a workspace load that is done within 20 seconds of its start, then answers with the check of
+  the edit, so the first edits on a small solution are checked as they are made. A longer load still gets the note that
+  the edit is checked once the load is done; since the wait counts from the load's start, later edits during that load
+  are not held. `Farol:HookLoadWaitSeconds` sets the wait, up to 30 seconds; `0` never waits.
+
 ## [0.1.0] - 2026-11-17
 
 The first release that is not an alpha: Phase 1, the MVP of [spec 001](docs/specs/001-mvp.md), is done.
@@ -141,6 +150,7 @@ The first alpha.
 - A Claude Code plugin: the server, a hook that checks every `.cs` and `.vb` edit, and a .NET Framework modernization
   skill.
 
+[Unreleased]: https://github.com/yuriafp/Farol/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/yuriafp/Farol/compare/v0.1.0-alpha.6...v0.1.0
 [0.1.0-alpha.6]: https://github.com/yuriafp/Farol/compare/v0.1.0-alpha.5...v0.1.0-alpha.6
 [0.1.0-alpha.5]: https://github.com/yuriafp/Farol/compare/v0.1.0-alpha.4...v0.1.0-alpha.5

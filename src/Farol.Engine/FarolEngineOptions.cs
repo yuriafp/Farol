@@ -35,6 +35,14 @@ public sealed class FarolEngineOptions
     /// <summary>A test run (per test project) that runs longer is stopped, with its whole process tree.</summary>
     public int TestTimeoutMinutes { get; set; } = 20;
 
+    /// <summary>
+    /// How long, from the start of a workspace load, the hook format of dotnet_check waits for the load before it answers
+    /// with a note instead (AC-49). 0 never waits. At most <see cref="MaxHookLoadWaitSeconds"/>, within a hook's timeout.
+    /// </summary>
+    public int HookLoadWaitSeconds { get; set; } = 20;
+
+    public const int MaxHookLoadWaitSeconds = 30;
+
     /// <summary>Global MSBuild properties for design-time builds, e.g. Configuration=Release.</summary>
     public IDictionary<string, string> MSBuildProperties { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 }

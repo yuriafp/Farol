@@ -123,6 +123,7 @@ To run a local build instead, point the client at the host assembly:
 | `Farol:TrustedPaths` | `--Farol:TrustedPaths:0 <dir>` | none | More directories whose solutions may be loaded and whose files may be read or written. |
 | `Farol:BuildTimeoutMinutes` | `--Farol:BuildTimeoutMinutes 30` | `15` | A longer build is stopped with its whole process tree. |
 | `Farol:TestTimeoutMinutes` | `--Farol:TestTimeoutMinutes 30` | `20` | The same, per test project run. |
+| `Farol:HookLoadWaitSeconds` | `--Farol:HookLoadWaitSeconds 0` | `20` | How long, from the start of a workspace load, the plugin's edit hook waits for the load before it answers that the edit is checked once the load is done. At most 30; `0` never waits. |
 
 Settings can also come from `appsettings.json` next to the executable and from environment variables such as `Farol__TrustedPaths__0`. Farol gets the environment of the client that starts it: a variable set while the client is open, with `setx` for example, reaches Farol only after the client restarts, while an option in the server's `args` does not depend on that. `--help` prints these options and how a client starts Farol, then exits without starting the server; through `dnx`, it goes after `--` like the others. `--usage-report` (`--days N`, default 14) sums the usage log up the same way: the days with use, each tool's calls, errors and p50/p95 durations, the errors by code and the loads per solution. Nothing leaves the machine unless you share the report.
 

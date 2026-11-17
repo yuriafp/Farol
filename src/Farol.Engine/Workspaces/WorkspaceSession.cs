@@ -162,6 +162,37 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     }
 
     /// <summary>
+    /// For editor hooks: like <see cref="GetSnapshotAsync(bool, CancellationToken)"/> without waiting, except that a load
+    /// still running is waited for until it has run for <paramref name="waitWhileLoadRunsFor"/>. The time counts from the
+    /// load's start, so the hook answers to later edits during the same load are not held again. A load that fails during
+    /// the wait reports its failure instead of starting again, so a solution that cannot load never holds every edit.
+    /// </summary>
+    public async Task<WorkspaceSnapshot> GetSnapshotAsync(TimeSpan waitWhileLoadRunsFor, CancellationToken cancellationToken)
+    {
+        if (CurrentSnapshot is null && waitWhileLoadRunsFor > TimeSpan.Zero)
+        {
+            var loading = StartLoading();
+            var left = waitWhileLoadRunsFor - LoadingFor;
+            if (!loading.IsCompleted && left > TimeSpan.Zero)
+            {
+                using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                await Task.WhenAny(loading, Task.Delay(left, stop.Token));
+                await stop.CancelAsync();
+                cancellationToken.ThrowIfCancellationRequested();
+                if (loading.IsCompleted && CurrentSnapshot is null && Volatile.Read(ref _failure) is { } failure)
+                {
+                    throw new FarolException(
+                        ErrorCodes.WorkspaceLoadFailed,
+                        $"Workspace '{Target.DisplayName}' failed to load: {failure.Message}",
+                        "Fix the cause, then call dotnet_workspace with action='reload'.");
+                }
+            }
+        }
+
+        return await GetSnapshotAsync(wait: false, cancellationToken);
+    }
+
+    /// <summary>
     /// Waits for a load and returns its snapshot, or its failure. A reload can discard the snapshot before this request
     /// reads it; the request then waits for the new load rather than report a failure that did not happen.
     /// </summary>

@@ -5,15 +5,17 @@ using Farol.Core;
 using Farol.Core.Paths;
 using Farol.Core.Text;
 using Farol.Core.Usage;
+using Farol.Engine;
 using Farol.Engine.Diagnostics;
 using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
+using Microsoft.Extensions.Options;
 using ModelContextProtocol.Server;
 
 namespace Farol.Tools.Features.Verify;
 
 [McpServerToolType]
-public sealed class CheckTool(WorkspaceManager workspaces)
+public sealed class CheckTool(WorkspaceManager workspaces, IOptions<FarolEngineOptions> options)
 {
     private const string NothingToSay = "{}";
 
@@ -80,12 +82,21 @@ public sealed class CheckTool(WorkspaceManager workspaces)
             WorkspaceSnapshot snapshot;
             try
             {
-                // A hook must not hold the agent while a large solution loads: it reports nothing until the load is done.
-                snapshot = await session.GetSnapshotAsync(wait: !hook, cancellationToken);
+                // A hook must not hold the agent while a large solution loads: it waits only for a load that is done within
+                // Farol:HookLoadWaitSeconds of its start, as on a small solution, and otherwise says the edit is checked later (AC-49).
+                snapshot = hook
+                    ? await session.GetSnapshotAsync(HookLoadWait, cancellationToken)
+                    : await session.GetSnapshotAsync(wait: true, cancellationToken);
             }
             catch (FarolException ex) when (hook && ex.Code == ErrorCodes.WorkspaceNotReady)
             {
                 return LoadingNotice(session, Shown(edited));
+            }
+            catch (FarolException ex) when (hook && ex.Code == ErrorCodes.WorkspaceLoadFailed)
+            {
+                // The hook waited for a load that failed: a hook error is never shown, so say why in the agent's context.
+                ToolCallOutcome.Current?.Fail(ex.Code);
+                return LoadFailedNotice(ex, Shown(edited));
             }
 
             if (fullPath is not null)
@@ -98,6 +109,8 @@ public sealed class CheckTool(WorkspaceManager workspaces)
             CheckRenderer.Render(text, result, snapshot, workspaces.RootDirectory, kind, offset);
             return hook ? HookOutput(result, text.ToString(), editedFile is null ? null : DisplayPath.From(workspaces.RootDirectory, editedFile)) : text.ToString();
         });
+
+    private TimeSpan HookLoadWait => TimeSpan.FromSeconds(Math.Clamp(options.Value.HookLoadWaitSeconds, 0, FarolEngineOptions.MaxHookLoadWaitSeconds));
 
     /// <summary>
     /// Claude Code reads a PostToolUse hook's output as JSON: "decision": "block" puts the reason in front of the agent,
@@ -142,6 +155,19 @@ public sealed class CheckTool(WorkspaceManager workspaces)
                 ["additionalContext"] =
                     $"Farol (dotnet_check): {session.Target.DisplayName} is still loading, so {what} is checked once the load is done, " +
                     "in the hook answer to the next edit (or call dotnet_check).",
+            },
+        }, HookJson);
+    }
+
+    private static string LoadFailedNotice(FarolException ex, string? edited)
+    {
+        var what = edited is null ? "the edits" : $"the edit to {edited}";
+        return JsonSerializer.Serialize(new Dictionary<string, object>
+        {
+            ["hookSpecificOutput"] = new Dictionary<string, string>
+            {
+                ["hookEventName"] = "PostToolUse",
+                ["additionalContext"] = $"Farol (dotnet_check) could not check {what}. {ex.Message} {ex.Hint}",
             },
         }, HookJson);
     }

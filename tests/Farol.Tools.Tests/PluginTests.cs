@@ -69,10 +69,10 @@ public sealed class PluginTests
     }
 
     [Fact]
-    public async Task Hook_format_does_not_wait_for_a_workspace_that_is_still_loading()
+    public async Task Hook_format_without_a_load_wait_does_not_wait_for_a_workspace_that_is_still_loading()
     {
         using var copy = FixtureCopy.Create(TestPaths.ModernDirectory);
-        await using var harness = await McpHarness.StartAsync(copy.Root, Ct);
+        await using var harness = await McpHarness.StartAsync(copy.Root, Ct, o => o.HookLoadWaitSeconds = 0);
 
         var text = await Hook(harness, copy.PathOf("src", "Modern.Core", "Pricing", "PriceCalculator.cs"));
 

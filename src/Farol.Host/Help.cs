@@ -40,6 +40,8 @@ internal static class Help
                                            may be read or written (:1, :2 and so on for more).
           --Farol:BuildTimeoutMinutes <n>  Stop a longer build with its whole process tree. Default: 15.
           --Farol:TestTimeoutMinutes <n>   The same, per test project run. Default: 20.
+          --Farol:HookLoadWaitSeconds <n>  How long, from the start of a load, the edit hook waits for it.
+                                           Default: 20; at most 30; 0 never waits.
           -h, --help                       Show this help.
 
         Commands:
