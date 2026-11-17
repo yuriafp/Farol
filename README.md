@@ -92,7 +92,7 @@ Farol's own options go after `--`, so `dnx` doesn't read them as its own: `"args
 
 ### As a .NET tool
 
-To install Farol once instead of running it through `dnx`, use `dotnet tool install --global Farol.Mcp --prerelease` (and `dotnet tool update` with the same arguments later). The client's command is then `farol`, and Farol's options are its arguments, without the `--`: `"args": ["--read-only"]`. On Windows, a running server keeps its files locked and the update fails with "access denied": close the clients that run it, then stop any `farol` process still running (Google Antigravity's outlived Visual Studio).
+To install Farol once instead of running it through `dnx`, use `dotnet tool install --global Farol.Mcp` (and `dotnet tool update --global Farol.Mcp` later). The client's command is then `farol`, and Farol's options are its arguments, without the `--`: `"args": ["--read-only"]`. On Windows, a running server keeps its files locked and the update fails with "access denied": close the clients that run it, then stop any `farol` process still running (Google Antigravity's outlived Visual Studio).
 
 ### From source
 
@@ -114,7 +114,7 @@ To run a local build instead, point the client at the host assembly:
 | Setting | Command line | Default | Meaning |
 |---|---|---|---|
 | `Farol:RootDirectory` | `--root <dir>` | working directory | Where the default workspace is discovered. Farol trusts this directory. |
-| `Farol:DefaultWorkspace` | `--workspace <path>` | discovered | The solution or project used when a tool call names none. Without it, Farol uses the one it discovers in the root, or else the one an earlier call named. |
+| `Farol:DefaultWorkspace` | `--workspace <path>` | discovered | The solution or project used when a tool call names none. Without it, Farol uses the one it discovers in the root; in a root with several, a call about a file uses the workspace in use whose folder holds the file, else the solution nearest above it, and other calls use the one an earlier call named. |
 | `Farol:AutoLoad` | `--autoload false` | `true` | Start loading the default workspace at startup. |
 | `Farol:ReadOnly` | `--read-only` | `false` | Refuse writing files, building and running tests; tools explain the refusal. |
 | `Farol:Offline` | `--offline` | `false` | Never touch the network: `dotnet_packages` reports the vulnerabilities the last restore recorded, and `dotnet_package_api` reads only packages already in the local NuGet caches. |
@@ -126,7 +126,7 @@ To run a local build instead, point the client at the host assembly:
 
 Settings can also come from `appsettings.json` next to the executable and from environment variables such as `Farol__TrustedPaths__0`. Farol gets the environment of the client that starts it: a variable set while the client is open, with `setx` for example, reaches Farol only after the client restarts, while an option in the server's `args` does not depend on that. `--help` prints these options and how a client starts Farol, then exits without starting the server; through `dnx`, it goes after `--` like the others. `--usage-report` (`--days N`, default 14) sums the usage log up the same way: the days with use, each tool's calls, errors and p50/p95 durations, the errors by code and the loads per solution. Nothing leaves the machine unless you share the report.
 
-**Trust:** loading a solution runs its build logic (MSBuild evaluation, analyzers, source generators), including the code generators a design-time build runs, as Visual Studio does when it opens the solution: one that writes into the source tree, such as a gRPC client with its `OutputDir` there, rewrites those files. Farol only loads solutions, reads paths and writes files inside the root it was started in and `Farol:TrustedPaths`, after resolving `..` and symbolic links; anything else is refused with an error that says how to allow it.
+**Trust:** loading a solution runs its build logic (MSBuild evaluation, analyzers, source generators), including the code generators a design-time build runs, as Visual Studio does when it opens the solution: one that writes into the source tree, such as a gRPC client with its `OutputDir` there, rewrites those files. Analyzers and source generators load from copies under the temp directory (`farol/analyzers`), so a solution can rebuild its own generators while Farol runs; a later server removes the copies once the process that made them has exited. Farol only loads solutions, reads paths and writes files inside the root it was started in and `Farol:TrustedPaths`, after resolving `..` and symbolic links; anything else is refused with an error that says how to allow it.
 
 **NuGet:** the package tools use the NuGet configuration restore uses (the `nuget.config` files from the solution up, package source mapping, `auditSources`), the HTTP cache, and credential providers such as Azure Artifacts' in non-interactive mode: if a private feed needs a sign-in, run `dotnet restore --interactive` once. A package `dotnet_package_api` downloads goes into the global packages folder, as restore would put it.
 
