@@ -38,7 +38,11 @@ public sealed class ToolContractTests
             Assert.False(t.ProtocolTool.Annotations?.IdempotentHint);
         });
         Assert.Equal(4, tools.Count(t => t.Name is "dotnet_rename" or "dotnet_change_signature" or "dotnet_move_type" or "dotnet_extract_method"));
-        Assert.Equal(22, tools.Count);
+        var convert = tools.Single(t => t.Name == "dotnet_convert_project").ProtocolTool.Annotations;
+        Assert.False(convert?.ReadOnlyHint);
+        Assert.True(convert?.DestructiveHint);
+        Assert.True(convert?.OpenWorldHint);
+        Assert.Equal(23, tools.Count);
         Assert.All(tools, tool =>
         {
             Assert.StartsWith("dotnet_", tool.Name, StringComparison.Ordinal);

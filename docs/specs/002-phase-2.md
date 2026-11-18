@@ -78,6 +78,23 @@
   for new, moved or emptied files. `dotnet_extract_method` runs Roslyn's extract-method provider on whole lines, then
   renames the generated method. The baseline rule of slice 2 widens: a load diagnostic on a line a Farol refactoring
   rewrote is not new while its message is the same (a call site rewritten on a line that already had an error).
+- 2026-11-18 — **Slice 4 done** (AC-66, AC-67): `dotnet_convert_project` rewrites the project file from its XML, without
+  MSBuild evaluation, keeping what the build depends on. `sdk_style` keeps the target framework (`v4.8` → `net48`), the
+  output type and folder (`AppendTargetFrameworkToOutputPath=false`, a custom `OutputPath`), names that differ from the
+  file's, settings the SDK does not set itself (constants beyond DEBUG/TRACE, `Prefer32Bit`, binding redirects…),
+  references with their metadata and conditions, project references (without `Project`/`Name`), VB `Import` items (with
+  `DisableImplicitNamespaceImports`), and turns the `Compile`/`EmbeddedResource` lists into the SDK's globs with
+  `Remove`/`Include`/`Update` items for what the globs would get wrong (left-out files, linked or conditioned files,
+  metadata); wildcard lists are kept as written with the globs off. Item types it does not know (`COMReference`,
+  `Analyzer`…), custom imports and targets are kept as written, each with a note. Project types the SDK-style format
+  does not build the same way (web applications, VSTO, WCF service libraries, Silverlight) and `Choose` blocks are
+  refused with the reason, and so is a packages.config under central package management. `package_reference` adds a
+  `PackageReference` per packages.config entry (development dependencies with `PrivateAssets=all`) and removes the
+  package references by `HintPath` (`..\packages` or `$(SolutionDir)packages`), package analyzers and imports, the
+  `EnsureNuGetPackageBuildImports` target and the file itself. The apply restores the project (Visual Studio's MSBuild,
+  else `dotnet restore`), reloads the workspace once (also when the write or the restore fails), and compares the
+  project's source files, references, packages and the errors of it and its dependents with before; a failed restore
+  or a project without source files after the reload is never reported as the same.
 
 ## Problem
 

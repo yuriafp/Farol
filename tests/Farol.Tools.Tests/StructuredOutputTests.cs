@@ -98,6 +98,7 @@ public sealed class StructuredOutputTests
         { "dotnet_rename", """{"symbol":"OrderCalculator.GetTotal","newName":"CalculateTotal","apply":true}""" },
         { "dotnet_change_signature", """{"symbol":"OrderCalculator.GetTotal","parameters":[{"name":"discount","type":"decimal","value":"0"},{"name":"orderId"}]}""" },
         { "dotnet_move_type", """{"symbol":"OrderLine","toFile":"Legacy.Core/Orders/OrderLine.cs"}""" },
+        { "dotnet_convert_project", """{"project":"Legacy.Core","kind":"sdk_style"}""" },
         { "dotnet_extract_method", """{"path":"Legacy.Core/Orders/OrderCalculator.cs","startLine":17,"endLine":21,"name":"LoadOrder"}""" },
     };
 }

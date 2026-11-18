@@ -308,6 +308,40 @@
       ]
     },
     {
+      "name": "dotnet_convert_project",
+      "readOnly": false,
+      "destructive": true,
+      "idempotent": false,
+      "openWorld": true,
+      "parameters": [
+        "project: string",
+        "kind: string",
+        "apply?: boolean",
+        "workspace?: string|null",
+        "maxTokens?: integer"
+      ],
+      "output": [
+        "change: string",
+        "mode: string",
+        "files: array",
+        "files[].path: string",
+        "files[].change: string",
+        "files[].project: string",
+        "notes: array",
+        "diff: string|null",
+        "reload: object|null",
+        "reload.same: boolean",
+        "reload.restored: boolean",
+        "reload.missingDocuments: array",
+        "reload.addedDocuments: array",
+        "reload.missingReferences: array",
+        "reload.addedReferences: array",
+        "reload.missingPackages: array",
+        "reload.addedPackages: array",
+        "reload.newErrors: array"
+      ]
+    },
+    {
       "name": "dotnet_extract_method",
       "readOnly": false,
       "destructive": false,

@@ -10,7 +10,7 @@ end (0.2.0), after the exit criteria.
 | 1 | Structured output: an `outputSchema` and `structuredContent` for the 18 tools, built from the same result objects as the text; schemas in `mcp-surface.json`; first, so the new tools have them from the start | AC-68 | done |
 | 2 | Write tools and `dotnet_rename`: the shared diff → `apply` → fresh check path of `dotnet_code_actions`, the `conflict` refusal for files changed since the diff, `read_only`; rename across C#, VB and markup, with the file (and code-behind markup) | AC-60, AC-61, AC-65 | done |
 | 3 | `dotnet_change_signature`, `dotnet_move_type`, `dotnet_extract_method`, C# and VB | AC-62 – AC-64 | done |
-| 4 | `dotnet_convert_project`: classic → SDK-style keeping the target framework, packages.config → PackageReference, then a reload | AC-66, AC-67 | not started |
+| 4 | `dotnet_convert_project`: classic → SDK-style keeping the target framework, packages.config → PackageReference, then a reload | AC-66, AC-67 | done |
 | 5 | Project analyzers in `dotnet_check` (`analyzers`, `Farol:CheckAnalyzers`, the hook), with a time limit and the analyzers' time in the answer; a fixture project with a CA rule as error | AC-58, AC-59 | not started |
 | 6 | Heuristic loader: project files, packages, reference assemblies from `Microsoft.NETFramework.ReferenceAssemblies`, markup; chosen when no MSBuild can evaluate .NET Framework projects; `check` with the note, build and test refused; Linux CI job | AC-54, AC-55, AC-57, AC-70 | not started |
 | 7 | Binary-log loader (`workspace` or `Farol:Binlog`), from the compiler invocations the log records | AC-56 | not started |

@@ -179,6 +179,38 @@ public sealed partial class BuildRunner(IProcessRunner runner, ToolchainProbe to
         return new BuildCommand(msbuild, arguments, target.Directory, $"MSBuild {visualStudio.ShortVersion} ({visualStudio.DisplayName})", path, binaryLog);
     }
 
+    /// <summary>
+    /// Restores one project file and what it references, as a build would before compiling: Visual Studio's MSBuild when
+    /// there is one (it restores classic and SDK-style projects alike), else <c>dotnet restore</c>.
+    /// </summary>
+    public async Task<(bool Succeeded, string? Output)> RestoreAsync(WorkspaceTarget target, string projectFile, IProgress<string>? progress, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
+        using var turn = await AcquireAsync(target, progress, cancellationToken);
+        var directory = Path.GetDirectoryName(projectFile)!;
+        ProcessSpec spec;
+        if ((await toolchain.ProbeAsync(target.Directory, cancellationToken)).PreferredVisualStudio is { MSBuildPath: { } msbuild })
+        {
+            List<string> arguments = [projectFile, "-t:Restore", "-p:RestorePackagesConfig=true", "-nologo", "-v:m", "-nodeReuse:false", "-p:PreferredUILang=en-US"];
+            if (target.Kind != WorkspaceTargetKind.Project)
+            {
+                arguments.Add($"-p:SolutionDir={target.Directory}{Path.DirectorySeparatorChar}");
+            }
+
+            spec = new ProcessSpec(msbuild, arguments, target.Directory, Timeout);
+        }
+        else
+        {
+            spec = new ProcessSpec("dotnet", ["restore", projectFile, "-nologo", "-v:m"], directory, Timeout);
+        }
+
+        progress?.Report($"restoring {Path.GetFileName(projectFile)}");
+        var run = await runner.RunAsync(spec, cancellationToken);
+        var succeeded = run.ExitCode == 0 && !run.TimedOut;
+        return (succeeded, succeeded ? null : Tail(run.StandardOutput + run.StandardError));
+    }
+
     // The projects a build touches: everything, or the project and what it references.
     private static List<ProjectEntry> Scope(WorkspaceSnapshot snapshot, string? projectFile)
     {
