@@ -10,8 +10,12 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace Farol.Engine.CodeActions;
 
-/// <summary>One file an action creates, changes or deletes; a null text means the file does not exist on that side.</summary>
-public sealed record FileEdit(string FilePath, string? OldText, string? NewText, Encoding Encoding, string Project, bool InSdkStyleProject);
+/// <summary>
+/// One file an action creates, changes or deletes; a null text means the file does not exist on that side.
+/// <see cref="ProjectFileUpdated"/> says the same change set edits the project file to match, so a classic project may
+/// gain or lose it (a rename that moves a file).
+/// </summary>
+public sealed record FileEdit(string FilePath, string? OldText, string? NewText, Encoding Encoding, string Project, bool InSdkStyleProject, bool ProjectFileUpdated = false);
 
 /// <summary>What an action would do: source file edits, plus the changes Farol does not apply (references, projects).</summary>
 public sealed record CodeActionChanges(IReadOnlyList<FileEdit> Files, IReadOnlyList<string> NotApplied);
@@ -31,9 +35,17 @@ public static partial class CodeActionEditor
             return new CodeActionChanges([], ["it changes no files (it needs an interactive editor)"]);
         }
 
-        var original = snapshot.Solution;
-        var changed = apply.ChangedSolution;
         var encoding = (await trigger.GetTextAsync(cancellationToken)).Encoding ?? new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        return await ComputeAsync(snapshot, apply.ChangedSolution, encoding, cancellationToken);
+    }
+
+    /// <summary>The file edits between the snapshot's solution and a changed one; <paramref name="encoding"/> is for new files.</summary>
+    public static async Task<CodeActionChanges> ComputeAsync(WorkspaceSnapshot snapshot, Solution changed, Encoding encoding, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(changed);
+
+        var original = snapshot.Solution;
         var files = new Dictionary<string, FileEdit>(StringComparer.OrdinalIgnoreCase);
         var notApplied = new List<string>();
         var changes = changed.GetChanges(original);
@@ -96,7 +108,11 @@ public static partial class CodeActionEditor
     /// snapshot, and not adding or removing files in classic projects (their project file lists every source file).
     /// Returns the paths written.
     /// </summary>
-    public static async Task<IReadOnlyList<string>> ApplyAsync(IReadOnlyList<FileEdit> files, PathSandbox paths, CancellationToken cancellationToken)
+    public static Task<IReadOnlyList<string>> ApplyAsync(IReadOnlyList<FileEdit> files, PathSandbox paths, CancellationToken cancellationToken) =>
+        ApplyAsync(files, paths, "dotnet_code_actions", cancellationToken);
+
+    /// <summary>As <see cref="ApplyAsync(IReadOnlyList{FileEdit}, PathSandbox, CancellationToken)"/>; <paramref name="tool"/> is the one a conflict says to call again.</summary>
+    public static async Task<IReadOnlyList<string>> ApplyAsync(IReadOnlyList<FileEdit> files, PathSandbox paths, string tool, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(files);
         ArgumentNullException.ThrowIfNull(paths);
@@ -105,7 +121,7 @@ public static partial class CodeActionEditor
         {
             var display = DisplayPath.From(paths.Root, file.FilePath);
             paths.Demand(file.FilePath, $"File '{display}'");
-            if ((file.OldText is null || file.NewText is null) && !file.InSdkStyleProject)
+            if ((file.OldText is null || file.NewText is null) && !file.InSdkStyleProject && !file.ProjectFileUpdated)
             {
                 throw new FarolException(
                     ErrorCodes.InvalidArgument,
@@ -119,7 +135,7 @@ public static partial class CodeActionEditor
                 throw new FarolException(
                     ErrorCodes.Conflict,
                     file.OldText is null ? $"'{display}' already exists." : $"'{display}' changed on disk while the action was computed.",
-                    "Call dotnet_code_actions again: it computes the action on the current content.");
+                    $"Call {tool} again: it computes the change on the current content.");
             }
         }
 

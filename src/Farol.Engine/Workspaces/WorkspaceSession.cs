@@ -39,6 +39,11 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly ConcurrentDictionary<string, byte> _written = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _edited = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentQueue<SourceMove> _moves = new();
+
+    // How long a queued move waits for its file: Farol queues it before writing, so a refresh in between keeps it.
+    private static readonly TimeSpan MoveLifetime = TimeSpan.FromSeconds(30);
+    private readonly ConcurrentDictionary<SourceMove, DateTimeOffset> _moveDeadlines = new();
     private readonly HashSet<string> _editedBeforeLoad = new(StringComparer.OrdinalIgnoreCase);
 
     private Task? _loadTask;
@@ -233,6 +238,49 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     }
 
     /// <summary>
+    /// Project files Farol is about to rewrite to follow source files it moves: called before writing them, so their
+    /// file-system events do not reload the workspace (<see cref="NotifyMoved"/> moves the documents instead).
+    /// </summary>
+    public void ExpectProjectWrites(IEnumerable<(string Path, string Text)> projectFiles)
+    {
+        ArgumentNullException.ThrowIfNull(projectFiles);
+        foreach (var (path, text) in projectFiles)
+        {
+            Volatile.Read(ref _watcher)?.ExpectWrite(Path.GetFullPath(path), text);
+        }
+    }
+
+    /// <summary>Records a rename Farol applied, for the checks that follow until the next load (see <see cref="WorkspaceLoad.Renames"/>).</summary>
+    public void NotifyRenamed(string oldName, string newName) => Volatile.Read(ref _snapshot)?.Load.Renames.Enqueue((oldName, newName));
+
+    /// <summary>
+    /// Records source files Farol is about to move, before writing them: the snapshot that first sees the new file moves
+    /// their documents (in classic projects too), keeping their identity, so the load's diagnostics still apply to them.
+    /// </summary>
+    public void NotifyMoved(IEnumerable<SourceMove> moves)
+    {
+        ArgumentNullException.ThrowIfNull(moves);
+        var load = Volatile.Read(ref _snapshot)?.Load;
+        foreach (var move in moves)
+        {
+            var full = new SourceMove(Path.GetFullPath(move.From), Path.GetFullPath(move.To));
+            _moveDeadlines[full] = DateTimeOffset.UtcNow + MoveLifetime;
+            _moves.Enqueue(full);
+            load?.Moves.Enqueue((full.From, full.To));
+        }
+    }
+
+    /// <summary>Drops moves recorded by <see cref="NotifyMoved"/> whose write failed.</summary>
+    public void ForgetMoves(IEnumerable<SourceMove> moves)
+    {
+        ArgumentNullException.ThrowIfNull(moves);
+        foreach (var move in moves)
+        {
+            _moveDeadlines.TryRemove(new SourceMove(Path.GetFullPath(move.From), Path.GetFullPath(move.To)), out _);
+        }
+    }
+
+    /// <summary>
     /// Queues source files an agent says it just changed, so the next snapshot reads them without waiting for file-system
     /// events. Unlike <see cref="NotifyChanged"/>, a claim never widens the workspace: a file it does not compile joins only
     /// when it is new since the load and outside bin and obj, so one the project leaves out stays out. A claim made before
@@ -403,7 +451,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         }
     }
 
-    private bool HasPendingChanges => !_written.IsEmpty || !_edited.IsEmpty || Volatile.Read(ref _watcher) is { HasChanges: true };
+    private bool HasPendingChanges => !_written.IsEmpty || !_edited.IsEmpty || !_moves.IsEmpty || Volatile.Read(ref _watcher) is { HasChanges: true };
 
     private async Task<WorkspaceSnapshot> RefreshAsync(CancellationToken cancellationToken)
     {
@@ -477,17 +525,23 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
             loadStartedAt = _loadStartedAt;
         }
 
+        var moves = new List<SourceMove>();
+        while (_moves.TryDequeue(out var move))
+        {
+            moves.Add(move);
+        }
+
         var written = Take(_written);
         written.AddRange(Take(_edited).Where(path => IsDocument(current, path) || IsNewSource(path, loadStartedAt, Target.Directory)));
 
         if (watcher?.Drain(path => IsDocument(current, path)) is not { } watched)
         {
-            return new WorkspaceChanges(written, ReloadRequired: false, MarkupChanged: false);
+            return new WorkspaceChanges(written, ReloadRequired: false, MarkupChanged: false) { Moves = moves };
         }
 
         return written.Count == 0
-            ? watched
-            : watched with { TouchedSources = [.. watched.TouchedSources.Union(written, StringComparer.OrdinalIgnoreCase)] };
+            ? watched with { Moves = moves }
+            : watched with { TouchedSources = [.. watched.TouchedSources.Union(written, StringComparer.OrdinalIgnoreCase)], Moves = moves };
     }
 
     private static List<string> Take(ConcurrentDictionary<string, byte> queue)
@@ -553,14 +607,58 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         File.Exists(path) && File.GetCreationTimeUtc(path) >= loadStartedAt.UtcDateTime
         && !WorkspaceWatcher.IsIgnored(Path.GetRelativePath(directory, path));
 
-    private static async Task<(Solution Solution, IReadOnlyList<string> Unreadable)> ApplyAsync(
+    private async Task<(Solution Solution, IReadOnlyList<string> Unreadable)> ApplyAsync(
         WorkspaceSnapshot current, WorkspaceChanges changes, CancellationToken cancellationToken)
     {
         var solution = current.Solution;
         var loaded = current.Load.Solution;
         var reverted = false;
         var unreadable = new List<string>();
-        foreach (var path in changes.TouchedSources)
+        var moved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var move in changes.Moves)
+        {
+            // The documents leave the old path for the new one in the same projects; their text is the moved file's.
+            if (!_moveDeadlines.TryGetValue(move, out var deadline))
+            {
+                // Forgotten: its write failed.
+                continue;
+            }
+
+            var ids = solution.GetDocumentIdsWithFilePath(move.From);
+            if (ids.Length == 0)
+            {
+                _moveDeadlines.TryRemove(move, out _);
+                continue;
+            }
+
+            if (await ReadTextAsync(move.To, null, SourceHashAlgorithm.Sha256, cancellationToken) is not { } text)
+            {
+                // Not written yet: wait for it, for a while.
+                if (deadline > DateTimeOffset.UtcNow)
+                {
+                    _moves.Enqueue(move);
+                }
+                else
+                {
+                    _moveDeadlines.TryRemove(move, out _);
+                }
+
+                continue;
+            }
+
+            // Same document ids: the baseline finds each document's diagnostics at load, recorded under the old path.
+            foreach (var id in ids)
+            {
+                var document = solution.GetDocument(id)!;
+                solution = solution.RemoveDocument(id).AddDocument(id, Path.GetFileName(move.To), text, document.Folders, move.To);
+            }
+
+            _moveDeadlines.TryRemove(move, out _);
+            moved.Add(move.From);
+            moved.Add(move.To);
+        }
+
+        foreach (var path in changes.TouchedSources.Where(p => !moved.Contains(p)))
         {
             var ids = solution.GetDocumentIdsWithFilePath(path);
             var exists = File.Exists(path);

@@ -31,7 +31,13 @@ public sealed class ToolContractTests
         Assert.False(migrationPlan?.ReadOnlyHint);
         Assert.True(migrationPlan?.DestructiveHint);
         Assert.All(tools.Where(t => t.Name is "dotnet_legacy_inventory" or "dotnet_config_inspect" or "dotnet_portability"), t => Assert.True(t.ProtocolTool.Annotations?.ReadOnlyHint));
-        Assert.Equal(18, tools.Count);
+        Assert.All(tools.Where(t => t.Name is "dotnet_rename"), t =>
+        {
+            Assert.False(t.ProtocolTool.Annotations?.ReadOnlyHint);
+            Assert.False(t.ProtocolTool.Annotations?.DestructiveHint);
+            Assert.False(t.ProtocolTool.Annotations?.IdempotentHint);
+        });
+        Assert.Equal(19, tools.Count);
         Assert.All(tools, tool =>
         {
             Assert.StartsWith("dotnet_", tool.Name, StringComparison.Ordinal);

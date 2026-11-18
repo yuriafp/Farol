@@ -60,6 +60,15 @@
   Claude Code still reads with the structured content present (headless check: the hook blocked with CS0029). The
   surface snapshot lists every output field; the call tree of `dotnet_call_hierarchy` is a flat list (depth, parent)
   so no schema refers to itself, and the remaining `$ref`s point at a type's first use, as System.Text.Json writes them.
+- 2026-11-18 — **Slice 2 done** (AC-60, AC-61, AC-65): `dotnet_rename` renames through Roslyn's `Renamer` in C# and
+  VB, then the markup references (WebForms, XAML) and the files named after a type, with their XAML or `.resx`
+  companions, the project file items and `DependentUpon` (classic projects included). Web pages keep their file names,
+  since renaming one changes its URL. A name already declared beside the symbol, in its base types or in the members
+  renamed with it (overrides, implementations) is a `conflict`, as is a reference that would bind to something else
+  after the rename. The write path every write tool shares previews a diff, and `apply` refuses with `conflict` when a
+  file changed since that diff. A check after the rename does not count the load's diagnostics as new because the
+  rename rewrote their line or moved their file: the load records the renames and moves Farol applied, and the
+  baseline reads its diagnostics through them until the next load.
 
 ## Problem
 

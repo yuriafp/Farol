@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 
 namespace Farol.Engine.Diagnostics;
@@ -87,6 +88,39 @@ internal readonly record struct DiagnosticFingerprint(string Id, string? FilePat
     }
 }
 
+/// <summary>
+/// Changes Farol made since the load that a load diagnostic survives: renames (its message and line are read with the
+/// new name, whole words, in order) and file moves (its file is read as the new path).
+/// </summary>
+internal sealed record BaselineRewrites(IReadOnlyList<(string Old, string New)> Renames, IReadOnlyList<(string From, string To)> Moves)
+{
+    public bool IsEmpty => Renames.Count == 0 && Moves.Count == 0;
+
+    public DiagnosticFingerprint Apply(DiagnosticFingerprint fingerprint) => fingerprint with
+    {
+        FilePath = Moved(fingerprint.FilePath),
+        Message = Renamed(fingerprint.Message),
+        LineText = Renamed(fingerprint.LineText),
+    };
+
+    private string? Moved(string? path)
+    {
+        foreach (var (from, to) in Moves)
+        {
+            if (string.Equals(path, from, StringComparison.OrdinalIgnoreCase))
+            {
+                path = to;
+            }
+        }
+
+        return path;
+    }
+
+    private string Renamed(string text) =>
+        Renames.Aggregate(text, (current, rename) =>
+            Regex.Replace(current, $@"(?<!\w){Regex.Escape(rename.Old)}(?!\w)", rename.New.Replace("$", "$$", StringComparison.Ordinal), RegexOptions.CultureInvariant));
+}
+
 /// <summary>A multiset of fingerprints: two identical warnings at load allow two identical warnings now.</summary>
 internal sealed class DiagnosticSet
 {
@@ -111,10 +145,17 @@ internal sealed class DiagnosticSet
         return new DiagnosticSet(counts);
     }
 
-    /// <summary>Splits <paramref name="current"/> into diagnostics this set does not account for and those it does.</summary>
-    public (List<Diagnostic> New, List<Diagnostic> Existing) Split(IEnumerable<Diagnostic> current)
+    /// <summary>
+    /// Splits <paramref name="current"/> into diagnostics this set does not account for and those it does; after
+    /// renames and moves Farol applied, the set is read through them.
+    /// </summary>
+    public (List<Diagnostic> New, List<Diagnostic> Existing) Split(IEnumerable<Diagnostic> current, BaselineRewrites? rewrites = null)
     {
-        var remaining = new Dictionary<DiagnosticFingerprint, int>(_counts);
+        var remaining = rewrites is null || rewrites.IsEmpty
+            ? new Dictionary<DiagnosticFingerprint, int>(_counts)
+            : _counts
+                .GroupBy(c => rewrites.Apply(c.Key))
+                .ToDictionary(g => g.Key, g => g.Sum(c => c.Value));
         var fresh = new List<Diagnostic>();
         var existing = new List<Diagnostic>();
         foreach (var diagnostic in current)

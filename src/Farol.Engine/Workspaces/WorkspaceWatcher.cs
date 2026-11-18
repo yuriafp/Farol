@@ -2,9 +2,14 @@ using System.Collections.Concurrent;
 
 namespace Farol.Engine.Workspaces;
 
+/// <summary>A source file Farol moved (a rename with its file): its documents follow it, whatever the project format.</summary>
+public sealed record SourceMove(string From, string To);
+
 public sealed record WorkspaceChanges(IReadOnlyList<string> TouchedSources, bool ReloadRequired, bool MarkupChanged)
 {
-    public bool IsEmpty => TouchedSources.Count == 0 && !ReloadRequired && !MarkupChanged;
+    public IReadOnlyList<SourceMove> Moves { get; init; } = [];
+
+    public bool IsEmpty => TouchedSources.Count == 0 && Moves.Count == 0 && !ReloadRequired && !MarkupChanged;
 }
 
 /// <summary>
@@ -36,7 +41,10 @@ internal sealed class WorkspaceWatcher : IDisposable
     private const byte Arrived = 1;
 
     private readonly List<FileSystemWatcher> _watchers = [];
+    private static readonly TimeSpan ExpectedWriteLifetime = TimeSpan.FromSeconds(30);
+
     private readonly ConcurrentDictionary<string, byte> _sources = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, (string Text, DateTimeOffset Until)> _expectedWrites = new(StringComparer.OrdinalIgnoreCase);
     private int _reloadRequired;
     private int _markupChanged;
 
@@ -85,6 +93,12 @@ internal sealed class WorkspaceWatcher : IDisposable
         return new WorkspaceChanges(sources, reload, markup);
     }
 
+    /// <summary>
+    /// A project file Farol is about to write with content the snapshot already reflects (a moved source): its events
+    /// for that content, for a while, need no reload. Any other content still reloads.
+    /// </summary>
+    public void ExpectWrite(string path, string text) => _expectedWrites[path] = (text, DateTimeOffset.UtcNow + ExpectedWriteLifetime);
+
     /// <summary>Puts back sources that could not be read yet (e.g. still locked by the writer); they already passed <see cref="Drain"/>.</summary>
     public void Requeue(IEnumerable<string> paths)
     {
@@ -122,12 +136,40 @@ internal sealed class WorkspaceWatcher : IDisposable
         }
         else if (ProjectExtensions.Contains(extension) || ProjectFileNames.Contains(Path.GetFileName(path)))
         {
-            Volatile.Write(ref _reloadRequired, 1);
+            if (!IsExpectedWrite(path))
+            {
+                Volatile.Write(ref _reloadRequired, 1);
+            }
         }
         else if (extension.Length == 0 && change is WatcherChangeTypes.Deleted)
         {
             // A deleted directory takes its sources with it without per-file events.
             Volatile.Write(ref _reloadRequired, 1);
+        }
+    }
+
+    private bool IsExpectedWrite(string path)
+    {
+        if (!_expectedWrites.TryGetValue(path, out var expected))
+        {
+            return false;
+        }
+
+        if (expected.Until < DateTimeOffset.UtcNow)
+        {
+            _expectedWrites.TryRemove(path, out _);
+            return false;
+        }
+
+        try
+        {
+            // Farol writes through a temporary file and a move, so the content read here is whole.
+            return string.Equals(File.ReadAllText(path), expected.Text, StringComparison.Ordinal);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Still being written: the event for the finished write decides.
+            return true;
         }
     }
 

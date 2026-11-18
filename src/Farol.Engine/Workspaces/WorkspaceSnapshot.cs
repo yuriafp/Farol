@@ -13,4 +13,17 @@ public sealed record WorkspaceSnapshot(Solution Solution, int Version, ProjectCa
 /// only diagnostics introduced since then are reported as new. <paramref name="ChangedDuringLoad"/> holds the source
 /// files that changed before the load was done: the load may have read them already changed, so they are no baseline.
 /// </summary>
-public sealed record WorkspaceLoad(Solution Solution, DateTimeOffset LoadedAt, IReadOnlySet<string> ChangedDuringLoad);
+public sealed record WorkspaceLoad(Solution Solution, DateTimeOffset LoadedAt, IReadOnlySet<string> ChangedDuringLoad)
+{
+    /// <summary>
+    /// Renames Farol applied since this load (old name, new name): a load diagnostic whose line the rename rewrote is
+    /// still the same diagnostic. Shared by every snapshot of the load; a new load starts empty.
+    /// </summary>
+    public System.Collections.Concurrent.ConcurrentQueue<(string Old, string New)> Renames { get; } = new();
+
+    /// <summary>
+    /// Source files Farol moved since this load (old path, new path): a load diagnostic of the old path is the same
+    /// diagnostic at the new one. Shared by every snapshot of the load; a new load starts empty.
+    /// </summary>
+    public System.Collections.Concurrent.ConcurrentQueue<(string From, string To)> Moves { get; } = new();
+}

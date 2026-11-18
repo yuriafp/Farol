@@ -21,6 +21,7 @@ public static class DiagnosticCheck
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(request);
 
+        var rewrites = new BaselineRewrites([.. snapshot.Load.Renames], [.. snapshot.Load.Moves]);
         var plan = request.Scope switch
         {
             CheckScope.Changed => await PlanChangedAsync(snapshot, request.IncludeExisting, cancellationToken),
@@ -46,7 +47,7 @@ public static class DiagnosticCheck
         {
             var atLoad = baseline.ProjectAsync(id, token);
             var current = CompilerDiagnostics.ForCompilation(await compilations.GetAsync(id, token), token);
-            var (fresh, existing) = WithUnseenAsNew((await atLoad).Split(current), unseen);
+            var (fresh, existing) = WithUnseenAsNew((await atLoad).Split(current, rewrites), unseen);
             found.Add((id, fresh, existing));
         });
 
@@ -61,7 +62,7 @@ public static class DiagnosticCheck
             var current = compilations.IsEdited(id.ProjectId)
                 ? await CompilerDiagnostics.ForDocumentAsync(solution.GetDocument(id)!, token)
                 : CompilerDiagnostics.ForTree(await compilations.GetAsync(id.ProjectId, token), await loaded.GetDocument(id)!.GetSyntaxTreeAsync(token), token);
-            var (fresh, existing) = current.IsEmpty ? ([], []) : WithUnseenAsNew((await (atLoad ?? baseline.DocumentAsync(id, token))).Split(current), unseen);
+            var (fresh, existing) = current.IsEmpty ? ([], []) : WithUnseenAsNew((await (atLoad ?? baseline.DocumentAsync(id, token))).Split(current, rewrites), unseen);
             found.Add((id.ProjectId, fresh, existing));
         });
 

@@ -94,6 +94,8 @@ public sealed class StructuredOutputTests
         { "dotnet_packages", "{}" },
         { "dotnet_code_actions", """{"path":"Legacy.Core/Orders/OrderCalculator.cs","line":23}""" },
         { "dotnet_find_references", """{"symbol":"_Default.lblTotal","kinds":"markup"}""" },
+        { "dotnet_rename", """{"symbol":"OrderCalculator","newName":"TotalCalculator"}""" },
+        { "dotnet_rename", """{"symbol":"OrderCalculator.GetTotal","newName":"CalculateTotal","apply":true}""" },
     };
 }
 
