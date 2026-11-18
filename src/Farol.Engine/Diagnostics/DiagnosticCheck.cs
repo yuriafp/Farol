@@ -21,7 +21,7 @@ public static class DiagnosticCheck
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(request);
 
-        var rewrites = new BaselineRewrites([.. snapshot.Load.Renames], [.. snapshot.Load.Moves]);
+        var rewrites = new BaselineRewrites([.. snapshot.Load.Renames], [.. snapshot.Load.Moves]) { LineEdits = [.. snapshot.Load.LineEdits] };
         var plan = request.Scope switch
         {
             CheckScope.Changed => await PlanChangedAsync(snapshot, request.IncludeExisting, cancellationToken),

@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Farol.Tools.Tests;
 
-/// <summary>Spec 002, AC-60, AC-61 and AC-65: dotnet_rename on the legacy fixture (C#, VB, WebForms, WPF, classic projects).</summary>
+/// <summary>Spec 002, AC-60 – AC-65: the refactoring tools on the legacy fixture (C#, VB, WebForms, WPF, classic projects).</summary>
 public sealed class RefactoringToolsTests
 {
     private const string Calculator = "Legacy.Core/Orders/OrderCalculator.cs";
@@ -189,5 +189,163 @@ public sealed class RefactoringToolsTests
         Has(bad, "is not a valid identifier");
         Assert.True(keywordError, keyword);
         Has(keyword, "is a C# keyword");
+    }
+
+    private static Dictionary<string, object?> Parameters(params object[] parameters) => new() { ["parameters"] = parameters };
+
+    [Fact]
+    public async Task AC62_change_signature_adds_a_parameter_then_reorders_in_csharp_and_vb()
+    {
+        await using var server = await LegacyServer.StartAsync();
+        Assert.SkipUnless(server.Available, "Needs Windows with Visual Studio Build Tools to load the legacy fixture.");
+
+        var added = await server.CallAsync("dotnet_change_signature", new(Parameters(new { name = "discount", type = "decimal", value = "0" }, new { name = "orderId" })) { ["symbol"] = "OrderCalculator.GetTotal", ["apply"] = true });
+        var vb = await File.ReadAllTextAsync(server.Copy.PathOf("Legacy.VbLib", "ShippingCalculator.vb"), Ct);
+        var reordered = await server.CallAsync("dotnet_change_signature", new(Parameters(new { name = "orderId" }, new { name = "discount" })) { ["symbol"] = "OrderCalculator.GetTotal", ["apply"] = true });
+
+        Has(added, "+        public decimal GetTotal(decimal discount, int orderId)");
+        Has(added, "new since load: none");
+        Assert.Contains("_calculator.GetTotal(0, id)", vb, StringComparison.Ordinal);
+        Has(reordered, "+        public decimal GetTotal(int orderId, decimal discount)");
+        Has(reordered, "new since load: none");
+        Assert.Contains("_calculator.GetTotal(id, 0)", await File.ReadAllTextAsync(server.Copy.PathOf("Legacy.VbLib", "ShippingCalculator.vb"), Ct), StringComparison.Ordinal);
+        Assert.Contains("new OrderCalculator(repository).GetTotal(1, 0)", await File.ReadAllTextAsync(server.Copy.PathOf("Legacy.Tests", "OrderCalculatorTests.cs"), Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AC62_change_signature_of_an_interface_member_changes_its_implementations()
+    {
+        await using var server = await LegacyServer.StartAsync();
+        Assert.SkipUnless(server.Available, "Needs Windows with Visual Studio Build Tools to load the legacy fixture.");
+
+        var text = await server.CallAsync("dotnet_change_signature", new(Parameters(new { name = "id" }, new { name = "includeLines", type = "bool", value = "true" })) { ["symbol"] = "IOrderRepository.Find", ["apply"] = true });
+
+        Has(text, "+        Order Find(int id, bool includeLines);");
+        Has(text, "+        public Order Find(int id, bool includeLines)");
+        Has(text, "_repository.Find(orderId, true)");
+        Has(text, "new since load: none");
+    }
+
+    [Fact]
+    public async Task AC62_an_implementation_or_a_wrong_type_is_refused()
+    {
+        await using var server = await LegacyServer.StartAsync();
+        Assert.SkipUnless(server.Available, "Needs Windows with Visual Studio Build Tools to load the legacy fixture.");
+
+        var (implementationError, implementation) = await server.Harness!.CallAsync("dotnet_change_signature", new(Parameters(new { name = "id" }, new { name = "x", type = "int", value = "0" })) { ["symbol"] = "InMemoryOrderRepository.Find" }, Ct);
+        var (typeError, type) = await server.Harness!.CallAsync("dotnet_change_signature", new(Parameters(new { name = "orderId" }, new { name = "x", type = "NoSuchType", value = "0" })) { ["symbol"] = "OrderCalculator.GetTotal" }, Ct);
+
+        Assert.True(implementationError, implementation);
+        Has(implementation, "implements");
+        Assert.True(typeError, type);
+        Has(type, "'NoSuchType' is not a type known");
+    }
+
+    [Fact]
+    public async Task AC63_move_type_to_another_namespace_adds_the_imports_and_the_check_is_clean()
+    {
+        await using var server = await LegacyServer.StartAsync();
+        Assert.SkipUnless(server.Available, "Needs Windows with Visual Studio Build Tools to load the legacy fixture.");
+
+        var text = await server.CallAsync("dotnet_move_type", new() { ["symbol"] = "OrderCalculator", ["toNamespace"] = "Legacy.Core.Billing", ["apply"] = true });
+
+        Has(text, "+namespace Legacy.Core.Billing");
+        Has(text, "+using Legacy.Core.Billing;");
+        Has(text, "+Imports Legacy.Core.Billing");
+        Has(text, "new since load: none");
+        var check = await server.CallAsync("dotnet_check", new() { ["scope"] = "solution" });
+        Has(check, "new since load: none");
+    }
+
+    [Fact]
+    public async Task AC63_move_type_to_a_new_file_of_a_classic_project_lists_it()
+    {
+        await using var server = await LegacyServer.StartAsync();
+        Assert.SkipUnless(server.Available, "Needs Windows with Visual Studio Build Tools to load the legacy fixture.");
+
+        var text = await server.CallAsync("dotnet_move_type", new() { ["symbol"] = "OrderLine", ["toFile"] = "Legacy.Core/Orders/OrderLine.cs", ["apply"] = true });
+
+        Has(text, "+++ b/Legacy.Core/Orders/OrderLine.cs");
+        Has(text, "new since load: none");
+        Assert.Contains("public class OrderLine", await File.ReadAllTextAsync(server.Copy.PathOf("Legacy.Core", "Orders", "OrderLine.cs"), Ct), StringComparison.Ordinal);
+        Assert.DoesNotContain("class OrderLine", await File.ReadAllTextAsync(server.Copy.PathOf("Legacy.Core", "Orders", "Order.cs"), Ct), StringComparison.Ordinal);
+        Assert.Contains("<Compile Include=\"Orders\\OrderLine.cs\" />", await File.ReadAllTextAsync(server.Copy.PathOf("Legacy.Core", "Legacy.Core.csproj"), Ct), StringComparison.Ordinal);
+        var check = await server.CallAsync("dotnet_check", new() { ["scope"] = "solution" });
+        Has(check, "new since load: none");
+    }
+
+    [Fact]
+    public async Task AC63_move_type_out_of_a_namespace_it_empties_does_not_import_that_namespace()
+    {
+        await using var server = await LegacyServer.StartAsync();
+        Assert.SkipUnless(server.Available, "Needs Windows with Visual Studio Build Tools to load the legacy fixture.");
+
+        var text = await server.CallAsync("dotnet_move_type", new() { ["symbol"] = "LegacySerializer", ["toNamespace"] = "Legacy.Core.Storage", ["apply"] = true });
+
+        Has(text, "+namespace Legacy.Core.Storage");
+        Assert.DoesNotContain("+using Legacy.Core.Serialization;", text, StringComparison.Ordinal);
+        Has(text, "new since load: none");
+    }
+
+    [Fact]
+    public async Task AC63_move_type_to_another_namespace_within_its_file_gives_it_its_own_block()
+    {
+        await using var server = await LegacyServer.StartAsync();
+        Assert.SkipUnless(server.Available, "Needs Windows with Visual Studio Build Tools to load the legacy fixture.");
+
+        var text = await server.CallAsync("dotnet_move_type", new() { ["symbol"] = "OrderLine", ["toNamespace"] = "Legacy.Core.Lines", ["apply"] = true });
+
+        Has(text, "+namespace Legacy.Core.Lines");
+        Has(text, "+using Legacy.Core.Lines;");
+        Has(text, "new since load: none");
+        var check = await server.CallAsync("dotnet_check", new() { ["scope"] = "solution" });
+        Has(check, "new since load: none");
+    }
+
+    [Fact]
+    public async Task AC64_extract_method_moves_the_statements_into_a_new_method_and_calls_it()
+    {
+        await using var server = await LegacyServer.StartAsync();
+        Assert.SkipUnless(server.Available, "Needs Windows with Visual Studio Build Tools to load the legacy fixture.");
+
+        var text = await server.CallAsync("dotnet_extract_method", new() { ["path"] = Calculator, ["startLine"] = 17, ["endLine"] = 21, ["name"] = "LoadOrder", ["apply"] = true });
+
+        Has(text, "LoadOrder(orderId)");
+        Has(text, "new since load: none");
+        var code = await File.ReadAllTextAsync(server.Copy.PathOf("Legacy.Core", "Orders", "OrderCalculator.cs"), Ct);
+        Assert.Contains("LoadOrder(int orderId)", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AC64_extract_method_works_in_visual_basic()
+    {
+        await using var server = await LegacyServer.StartAsync();
+        Assert.SkipUnless(server.Available, "Needs Windows with Visual Studio Build Tools to load the legacy fixture.");
+
+        var text = await server.CallAsync("dotnet_extract_method", new() { ["path"] = "Legacy.VbLib/ShippingCalculator.vb", ["startLine"] = 13, ["endLine"] = 13, ["name"] = "LoadTotals", ["apply"] = true });
+
+        Has(text, "LoadTotals(orderIds)");
+        Has(text, "new since load: none");
+    }
+
+    [Fact]
+    public async Task AC65_every_write_tool_refuses_apply_in_read_only_and_still_shows_the_diff()
+    {
+        await using var server = await LegacyServer.StartAsync(o => o.ReadOnly = true);
+        Assert.SkipUnless(server.Available, "Needs Windows with Visual Studio Build Tools to load the legacy fixture.");
+        var calls = new (string Tool, Dictionary<string, object?> Arguments)[]
+        {
+            ("dotnet_change_signature", new(Parameters(new { name = "discount", type = "decimal", value = "0" }, new { name = "orderId" })) { ["symbol"] = "OrderCalculator.GetTotal" }),
+            ("dotnet_move_type", new() { ["symbol"] = "OrderCalculator", ["toNamespace"] = "Legacy.Core.Billing" }),
+            ("dotnet_extract_method", new() { ["path"] = Calculator, ["startLine"] = 17, ["endLine"] = 21, ["name"] = "LoadOrder" }),
+        };
+
+        foreach (var (tool, arguments) in calls)
+        {
+            Has(await server.CallAsync(tool, arguments), "preview of ");
+            var (isError, text) = await server.Harness!.CallAsync(tool, new(arguments) { ["apply"] = true }, Ct);
+            Assert.True(isError, $"{tool}: {text}");
+            Has(text, "Refused to write files");
+        }
     }
 }

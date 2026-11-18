@@ -90,7 +90,7 @@ public sealed partial class DistributionTests
                 }),
                 cancellationToken: Ct);
             Assert.Equal(("farol", Version), (client.ServerInfo.Name, client.ServerInfo.Version));
-            Assert.Equal(19, (await client.ListToolsAsync(cancellationToken: Ct)).Count);
+            Assert.Equal(22, (await client.ListToolsAsync(cancellationToken: Ct)).Count);
             Assert.Equal(4, (await client.ListPromptsAsync(cancellationToken: Ct)).Count);
         }
         finally

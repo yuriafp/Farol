@@ -26,4 +26,10 @@ public sealed record WorkspaceLoad(Solution Solution, DateTimeOffset LoadedAt, I
     /// diagnostic at the new one. Shared by every snapshot of the load; a new load starts empty.
     /// </summary>
     public System.Collections.Concurrent.ConcurrentQueue<(string From, string To)> Moves { get; } = new();
+
+    /// <summary>
+    /// Lines Farol's refactorings rewrote since this load (file, old text, new text, trimmed): a load diagnostic on such
+    /// a line, with the same message, is still the same diagnostic. A new load starts empty.
+    /// </summary>
+    public System.Collections.Concurrent.ConcurrentQueue<(string Path, string Old, string New)> LineEdits { get; } = new();
 }

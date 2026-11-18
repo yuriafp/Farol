@@ -69,6 +69,15 @@
   file changed since that diff. A check after the rename does not count the load's diagnostics as new because the
   rename rewrote their line or moved their file: the load records the renames and moves Farol applied, and the
   baseline reads its diagnostics through them until the next load.
+- 2026-11-18 — **Slice 3 done** (AC-62 – AC-64): `dotnet_change_signature` reorders, removes and adds parameters (a new
+  one with its type, as the declaring file writes it, and the value every call site passes, written as is in C# and
+  VB) in the declaration, its overrides and implementations, and every call site, named and omitted arguments included;
+  a method that overrides or implements another is refused with the member to change instead. `dotnet_move_type`
+  moves a top-level type to another namespace and/or a file of its project: use sites are written with the new
+  namespace and then tidied by Roslyn's `ImportAdder` and `Simplifier`, and classic projects get their `Compile` items
+  for new, moved or emptied files. `dotnet_extract_method` runs Roslyn's extract-method provider on whole lines, then
+  renames the generated method. The baseline rule of slice 2 widens: a load diagnostic on a line a Farol refactoring
+  rewrote is not new while its message is the same (a call site rewritten on a line that already had an error).
 
 ## Problem
 

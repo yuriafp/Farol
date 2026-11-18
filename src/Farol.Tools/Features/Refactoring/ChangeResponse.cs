@@ -25,6 +25,13 @@ internal sealed record ChangeRequest(
 {
     /// <summary>For a rename: the old and new names, so later checks read the load's diagnostics with the new name.</summary>
     public (string Old, string New)? Renamed { get; init; }
+
+    /// <summary>New source files of classic projects, with the project file the change makes list them.</summary>
+    public IReadOnlyList<(string Path, string ProjectFile)> Added { get; init; } = [];
+
+    /// <summary>A request for a refactoring computed by the engine.</summary>
+    public static ChangeRequest For(string tool, string previewKey, Farol.Engine.Refactoring.RefactoringResult result, bool apply) =>
+        new(tool, result.Title, previewKey, result.Changes, result.Moves, result.Notes, apply) { Added = result.Added };
 }
 
 /// <summary>
@@ -53,16 +60,10 @@ internal static class ChangeResponse
             return ToolOutput.Of(text.ToString(), new ChangeOutput(request.Title, "nothing", files, moves, request.Notes, changes.NotApplied, null, null));
         }
 
-        var key = $"{session.Target.Path}|{request.PreviewKey}";
-        var shown = Fingerprint(changes);
+        var key = PreviewKey(session, request.PreviewKey);
         if (!request.Apply)
         {
-            if (Previews.Count >= MaxPreviews)
-            {
-                Previews.Clear();
-            }
-
-            Previews[key] = shown;
+            Remember(key, changes);
             text.Line($"preview of {request.Title}: {changes.Files.Count} file(s), diff only — no file was changed");
             Moved(text, moves);
             Notes(text, request.Notes, changes.NotApplied);
@@ -79,21 +80,14 @@ internal static class ChangeResponse
                 "Take the diff (call without apply) and make the other changes by hand.");
         }
 
-        if (Previews.TryRemove(key, out var previewed) && Changed(previewed, shown) is { Count: > 0 } changed)
-        {
-            throw new FarolException(
-                ErrorCodes.Conflict,
-                $"{string.Join(", ", changed.Select(p => DisplayPath.From(root, p)))} changed since the diff was shown, so the change would not be the one previewed. Nothing was written.",
-                $"Call {request.Tool} again without apply to see the change on the current content.");
-        }
+        EnsureAsPreviewed(key, changes, request.Tool, root);
 
-        if (request.Moves.Count > 0)
-        {
-            // Before writing: the watcher sees a project file as soon as it is written.
-            session.ExpectProjectWrites(changes.Files
-                .Where(f => f.NewText is not null && Path.GetExtension(f.FilePath).EndsWith("proj", StringComparison.OrdinalIgnoreCase))
-                .Select(f => (f.FilePath, f.NewText!)));
-        }
+        // Before writing: the watcher sees a project file as soon as it is written. Farol's own project-file edits follow
+        // the files it moves, adds or deletes, which the session applies itself, so they need no reload.
+        session.ExpectProjectWrites(changes.Files
+            .Where(f => f.NewText is not null && Path.GetExtension(f.FilePath).EndsWith("proj", StringComparison.OrdinalIgnoreCase))
+            .Select(f => (f.FilePath, f.NewText!)));
+        session.NotifyAdded(request.Added);
 
         // Before writing too: a snapshot taken in between must still move the documents, not drop the old file's.
         session.NotifyMoved(request.Moves);
@@ -113,6 +107,8 @@ internal static class ChangeResponse
             session.NotifyRenamed(renamed.Old, renamed.New);
         }
 
+        session.NotifyLinesRewritten(RewrittenLines(changes.Files, request.Moves));
+
         session.NotifyChanged(written);
         var updated = await session.GetSnapshotAsync(wait: true, cancellationToken);
         var check = await DiagnosticCheck.RunAsync(updated, new CheckRequest(CheckScope.Changed), cancellationToken);
@@ -125,6 +121,31 @@ internal static class ChangeResponse
         text.Line("diff written:");
         var diff = Diff(text, changes, root);
         return ToolOutput.Of(text.ToString(), new ChangeOutput(request.Title, "applied", files, moves, request.Notes, [], diff, checkOutput));
+    }
+
+    public static string PreviewKey(WorkspaceSession session, string previewKey) => $"{session.Target.Path}|{previewKey}";
+
+    /// <summary>Records the files a preview showed, for the apply of the same call to compare with.</summary>
+    public static void Remember(string key, CodeActionChanges changes)
+    {
+        if (Previews.Count >= MaxPreviews)
+        {
+            Previews.Clear();
+        }
+
+        Previews[key] = Fingerprint(changes);
+    }
+
+    /// <summary>Refuses an apply when a file its preview showed has changed since.</summary>
+    public static void EnsureAsPreviewed(string key, CodeActionChanges changes, string tool, string root)
+    {
+        if (Previews.TryRemove(key, out var previewed) && Changed(previewed, Fingerprint(changes)) is { Count: > 0 } changed)
+        {
+            throw new FarolException(
+                ErrorCodes.Conflict,
+                $"{string.Join(", ", changed.Select(p => DisplayPath.From(root, p)))} changed since the diff was shown, so the change would not be the one previewed. Nothing was written.",
+                $"Call {tool} again without apply to see the change on the current content.");
+        }
     }
 
     /// <summary>Writes the diff as far as the budget allows; returns the lines written, joined.</summary>
@@ -148,6 +169,30 @@ internal static class ChangeResponse
         return string.Join('\n', lines.Take(written));
     }
 
+    // The lines each written file replaced; a moved file's are recorded under its new path.
+    private static IEnumerable<(string Path, string Old, string New)> RewrittenLines(IReadOnlyList<FileEdit> files, IReadOnlyList<SourceMove> moves)
+    {
+        var byPath = files.ToDictionary(f => f.FilePath, StringComparer.OrdinalIgnoreCase);
+        foreach (var file in files.Where(f => f.OldText is not null && f.NewText is not null))
+        {
+            foreach (var (oldLine, newLine) in UnifiedDiff.ReplacedLines(file.OldText, file.NewText))
+            {
+                yield return (file.FilePath, oldLine, newLine);
+            }
+        }
+
+        foreach (var move in moves)
+        {
+            if (byPath.TryGetValue(move.From, out var from) && byPath.TryGetValue(move.To, out var to))
+            {
+                foreach (var (oldLine, newLine) in UnifiedDiff.ReplacedLines(from.OldText, to.NewText))
+                {
+                    yield return (move.To, oldLine, newLine);
+                }
+            }
+        }
+    }
+
     private static void Moved(ResponseBuilder text, List<MoveItem> moves)
     {
         foreach (var move in moves)
@@ -156,7 +201,7 @@ internal static class ChangeResponse
         }
     }
 
-    private static void Notes(ResponseBuilder text, IReadOnlyList<string> notes, IReadOnlyList<string> notApplied)
+    public static void Notes(ResponseBuilder text, IReadOnlyList<string> notes, IReadOnlyList<string> notApplied)
     {
         foreach (var note in notes)
         {
@@ -169,7 +214,7 @@ internal static class ChangeResponse
         }
     }
 
-    private static List<ChangedFileItem> Files(CodeActionChanges changes, IReadOnlyList<SourceMove> moves, string root) =>
+    public static List<ChangedFileItem> Files(CodeActionChanges changes, IReadOnlyList<SourceMove> moves, string root) =>
         [.. changes.Files.Select(f => new ChangedFileItem(
             DisplayPath.From(root, f.FilePath),
             f.OldText is null ? "created" : f.NewText is null ? "deleted" : "edited",

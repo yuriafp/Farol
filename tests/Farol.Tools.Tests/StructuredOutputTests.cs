@@ -96,6 +96,9 @@ public sealed class StructuredOutputTests
         { "dotnet_find_references", """{"symbol":"_Default.lblTotal","kinds":"markup"}""" },
         { "dotnet_rename", """{"symbol":"OrderCalculator","newName":"TotalCalculator"}""" },
         { "dotnet_rename", """{"symbol":"OrderCalculator.GetTotal","newName":"CalculateTotal","apply":true}""" },
+        { "dotnet_change_signature", """{"symbol":"OrderCalculator.GetTotal","parameters":[{"name":"discount","type":"decimal","value":"0"},{"name":"orderId"}]}""" },
+        { "dotnet_move_type", """{"symbol":"OrderLine","toFile":"Legacy.Core/Orders/OrderLine.cs"}""" },
+        { "dotnet_extract_method", """{"path":"Legacy.Core/Orders/OrderCalculator.cs","startLine":17,"endLine":21,"name":"LoadOrder"}""" },
     };
 }
 

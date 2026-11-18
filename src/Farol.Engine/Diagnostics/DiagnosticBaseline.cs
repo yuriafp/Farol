@@ -89,19 +89,39 @@ internal readonly record struct DiagnosticFingerprint(string Id, string? FilePat
 }
 
 /// <summary>
-/// Changes Farol made since the load that a load diagnostic survives: renames (its message and line are read with the
-/// new name, whole words, in order) and file moves (its file is read as the new path).
+/// Changes Farol made since the load that a load diagnostic survives: file moves (its file is read as the new path),
+/// lines its refactorings rewrote (its line is read as rewritten; the message must still match), and renames (its
+/// message and line are read with the new name, whole words, in order).
 /// </summary>
 internal sealed record BaselineRewrites(IReadOnlyList<(string Old, string New)> Renames, IReadOnlyList<(string From, string To)> Moves)
 {
-    public bool IsEmpty => Renames.Count == 0 && Moves.Count == 0;
+    public IReadOnlyList<(string Path, string Old, string New)> LineEdits { get; init; } = [];
 
-    public DiagnosticFingerprint Apply(DiagnosticFingerprint fingerprint) => fingerprint with
+    public bool IsEmpty => Renames.Count == 0 && Moves.Count == 0 && LineEdits.Count == 0;
+
+    public DiagnosticFingerprint Apply(DiagnosticFingerprint fingerprint)
     {
-        FilePath = Moved(fingerprint.FilePath),
-        Message = Renamed(fingerprint.Message),
-        LineText = Renamed(fingerprint.LineText),
-    };
+        var path = Moved(fingerprint.FilePath);
+        return fingerprint with
+        {
+            FilePath = path,
+            Message = Renamed(fingerprint.Message),
+            LineText = Renamed(Rewritten(path, fingerprint.LineText)),
+        };
+    }
+
+    private string Rewritten(string? path, string line)
+    {
+        foreach (var edit in LineEdits)
+        {
+            if (string.Equals(edit.Path, path, StringComparison.OrdinalIgnoreCase) && string.Equals(edit.Old, line, StringComparison.Ordinal))
+            {
+                line = edit.New;
+            }
+        }
+
+        return line;
+    }
 
     private string? Moved(string? path)
     {

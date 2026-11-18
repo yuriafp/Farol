@@ -11,7 +11,7 @@ internal static class ServerInstructions
         - Symbols: a name, Type.Member, an id from a result, or path:line. Paths are relative to the root, as responses write them, or to the workspace's folder.
         """;
 
-    private const string ReadOnlyNote = "\n- This server runs read-only: dotnet_code_actions and dotnet_rename return diffs but cannot apply them, dotnet_migration_plan cannot write its documents, and dotnet_build and dotnet_test are refused.";
+    private const string ReadOnlyNote = "\n- This server runs read-only: dotnet_code_actions and the refactoring tools (dotnet_rename, dotnet_change_signature, dotnet_move_type, dotnet_extract_method) return diffs but cannot apply them, dotnet_migration_plan cannot write its documents, and dotnet_build and dotnet_test are refused.";
 
     private const string OfflineNote = "\n- This server runs offline: dotnet_packages does not ask the feeds, and dotnet_package_api reads only packages already in the local NuGet caches.";
 

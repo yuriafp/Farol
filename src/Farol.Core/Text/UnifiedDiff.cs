@@ -16,6 +16,79 @@ public static class UnifiedDiff
 
     private const string NoNewLineMarker = "\\ No newline at end of file";
 
+    /// <summary>
+    /// The lines one version replaces with another: within each run of removed lines followed by added lines, the n-th
+    /// removed line is paired with the n-th added one.
+    /// </summary>
+    public static IReadOnlyList<(string Old, string New)> ReplacedLines(string? oldText, string? newText)
+    {
+        var before = TextLines.From(oldText);
+        var after = TextLines.From(newText);
+        var edits = Edits(before.Keys, after.Keys);
+        var pairs = new List<(string Old, string New)>();
+        for (var i = 0; i < edits.Count;)
+        {
+            var removed = new List<string>();
+            while (i < edits.Count && edits[i].Kind == '-')
+            {
+                removed.Add(before.Lines[edits[i++].OldIndex]);
+            }
+
+            var added = new List<string>();
+            while (i < edits.Count && edits[i].Kind == '+')
+            {
+                added.Add(after.Lines[edits[i++].NewIndex]);
+            }
+
+            // A removed line pairs with the most alike added line after the last pair, and only when they share most of
+            // their words: a rewritten call keeps its names, an unrelated line of the same run does not.
+            var next = 0;
+            foreach (var line in removed)
+            {
+                var best = -1;
+                var bestScore = 0.5;
+                for (var j = next; j < added.Count; j++)
+                {
+                    var score = Similarity(line, added[j]);
+                    if (score >= bestScore)
+                    {
+                        (best, bestScore) = (j, score);
+                    }
+                }
+
+                if (best >= 0)
+                {
+                    pairs.Add((line, added[best]));
+                    next = best + 1;
+                }
+            }
+
+            if (removed.Count == 0 && added.Count == 0)
+            {
+                i++;
+            }
+        }
+
+        return pairs;
+    }
+
+    // The share of words (identifiers, keywords, numbers) two lines have in common.
+    private static double Similarity(string a, string b)
+    {
+        var left = Words(a);
+        var right = Words(b);
+        if (left.Count == 0 || right.Count == 0)
+        {
+            return 0;
+        }
+
+        var common = left.Count(right.Contains);
+        return (double)common / Math.Max(left.Count, right.Count);
+    }
+
+    private static HashSet<string> Words(string line) =>
+        [.. System.Text.RegularExpressions.Regex.Matches(line, @"[\p{L}\p{N}_]+").Select(m => m.Value)];
+
     /// <summary>Diffs two versions of a file; <c>null</c> stands for a file that does not exist (created or deleted).</summary>
     public static string Create(string path, string? oldText, string? newText, int context = DefaultContext)
     {

@@ -44,6 +44,9 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     // How long a queued move waits for its file: Farol queues it before writing, so a refresh in between keeps it.
     private static readonly TimeSpan MoveLifetime = TimeSpan.FromSeconds(30);
     private readonly ConcurrentDictionary<SourceMove, DateTimeOffset> _moveDeadlines = new();
+
+    // New source files Farol writes into classic projects, with the project file that now lists them.
+    private readonly ConcurrentDictionary<string, string> _classicAdds = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _editedBeforeLoad = new(StringComparer.OrdinalIgnoreCase);
 
     private Task? _loadTask;
@@ -250,6 +253,21 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         }
     }
 
+    /// <summary>Records lines a refactoring Farol applied rewrote, for the checks that follow until the next load (see <see cref="WorkspaceLoad.LineEdits"/>).</summary>
+    public void NotifyLinesRewritten(IEnumerable<(string Path, string Old, string New)> lines)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        if (Volatile.Read(ref _snapshot)?.Load is not { } load)
+        {
+            return;
+        }
+
+        foreach (var (path, oldLine, newLine) in lines)
+        {
+            load.LineEdits.Enqueue((Path.GetFullPath(path), oldLine.Trim(), newLine.Trim()));
+        }
+    }
+
     /// <summary>Records a rename Farol applied, for the checks that follow until the next load (see <see cref="WorkspaceLoad.Renames"/>).</summary>
     public void NotifyRenamed(string oldName, string newName) => Volatile.Read(ref _snapshot)?.Load.Renames.Enqueue((oldName, newName));
 
@@ -267,6 +285,19 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
             _moveDeadlines[full] = DateTimeOffset.UtcNow + MoveLifetime;
             _moves.Enqueue(full);
             load?.Moves.Enqueue((full.From, full.To));
+        }
+    }
+
+    /// <summary>
+    /// Records new source files Farol is about to write into classic projects, whose project file it rewrites to list
+    /// them (expected, so no reload): the snapshot that sees the file adds it to that project, as globbing would.
+    /// </summary>
+    public void NotifyAdded(IEnumerable<(string Path, string ProjectFile)> files)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        foreach (var (path, projectFile) in files)
+        {
+            _classicAdds[Path.GetFullPath(path)] = Path.GetFullPath(projectFile);
         }
     }
 
@@ -691,6 +722,11 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
             {
                 // New file: SDK-style projects include it by globbing; classic projects need a project-file change (which reloads).
                 var projects = current.Projects.SdkProjectsContaining(path);
+                if (projects.Count == 0 && _classicAdds.TryRemove(path, out var projectFile))
+                {
+                    projects = [.. solution.ProjectIds.Where(id => string.Equals(current.Projects.Get(id)?.FilePath, projectFile, StringComparison.OrdinalIgnoreCase))];
+                }
+
                 if (projects.Count == 0)
                 {
                     continue;
