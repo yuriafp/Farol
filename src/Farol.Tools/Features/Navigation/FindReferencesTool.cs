@@ -5,6 +5,7 @@ using Farol.Core.Text;
 using Farol.Engine.Navigation;
 using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Farol.Tools.Features.Navigation;
@@ -12,14 +13,14 @@ namespace Farol.Tools.Features.Navigation;
 [McpServerToolType]
 public sealed class FindReferencesTool(WorkspaceManager workspaces)
 {
-    [McpServerTool(Name = "dotnet_find_references", Title = "Find references to a C#/VB symbol", ReadOnly = true, Idempotent = true, OpenWorld = false)]
+    [McpServerTool(Name = "dotnet_find_references", Title = "Find references to a C#/VB symbol", ReadOnly = true, Idempotent = true, OpenWorld = false, UseStructuredContent = true, OutputSchemaType = typeof(FindReferencesOutput))]
     [Description(
         "Compiler-accurate references to one C#/VB symbol across the solution and every target framework, grouped by project, each classified " +
         "as call, new, read, write, method group or reference — plus 'markup' references the compiler never sees: WebForms (.aspx/.ascx/.master " +
         "event handlers, controls, <% %> expressions), .asmx/.svc/.ashx/.asax directives and XAML (x:Class, x:Name, event handlers, converters). " +
         "A member's uses include those through the interface members it implements or the members it overrides, marked 'via' that type. " +
         "Use instead of grep before changing or removing a symbol.")]
-    public Task<string> Run(
+    public Task<CallToolResult> Run(
         [Description(SymbolArgument.Description)] string symbol,
         [Description("Only these kinds, comma-separated: call, new, read, write, method group, reference, markup. Default: all.")] string? kinds = null,
         [McpHeader(ToolParameters.WorkspaceHeader), Description(ToolParameters.WorkspaceDescription)] string? workspace = null,
@@ -31,10 +32,10 @@ public sealed class FindReferencesTool(WorkspaceManager workspaces)
             var filter = ParseKinds(kinds);
             var root = workspaces.RootDirectory;
             var snapshot = await workspaces.GetSession(workspace, SymbolLocator.LocationPath(symbol)).GetSnapshotAsync(wait: true, cancellationToken);
-            var (candidate, ambiguity) = await SymbolArgument.ResolveAsync(snapshot, workspaces.Paths, symbol, cancellationToken);
+            var (candidate, ambiguity, candidates) = await SymbolArgument.ResolveAsync(snapshot, workspaces.Paths, symbol, cancellationToken);
             if (candidate is null)
             {
-                return ambiguity!;
+                return ToolOutput.Of(ambiguity!, new FindReferencesOutput(null, 0, 0, [], [], null, candidates));
             }
 
             var result = await ReferenceFinder.FindAsync(snapshot, candidate, cancellationToken);
@@ -48,11 +49,13 @@ public sealed class FindReferencesTool(WorkspaceManager workspaces)
                 text.Line($"defined at: {string.Join(", ", result.Definitions.Select(d => DisplayPath.Location(root, d.FilePath, d.Line)))}");
             }
 
+            var through = new List<ThroughItem>();
             foreach (var member in result.Through)
             {
                 var via = ReferenceFinder.Via(member);
                 if (references.Count(r => r.Via == via) is > 0 and var count)
                 {
+                    through.Add(new ThroughItem(NavigationItems.Of(member, root), via, count));
                     text.Line($"{count} of them through {SymbolFormatter.Display(member)} · {SymbolFormatter.Location(member, root)}, marked 'via {via}'");
                 }
             }
@@ -60,11 +63,20 @@ public sealed class FindReferencesTool(WorkspaceManager workspaces)
             if (references.Count == 0)
             {
                 text.Line("no references found in code or markup (it may still be used through reflection, configuration files or other repositories).");
-                return text.ToString();
+                return ToolOutput.Of(text.ToString(), Output(new Page<HitItem>(0, 0, null, [])));
             }
 
-            NavigationText.Hits(text, references, root, offset);
-            return text.ToString();
+            var window = NavigationText.Hits(text, references, root, offset);
+            return ToolOutput.Of(text.ToString(), Output(Page.From(references, window, h => NavigationItems.Of(h, root))));
+
+            FindReferencesOutput Output(Page<HitItem> page) => new(
+                NavigationItems.Of(candidate, snapshot, root),
+                references.Count,
+                projects,
+                [.. result.Definitions.Select(d => DisplayPath.Location(root, d.FilePath, d.Line))],
+                through,
+                page,
+                null);
         });
 
     private static HashSet<string>? ParseKinds(string? kinds)

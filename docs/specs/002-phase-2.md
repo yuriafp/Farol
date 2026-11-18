@@ -54,6 +54,12 @@
 - 2026-11-17 — **Slice 0 done** ([results](../spikes/phase-2-results.md)): `dotnet_rename` uses Roslyn's `Renamer`, and
   `dotnet_extract_method` its extract-method provider; `dotnet_change_signature` and `dotnet_move_type` are Farol's own
   implementations on public APIs, since Roslyn offers them only through dialog services.
+- 2026-11-17 — **Slice 1 done** (AC-68): every tool declares an `outputSchema` and returns `structuredContent` next to
+  its unchanged text. The data holds what the text shows: lists cut by the token budget are pages (`total`, `offset`,
+  `nextOffset`), and messages are cut as in the text. `dotnet_check format=hook` keeps the hook JSON as its text, which
+  Claude Code still reads with the structured content present (headless check: the hook blocked with CS0029). The
+  surface snapshot lists every output field; the call tree of `dotnet_call_hierarchy` is a flat list (depth, parent)
+  so no schema refers to itself, and the remaining `$ref`s point at a type's first use, as System.Text.Json writes them.
 
 ## Problem
 

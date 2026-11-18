@@ -6,6 +6,7 @@ using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Farol.Tools.Features.BuildAndTest;
@@ -13,12 +14,12 @@ namespace Farol.Tools.Features.BuildAndTest;
 [McpServerToolType]
 public sealed partial class BuildTool(WorkspaceManager workspaces, BuildRunner builds, ServerPermissions permissions, CallerContext caller, ILogger<BuildTool> logger)
 {
-    [McpServerTool(Name = "dotnet_build", Title = "Build a .NET solution or project", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
+    [McpServerTool(Name = "dotnet_build", Title = "Build a .NET solution or project", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false, UseStructuredContent = true, OutputSchemaType = typeof(BuildOutput))]
     [Description(
         "Builds with the toolchain that works for the code — dotnet build for SDK-style projects, Visual Studio's MSBuild (restoring packages.config) " +
         "for classic .NET Framework ones — and returns the outcome with the errors and warnings read from the binary log, deduplicated across target " +
         "frameworks and grouped by project. To find the compiler errors an edit introduced, dotnet_check is much faster.")]
-    public Task<string> Run(
+    public Task<CallToolResult> Run(
         [Description("A project to build instead of the whole workspace, by name as dotnet_overview lists it; the projects it references are built too.")] string? project = null,
         [Description("Build configuration. Default: Debug.")] string configuration = "Debug",
         [McpHeader(ToolParameters.WorkspaceHeader), Description(ToolParameters.WorkspaceDescription)] string? workspace = null,
@@ -35,8 +36,8 @@ public sealed partial class BuildTool(WorkspaceManager workspaces, BuildRunner b
             var build = await builds.BuildAsync(snapshot, session.Target, projectFile, configuration.Trim(), new ToolProgress(progress), cancellationToken);
 
             var text = new ResponseBuilder(maxTokens);
-            BuildRenderer.Render(text, build, workspaces.RootDirectory);
-            return text.ToString();
+            var data = BuildRenderer.Render(text, build, workspaces.RootDirectory);
+            return ToolOutput.Of(text.ToString(), data);
         });
 
     internal static string ProjectFile(WorkspaceSnapshot snapshot, string name)

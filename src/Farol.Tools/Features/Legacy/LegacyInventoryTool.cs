@@ -6,6 +6,7 @@ using Farol.Engine.Legacy;
 using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Farol.Tools.Features.Legacy;
@@ -15,13 +16,13 @@ public sealed class LegacyInventoryTool(WorkspaceManager workspaces)
 {
     private const int MaxHotspots = 5;
 
-    [McpServerTool(Name = "dotnet_legacy_inventory", Title = "Inventory legacy .NET Framework technologies", ReadOnly = true, Idempotent = true, OpenWorld = false)]
+    [McpServerTool(Name = "dotnet_legacy_inventory", Title = "Inventory legacy .NET Framework technologies", ReadOnly = true, Idempotent = true, OpenWorld = false, UseStructuredContent = true, OutputSchemaType = typeof(LegacyInventoryOutput))]
     [Description(
         "What is legacy in a .NET solution and where, with counts: classic (non-SDK) projects, .NET Framework targets, packages.config; WebForms, " +
         "MVC 5, ASMX, WCF, WinForms and WPF with their pages, services, forms and XAML; web.config/app.config settings and binding redirects; and code " +
         "uses of legacy APIs (BinaryFormatter, System.Configuration, System.Web, Remoting…) with their lines and the files where they concentrate. " +
         "Start a modernization here; dotnet_portability then lists what breaks on modern .NET.")]
-    public Task<string> Run(
+    public Task<CallToolResult> Run(
         [Description("A project name as dotnet_overview lists it. Omit for every project.")] string? project = null,
         [McpHeader(ToolParameters.WorkspaceHeader), Description(ToolParameters.WorkspaceDescription)] string? workspace = null,
         [Description(ToolParameters.MaxTokensDescription)] int maxTokens = TokenBudget.DefaultTokens,
@@ -41,7 +42,7 @@ public sealed class LegacyInventoryTool(WorkspaceManager workspaces)
             return Render(inventory, session.Target.DisplayName, workspaces.RootDirectory, maxTokens);
         });
 
-    internal static string Render(LegacyInventoryReport inventory, string workspace, string root, int maxTokens)
+    internal static ToolOutput<LegacyInventoryOutput> Render(LegacyInventoryReport inventory, string workspace, string root, int maxTokens)
     {
         var text = new ResponseBuilder(maxTokens);
         var projects = inventory.Projects.Select(p => p.Overview).ToList();
@@ -57,10 +58,23 @@ public sealed class LegacyInventoryTool(WorkspaceManager workspaces)
             .OrderBy(g => LegacyText.AreaOrder(g.Key.Area))
             .ThenBy(g => g.Key.Technology, StringComparer.Ordinal)
             .ToList();
+        var shownTechnologies = new List<TechnologyItem>();
+        var shownHotspots = new List<HotspotItem>();
+        ToolOutput<LegacyInventoryOutput> Result() => ToolOutput.Of(text.ToString(), new LegacyInventoryOutput(
+            workspace,
+            projects.Count,
+            projects.Count(p => !p.IsSdkStyle),
+            projects.Count(p => p.IsSdkStyle),
+            [.. projects.SelectMany(p => p.TargetFrameworks).GroupBy(t => t, StringComparer.OrdinalIgnoreCase).Select(g => new FrameworkCountItem(g.Key, g.Count()))],
+            [.. inventory.Projects.Where(p => p.PackagesConfigPackages > 0).Select(p => new PackagesConfigItem(p.Overview.Name, p.PackagesConfigPackages))],
+            vb,
+            new Page<TechnologyItem>(technologies.Count, 0, shownTechnologies.Count < technologies.Count ? shownTechnologies.Count : null, shownTechnologies),
+            shownHotspots));
+
         if (technologies.Count == 0)
         {
             text.Line("no legacy technology found.");
-            return text.ToString();
+            return Result();
         }
 
         text.Line($"technologies ({technologies.Count}):");
@@ -72,8 +86,14 @@ public sealed class LegacyInventoryTool(WorkspaceManager workspaces)
             if (!text.TryLine($"- {group.Key.Technology} · {string.Join(" · ", perProject)}"))
             {
                 text.More(technologies.Count - index, "pass project, or raise maxTokens");
-                return text.ToString();
+                return Result();
             }
+
+            shownTechnologies.Add(new TechnologyItem(
+                group.Key.Technology,
+                group.Key.Area,
+                [.. group.OrderBy(i => i.Project, StringComparer.OrdinalIgnoreCase)
+                    .Select(i => new TechnologyUseItem(i.Project, [.. i.Counts.Select(c => c.ToString())], i.Locations.Count, LegacyText.Located(i.Locations, root)))]));
         }
 
         var hotspots = inventory.Projects.SelectMany(p => p.Hotspots)
@@ -89,10 +109,35 @@ public sealed class LegacyInventoryTool(WorkspaceManager workspaces)
                 {
                     break;
                 }
+
+                shownHotspots.Add(new HotspotItem(DisplayPath.From(root, hotspot.FilePath), hotspot.Uses, hotspot.Technologies));
             }
         }
 
         text.TryLine("next: dotnet_portability lists the APIs that break on the target framework; dotnet_migration_plan orders the work.");
-        return text.ToString();
+        return Result();
     }
 }
+
+/// <summary>Structured output of dotnet_legacy_inventory: the technologies and hotspots the text lists.</summary>
+public sealed record LegacyInventoryOutput(
+    string Workspace,
+    int Projects,
+    int ClassicProjects,
+    int SdkStyleProjects,
+    IReadOnlyList<FrameworkCountItem> TargetFrameworks,
+    IReadOnlyList<PackagesConfigItem> PackagesConfig,
+    IReadOnlyList<string> VisualBasicProjects,
+    Page<TechnologyItem> Technologies,
+    IReadOnlyList<HotspotItem> Hotspots);
+
+public sealed record FrameworkCountItem(string TargetFramework, int Projects);
+
+public sealed record PackagesConfigItem(string Project, int Packages);
+
+public sealed record TechnologyItem(string Technology, string Area, IReadOnlyList<TechnologyUseItem> Projects);
+
+/// <summary>One technology in one project; <see cref="Locations"/> holds the first places of <see cref="LocationCount"/>.</summary>
+public sealed record TechnologyUseItem(string Project, IReadOnlyList<string> Counts, int LocationCount, IReadOnlyList<string> Locations);
+
+public sealed record HotspotItem(string File, int Uses, IReadOnlyList<string> Technologies);

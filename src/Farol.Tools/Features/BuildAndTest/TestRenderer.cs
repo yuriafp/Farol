@@ -1,12 +1,14 @@
 using Farol.Core.Text;
 using Farol.Engine.Testing;
 
+using Farol.Tools.Infrastructure;
+
 namespace Farol.Tools.Features.BuildAndTest;
 
 /// <summary>Test results for agents: totals and selection first, then only what failed, with the frames in the user's code.</summary>
 internal static class TestRenderer
 {
-    public static void Render(ResponseBuilder text, IReadOnlyList<TestProjectRun> runs, TestSelection selection, string root)
+    public static TestOutput Render(ResponseBuilder text, IReadOnlyList<TestProjectRun> runs, TestSelection selection, string root)
     {
         var total = runs.Sum(r => r.Total);
         var failed = runs.Sum(r => r.Failed);
@@ -17,12 +19,15 @@ internal static class TestRenderer
         text.Line($"tests: {verdict} · {failed} failed, {passed} passed, {skipped} skipped · {total} run in {runs.Count} project(s) · {BuildRenderer.Seconds(TimeSpan.FromTicks(runs.Sum(r => r.Elapsed.Ticks)))}");
         text.Line($"selection: {selection.Description}");
 
+        var items = new List<TestRunItem>();
         foreach (var run in runs)
         {
             if (run.FailedBuild is { } build)
             {
                 text.Line($"{run.Project} · build failed ({build.Toolchain}): {BuildRenderer.Counts(build)}");
-                BuildRenderer.Issues(text, build with { Warnings = [] }, root);
+                var withoutWarnings = build with { Warnings = [] };
+                var shownIssues = BuildRenderer.Issues(text, withoutWarnings, root);
+                items.Add(new TestRunItem(run.Project, run.Runner, run.Failed, run.Passed, run.Skipped, run.Note, run.Problem, BuildRenderer.Output(withoutWarnings, root, shownIssues), new Page<TestFailureItem>(0, 0, null, [])));
                 continue;
             }
 
@@ -37,11 +42,17 @@ internal static class TestRenderer
                 text.Line("problem: " + problem);
             }
 
-            Failures(text, run.Failures);
+            var shown = Failures(text, run.Failures);
+            items.Add(new TestRunItem(
+                run.Project, run.Runner, run.Failed, run.Passed, run.Skipped, run.Note, run.Problem, null,
+                new Page<TestFailureItem>(run.Failures.Count, 0, shown < run.Failures.Count ? shown : null, [.. run.Failures.Take(shown).Select(f => new TestFailureItem(f.Name, f.Message, f.UserFrames))])));
         }
+
+        var status = broken > 0 ? "broken" : failed > 0 ? "failed" : total == 0 ? "none" : "passed";
+        return new TestOutput(status, verdict, failed, passed, skipped, total, TimeSpan.FromTicks(runs.Sum(r => r.Elapsed.Ticks)).TotalSeconds, selection.Description, items);
     }
 
-    private static void Failures(ResponseBuilder text, IReadOnlyList<TestFailure> failures)
+    private static int Failures(ResponseBuilder text, IReadOnlyList<TestFailure> failures)
     {
         var written = 0;
         foreach (var failure in failures)
@@ -58,5 +69,22 @@ internal static class TestRenderer
         }
 
         text.More(failures.Count - written, "failures; raise maxTokens or narrow the run with filter");
+        return written;
     }
 }
+
+/// <summary>Structured output of dotnet_test; failures are the ones the text lists.</summary>
+public sealed record TestOutput([property: System.ComponentModel.Description("passed, failed, broken (a project could not run), none (no test ran) or ambiguous (the symbol named several).")] string Status, string Verdict, int Failed, int Passed, int Skipped, int Total, double Seconds, string Selection, IReadOnlyList<TestRunItem> Projects);
+
+public sealed record TestRunItem(
+    string Project,
+    string Runner,
+    int Failed,
+    int Passed,
+    int Skipped,
+    string? Note,
+    string? Problem,
+    BuildOutput? FailedBuild,
+    Page<TestFailureItem> Failures);
+
+public sealed record TestFailureItem(string Name, string Message, IReadOnlyList<string> Frames);

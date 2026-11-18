@@ -6,6 +6,7 @@ using Farol.Engine.Navigation;
 using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
 using Microsoft.CodeAnalysis;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Farol.Tools.Features.Navigation;
@@ -13,11 +14,11 @@ namespace Farol.Tools.Features.Navigation;
 [McpServerToolType]
 public sealed class OutlineTool(WorkspaceManager workspaces)
 {
-    [McpServerTool(Name = "dotnet_outline", Title = "Outline a C#/VB file or type", ReadOnly = true, Idempotent = true, OpenWorld = false)]
+    [McpServerTool(Name = "dotnet_outline", Title = "Outline a C#/VB file or type", ReadOnly = true, Idempotent = true, OpenWorld = false, UseStructuredContent = true, OutputSchemaType = typeof(OutlineOutput))]
     [Description(
         "The shape of a C#/VB source file or type: types and members with signatures and line numbers, no bodies. " +
         "Use before reading a large file to find the part you need; a fraction of the tokens of the full text.")]
-    public Task<string> Run(
+    public Task<CallToolResult> Run(
         [Description("Source file, relative to the root as responses write paths (e.g. src/App/Orders/OrderService.cs). Use this or 'symbol'.")] string? path = null,
         [Description("A type to outline instead of a file (name, dotted name or id); lists members from every partial declaration.")] string? symbol = null,
         [McpHeader(ToolParameters.WorkspaceHeader), Description(ToolParameters.WorkspaceDescription)] string? workspace = null,
@@ -44,10 +45,10 @@ public sealed class OutlineTool(WorkspaceManager workspaces)
             }
             else
             {
-                var (candidate, ambiguity) = await SymbolArgument.ResolveAsync(snapshot, workspaces.Paths, symbol!, cancellationToken);
+                var (candidate, ambiguity, candidates) = await SymbolArgument.ResolveAsync(snapshot, workspaces.Paths, symbol!, cancellationToken);
                 if (candidate is null)
                 {
-                    return ambiguity!;
+                    return ToolOutput.Of(ambiguity!, new OutlineOutput(symbol!, 0, null, candidates));
                 }
 
                 if (candidate.Symbol is not INamedTypeSymbol type)
@@ -70,19 +71,21 @@ public sealed class OutlineTool(WorkspaceManager workspaces)
             var text = new ResponseBuilder(maxTokens);
             text.Line($"{title} ({entries.Count} declarations)");
             var multipleFiles = entries.Select(e => e.FilePath).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1;
-            var written = 0;
+            var written = new List<OutlineItem>();
             foreach (var entry in entries)
             {
                 var where = multipleFiles ? DisplayPath.Location(root, entry.FilePath, entry.Line) : entry.Line.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                if (!text.TryLine($"{new string(' ', entry.Depth * 2)}- {where} {SymbolFormatter.Kind(entry.Symbol)} {entry.Symbol.ToDisplayString(SymbolFormatter.Member)}"))
+                var kind = SymbolFormatter.Kind(entry.Symbol);
+                var signature = entry.Symbol.ToDisplayString(SymbolFormatter.Member);
+                if (!text.TryLine($"{new string(' ', entry.Depth * 2)}- {where} {kind} {signature}"))
                 {
                     break;
                 }
 
-                written++;
+                written.Add(new OutlineItem(entry.Depth, kind, signature, DisplayPath.Location(root, entry.FilePath, entry.Line)));
             }
 
-            text.More(entries.Count - written, "raise maxTokens, or outline a single type with 'symbol'");
-            return text.ToString();
+            text.More(entries.Count - written.Count, "raise maxTokens, or outline a single type with 'symbol'");
+            return ToolOutput.Of(text.ToString(), new OutlineOutput(title, entries.Count, written, null));
         });
 }

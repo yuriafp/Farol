@@ -7,7 +7,7 @@ end (0.2.0), after the exit criteria.
 | # | Slice | Acceptance criteria | Status |
 |---|---|---|---|
 | 0 | Spike: Roslyn's refactorings without an editor (rename through `Renamer`; change signature, extract method and move type through their refactoring providers and the option services they ask for), and a heuristic load of the legacy fixture on Linux. Results decide the shape of slices 2, 3 and 6 | — | done: rename and extract method use Roslyn; change signature and move type are Farol's own ([results](../spikes/phase-2-results.md)) |
-| 1 | Structured output: an `outputSchema` and `structuredContent` for the 18 tools, built from the same result objects as the text; schemas in `mcp-surface.json`; first, so the new tools have them from the start | AC-68 | not started |
+| 1 | Structured output: an `outputSchema` and `structuredContent` for the 18 tools, built from the same result objects as the text; schemas in `mcp-surface.json`; first, so the new tools have them from the start | AC-68 | done |
 | 2 | Write tools and `dotnet_rename`: the shared diff → `apply` → fresh check path of `dotnet_code_actions`, the `conflict` refusal for files changed since the diff, `read_only`; rename across C#, VB and markup, with the file (and code-behind markup) | AC-60, AC-61, AC-65 | not started |
 | 3 | `dotnet_change_signature`, `dotnet_move_type`, `dotnet_extract_method`, C# and VB | AC-62 – AC-64 | not started |
 | 4 | `dotnet_convert_project`: classic → SDK-style keeping the target framework, packages.config → PackageReference, then a reload | AC-66, AC-67 | not started |

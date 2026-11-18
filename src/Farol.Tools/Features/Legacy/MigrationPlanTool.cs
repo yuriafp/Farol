@@ -8,6 +8,7 @@ using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Farol.Tools.Features.Legacy;
@@ -15,13 +16,13 @@ namespace Farol.Tools.Features.Legacy;
 [McpServerToolType]
 public sealed partial class MigrationPlanTool(WorkspaceManager workspaces, ServerPermissions permissions, CallerContext caller, ILogger<MigrationPlanTool> logger)
 {
-    [McpServerTool(Name = "dotnet_migration_plan", Title = "Plan a .NET Framework to modern .NET migration", ReadOnly = false, Destructive = true, Idempotent = true, OpenWorld = false)]
+    [McpServerTool(Name = "dotnet_migration_plan", Title = "Plan a .NET Framework to modern .NET migration", ReadOnly = false, Destructive = true, Idempotent = true, OpenWorld = false, UseStructuredContent = true, OutputSchemaType = typeof(MigrationPlanOutput))]
     [Description(
         "An ordered plan to move a .NET Framework solution to modern .NET, built from dotnet_legacy_inventory and dotnet_portability: one step per " +
         "project, bottom-up by project dependency, each with its approach (multi-target, retarget to -windows, or rebuild on ASP.NET Core), a size, " +
         "and concrete tasks citing file:line. write=true also writes assessment.md, plan.md and tasks.md to docs/modernization/ (ticked tasks " +
         "survive regeneration). It writes documents, never code.")]
-    public Task<string> Run(
+    public Task<CallToolResult> Run(
         [Description("The migration target: net10.0 (default), net8.0, netstandard2.0…")] string targetFramework = "net10.0",
         [Description("Also write docs/modernization/assessment.md, plan.md and tasks.md in the repository. Default: false (the plan is only returned).")] bool write = false,
         [McpHeader(ToolParameters.WorkspaceHeader), Description(ToolParameters.WorkspaceDescription)] string? workspace = null,
@@ -57,7 +58,7 @@ public sealed partial class MigrationPlanTool(WorkspaceManager workspaces, Serve
             return Render(plan, written, maxTokens);
         });
 
-    internal static string Render(MigrationPlan plan, IReadOnlyList<WrittenDocument> written, int maxTokens)
+    internal static ToolOutput<MigrationPlanOutput> Render(MigrationPlan plan, IReadOnlyList<WrittenDocument> written, int maxTokens)
     {
         var text = new ResponseBuilder(maxTokens);
         var rest = written.FirstOrDefault(w => w.Path.EndsWith("/plan.md", StringComparison.Ordinal)) is { } document
@@ -81,6 +82,17 @@ public sealed partial class MigrationPlanTool(WorkspaceManager workspaces, Serve
             text.Line($"- {line}");
         }
 
+        var steps = new List<MigrationStepItem>();
+        ToolOutput<MigrationPlanOutput> Result(int omittedTasks) => ToolOutput.Of(text.ToString(), new MigrationPlanOutput(
+            plan.Workspace,
+            plan.Target,
+            [.. written.Select(w => new WrittenItem(w.Path, w.Created))],
+            plan.AlreadyModern,
+            plan.Strategy,
+            plan.Steps.Count,
+            steps,
+            omittedTasks));
+
         for (var index = 0; index < plan.Steps.Count; index++)
         {
             var step = plan.Steps[index];
@@ -88,16 +100,21 @@ public sealed partial class MigrationPlanTool(WorkspaceManager workspaces, Serve
             if (!text.TryLine(header))
             {
                 text.More(plan.Steps.Count - index, rest);
-                return text.ToString();
+                return Result(plan.Steps.Skip(index).Sum(s => s.Tasks.Count));
             }
 
+            var tasks = new List<string>();
+            steps.Add(new MigrationStepItem(step.Number, step.Project, step.Kind, step.From, step.To, step.Approach, step.Size, step.DependsOn, tasks));
             for (var task = 0; task < step.Tasks.Count; task++)
             {
                 if (!text.TryLine($"   - {step.Tasks[task]}"))
                 {
-                    text.More(step.Tasks.Count - task + plan.Steps.Skip(index + 1).Sum(s => s.Tasks.Count), rest);
-                    return text.ToString();
+                    var left = step.Tasks.Count - task + plan.Steps.Skip(index + 1).Sum(s => s.Tasks.Count);
+                    text.More(left, rest);
+                    return Result(left);
                 }
+
+                tasks.Add(step.Tasks[task]);
             }
         }
 
@@ -106,9 +123,28 @@ public sealed partial class MigrationPlanTool(WorkspaceManager workspaces, Serve
             text.TryLine($"write=true saves this plan with the full assessment to {MigrationDocuments.Folder}/ (assessment.md, plan.md, tasks.md).");
         }
 
-        return text.ToString();
+        return Result(0);
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Migration plan written to {Directory} for {User} via {Origin}")]
     private static partial void LogWrite(ILogger logger, string directory, string user, string origin);
 }
+
+/// <summary>
+/// Structured output of dotnet_migration_plan: the steps and tasks the text lists; steps past the budget are left out
+/// (<see cref="StepCount"/> counts them all) and <see cref="OmittedTasks"/> counts the tasks not listed.
+/// </summary>
+public sealed record MigrationPlanOutput(
+    string Workspace,
+    string Target,
+    IReadOnlyList<WrittenItem> Written,
+    IReadOnlyList<string> AlreadyModern,
+    IReadOnlyList<string> Strategy,
+    int StepCount,
+    IReadOnlyList<MigrationStepItem> Steps,
+    int OmittedTasks);
+
+public sealed record WrittenItem(string Path, bool Created);
+
+public sealed record MigrationStepItem(
+    int Number, string Project, string Kind, string From, string To, string Approach, string Size, IReadOnlyList<string> DependsOn, IReadOnlyList<string> Tasks);

@@ -5,6 +5,7 @@ using Farol.Core.Text;
 using Farol.Engine.Legacy;
 using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Farol.Tools.Features.Legacy;
@@ -16,12 +17,12 @@ public sealed class ConfigInspectTool(WorkspaceManager workspaces)
 
     private static readonly HashSet<string> SkippedDirectories = new(StringComparer.OrdinalIgnoreCase) { "bin", "obj", "packages", "node_modules", ".vs", ".git" };
 
-    [McpServerTool(Name = "dotnet_config_inspect", Title = "Inspect a web.config or app.config", ReadOnly = true, Idempotent = true, OpenWorld = false)]
+    [McpServerTool(Name = "dotnet_config_inspect", Title = "Inspect a web.config or app.config", ReadOnly = true, Idempotent = true, OpenWorld = false, UseStructuredContent = true, OutputSchemaType = typeof(ConfigInspectOutput))]
     [Description(
         "Reads a web.config or app.config with secrets masked (passwords and keys inside connection strings, secret-looking app settings): app " +
         "settings, connection strings, WCF services and endpoints, system.web settings, binding redirects and transforms, plus how each part maps " +
         "onto ASP.NET Core configuration and the appsettings.json to start from. Without path, lists the workspace's configuration files.")]
-    public Task<string> Run(
+    public Task<CallToolResult> Run(
         [Description("The web.config or app.config, relative to the root as responses write paths (e.g. Legacy.Web/Web.config). Omit to list them.")] string? path = null,
         [McpHeader(ToolParameters.WorkspaceHeader), Description(ToolParameters.WorkspaceDescription)] string? workspace = null,
         [Description(ToolParameters.MaxTokensDescription)] int maxTokens = TokenBudget.DefaultTokens,
@@ -33,8 +34,8 @@ public sealed class ConfigInspectTool(WorkspaceManager workspaces)
             if (string.IsNullOrWhiteSpace(path))
             {
                 var session = workspaces.GetSession(workspace, path);
-                List(text, session.Target.Directory, root, cancellationToken);
-                return Task.FromResult(text.ToString());
+                var files = List(text, session.Target.Directory, root, cancellationToken);
+                return Task.FromResult(ToolOutput.Of(text.ToString(), new ConfigInspectOutput(files, null)));
             }
 
             var directory = workspaces.TargetDirectory(workspace, path);
@@ -50,17 +51,31 @@ public sealed class ConfigInspectTool(WorkspaceManager workspaces)
                 throw new FarolException(ErrorCodes.InvalidArgument, $"'{path}' does not exist.", "Call without path to list the configuration files, then pass one as the list writes it.");
             }
 
-            Render(text, ConfigInspector.Read(file), root);
-            return Task.FromResult(text.ToString());
+            var config = ConfigInspector.Read(file);
+            Render(text, config, root);
+            return Task.FromResult(ToolOutput.Of(text.ToString(), new ConfigInspectOutput(
+                null,
+                new ConfigItem(
+                    DisplayPath.From(root, config.FilePath),
+                    config.Transforms,
+                    config.AppSettings,
+                    config.ConnectionStrings,
+                    config.SystemWeb,
+                    config.ServiceModel,
+                    config.BindingRedirects,
+                    config.OtherSections,
+                    config.AppSettingsJson,
+                    config.Mapping))));
         });
 
-    private static void List(ResponseBuilder text, string directory, string root, CancellationToken cancellationToken)
+    private static Page<ConfigFileItem> List(ResponseBuilder text, string directory, string root, CancellationToken cancellationToken)
     {
         var files = Find(directory).ToList();
+        var shown = new List<ConfigFileItem>();
         if (files.Count == 0)
         {
             text.Line("no web.config or app.config in the workspace.");
-            return;
+            return new Page<ConfigFileItem>(0, 0, null, shown);
         }
 
         text.Line($"configuration files ({files.Count}); call again with path for the full content and the appsettings.json mapping:");
@@ -68,9 +83,11 @@ public sealed class ConfigInspectTool(WorkspaceManager workspaces)
         {
             cancellationToken.ThrowIfCancellationRequested();
             string summary;
+            ConfigReport? read = null;
             try
             {
                 var config = ConfigInspector.Read(file);
+                read = config;
                 var parts = new List<string>
                 {
                     $"{config.AppSettings.Count} app setting(s)",
@@ -101,9 +118,23 @@ public sealed class ConfigInspectTool(WorkspaceManager workspaces)
             if (!text.TryLine($"- {DisplayPath.From(root, file)}: {summary}"))
             {
                 text.More(files.Count - files.IndexOf(file), "raise maxTokens");
-                return;
+                break;
             }
+
+            shown.Add(read is null
+                ? new ConfigFileItem(DisplayPath.From(root, file), 0, 0, 0, null, null, 0, summary)
+                : new ConfigFileItem(
+                    DisplayPath.From(root, file),
+                    read.AppSettings.Count,
+                    read.ConnectionStrings.Count,
+                    read.MaskedCount,
+                    read.ServiceModel?.Services.Count,
+                    read.ServiceModel?.Clients.Count,
+                    read.BindingRedirects.Count,
+                    null));
         }
+
+        return new Page<ConfigFileItem>(files.Count, 0, shown.Count < files.Count ? shown.Count : null, shown);
     }
 
     private static void Render(ResponseBuilder text, ConfigReport config, string root)
@@ -223,3 +254,24 @@ public sealed class ConfigInspectTool(WorkspaceManager workspaces)
         return found.Order(StringComparer.OrdinalIgnoreCase);
     }
 }
+
+/// <summary>
+/// Structured output of dotnet_config_inspect: <see cref="Files"/> without path, <see cref="Config"/> with one. Secrets are
+/// masked as in the text; the config's lists are complete even where the text runs out of budget.
+/// </summary>
+public sealed record ConfigInspectOutput(Page<ConfigFileItem>? Files, ConfigItem? Config);
+
+public sealed record ConfigFileItem(
+    string Path, int AppSettings, int ConnectionStrings, int Secrets, int? WcfServices, int? WcfClientEndpoints, int BindingRedirects, string? Problem);
+
+public sealed record ConfigItem(
+    string Path,
+    IReadOnlyList<string> Transforms,
+    IReadOnlyList<ConfigSetting> AppSettings,
+    IReadOnlyList<ConfigConnectionString> ConnectionStrings,
+    IReadOnlyList<string> SystemWeb,
+    ConfigServiceModel? Wcf,
+    IReadOnlyList<ConfigBindingRedirect> BindingRedirects,
+    IReadOnlyList<string> OtherSections,
+    string AppSettingsJson,
+    IReadOnlyList<string> Mapping);

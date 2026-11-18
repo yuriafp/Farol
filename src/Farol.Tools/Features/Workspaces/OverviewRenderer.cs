@@ -2,12 +2,13 @@ using Farol.Core.Paths;
 using Farol.Core.Text;
 using Farol.Engine.Analysis;
 using Farol.Engine.Toolchain;
+using Farol.Tools.Infrastructure;
 
 namespace Farol.Tools.Features.Workspaces;
 
 internal static class OverviewRenderer
 {
-    public static string Render(SolutionOverview overview, ToolchainInfo toolchain, string root, int maxTokens)
+    public static ToolOutput<OverviewOutput> Render(SolutionOverview overview, ToolchainInfo toolchain, string root, int maxTokens)
     {
         var projects = overview.Projects;
         var classic = projects.Count(p => !p.IsSdkStyle);
@@ -19,7 +20,8 @@ internal static class OverviewRenderer
         var text = new ResponseBuilder(maxTokens);
         text.Line($"solution: {DisplayPath.From(root, overview.Target.Path)} · {projects.Count} project(s) · SDK-style {projects.Count - classic}, classic {classic} · {languages}");
         text.Line(WorkspaceStatusRenderer.ToolchainLine(toolchain));
-        text.Line($"build: {BuildAdvisor.SuggestBuildCommand(overview, toolchain, root)}");
+        var build = BuildAdvisor.SuggestBuildCommand(overview, toolchain, root);
+        text.Line($"build: {build}");
 
         var buildSystem = BuildSystemMarkers(overview);
         if (buildSystem.Count > 0)
@@ -40,7 +42,16 @@ internal static class OverviewRenderer
             ? "tests: none detected"
             : $"tests: {string.Join(", ", tests.Select(t => $"{t.Name} ({string.Join("/", t.TestFrameworks)})"))}");
 
-        return text.ToString();
+        var data = new OverviewOutput(
+            DisplayPath.From(root, overview.Target.Path),
+            build,
+            overview.CentralPackageManagement,
+            overview.GlobalJsonSdk,
+            [.. overview.BindingRedirectFiles.Select(f => DisplayPath.From(root, f))],
+            Page.From(projects, text.WindowOf("projects"), p => new OverviewProject(
+                p.Name, DisplayPath.From(root, p.FilePath), p.Language, p.IsSdkStyle ? "sdk" : "classic", p.TargetFrameworks, p.OutputKind,
+                p.AppModels, p.TestFrameworks, p.ProjectReferences, p.DocumentCount, p.HasPackagesConfig)));
+        return ToolOutput.Of(text.ToString(), data);
     }
 
     private static string DescribeProject(ProjectOverview project, string root)
@@ -120,3 +131,25 @@ internal static class OverviewRenderer
         return markers;
     }
 }
+
+/// <summary>Structured output of dotnet_overview.</summary>
+public sealed record OverviewOutput(
+    string Solution,
+    string BuildCommand,
+    bool CentralPackageManagement,
+    string? GlobalJsonSdk,
+    IReadOnlyList<string> BindingRedirectFiles,
+    Page<OverviewProject> Projects);
+
+public sealed record OverviewProject(
+    string Name,
+    string Path,
+    string Language,
+    string Format,
+    IReadOnlyList<string> TargetFrameworks,
+    string OutputKind,
+    IReadOnlyList<string> AppModels,
+    IReadOnlyList<string> TestFrameworks,
+    IReadOnlyList<string> ProjectReferences,
+    int Files,
+    bool PackagesConfig);

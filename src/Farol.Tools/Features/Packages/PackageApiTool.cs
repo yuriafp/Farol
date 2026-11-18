@@ -5,6 +5,7 @@ using Farol.Engine.Packages;
 using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
 using Microsoft.CodeAnalysis;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using NuGet.Frameworks;
 using NuGet.Packaging.Core;
@@ -17,12 +18,12 @@ public sealed class PackageApiTool(WorkspaceManager workspaces, PackageFeeds fee
 {
     private const int MaxSummaryLength = 240;
 
-    [McpServerTool(Name = "dotnet_package_api", Title = "Public API of a NuGet package version", ReadOnly = true, Idempotent = true, OpenWorld = true)]
+    [McpServerTool(Name = "dotnet_package_api", Title = "Public API of a NuGet package version", ReadOnly = true, Idempotent = true, OpenWorld = true, UseStructuredContent = true, OutputSchemaType = typeof(PackageApiOutput))]
     [Description(
         "Public types and members of an exact NuGet package version, with signatures and XML documentation summaries read from the package's " +
         "assemblies: check an API here instead of guessing it, since APIs change between versions. Without a query, lists the namespaces and types. " +
         "Reads the local NuGet caches first and downloads from the solution's feeds when the version is missing (not with --offline).")]
-    public Task<string> Run(
+    public Task<CallToolResult> Run(
         [Description("Package ID, e.g. Newtonsoft.Json.")] string package,
         [Description("Exact version, e.g. 12.0.3. Omit for the version the workspace uses, or the newest one when it uses none.")] string? version = null,
         [Description("A type or member: a name (JsonConvert, SerializeObject), a dotted name (JsonConvert.SerializeObject), a prefix, camel-case " +
@@ -69,16 +70,11 @@ public sealed class PackageApiTool(WorkspaceManager workspaces, PackageFeeds fee
                 text.Line($"version: {note}");
             }
 
-            if (string.IsNullOrWhiteSpace(query))
-            {
-                Overview(text, api);
-            }
-            else
-            {
-                Query(text, api, id, resolved, query, cancellationToken);
-            }
-
-            return text.ToString();
+            var data = new PackageApiOutput(id, resolved.ToNormalizedString(), assemblies.Framework.GetShortFolderName(), assemblies.Folder, others, origin, note, null, null, null, null);
+            data = string.IsNullOrWhiteSpace(query)
+                ? Overview(text, api, data)
+                : Query(text, api, id, resolved, query, data, cancellationToken);
+            return ToolOutput.Of(text.ToString(), data);
         });
 
     private async Task<(NuGetVersion Version, string? Note, NuGetFramework? Framework)> ResolveVersionAsync(
@@ -178,8 +174,9 @@ public sealed class PackageApiTool(WorkspaceManager workspaces, PackageFeeds fee
             : framework;
     }
 
-    private static void Overview(ResponseBuilder text, PackageApi api)
+    private static PackageApiOutput Overview(ResponseBuilder text, PackageApi api, PackageApiOutput data)
     {
+        var shown = new List<ApiNamespaceItem>();
         var types = api.PublicTypes();
         var namespaces = types.GroupBy(t => t.ContainingNamespace.IsGlobalNamespace ? "(global)" : t.ContainingNamespace.ToDisplayString(), StringComparer.Ordinal).ToList();
         text.Line($"public types: {types.Count} in {namespaces.Count} namespace(s). Pass query with a type or member for signatures and documentation.");
@@ -207,12 +204,16 @@ public sealed class PackageApiTool(WorkspaceManager workspaces, PackageFeeds fee
             if (!text.TryLine(line))
             {
                 text.More(namespaces.Count - index, "raise maxTokens, or query a type or member");
-                return;
+                break;
             }
+
+            shown.Add(new ApiNamespaceItem(group.Key, names));
         }
+
+        return data with { PublicTypes = types.Count, Namespaces = new Page<ApiNamespaceItem>(namespaces.Count, 0, shown.Count < namespaces.Count ? shown.Count : null, shown) };
     }
 
-    private static void Query(ResponseBuilder text, PackageApi api, string id, NuGetVersion version, string query, CancellationToken cancellationToken)
+    private static PackageApiOutput Query(ResponseBuilder text, PackageApi api, string id, NuGetVersion version, string query, PackageApiOutput data, CancellationToken cancellationToken)
     {
         var matches = api.Find(query);
         if (matches.Count == 0)
@@ -226,44 +227,60 @@ public sealed class PackageApiTool(WorkspaceManager workspaces, PackageFeeds fee
         var types = matches.OfType<INamedTypeSymbol>().ToList();
         if (types.Count == 1 && (matches.Count == 1 || types[0].Name.Equals(query.Trim().Split('.')[^1], StringComparison.Ordinal)))
         {
-            TypeView(text, types[0], cancellationToken);
-            return;
+            return data with { Type = TypeView(text, types[0], cancellationToken) };
         }
 
         text.Line($"'{query}' matches {matches.Count} public type(s) or member(s):");
+        var shown = new List<ApiMemberItem>();
         for (var index = 0; index < matches.Count; index++)
         {
-            if (!text.TryLine("- " + Line(PackageApi.Describe(matches[index], withContainingType: true, cancellationToken))))
+            var entry = PackageApi.Describe(matches[index], withContainingType: true, cancellationToken);
+            if (!text.TryLine("- " + Line(entry)))
             {
                 text.More(matches.Count - index, "use a more specific query or raise maxTokens");
-                return;
+                break;
             }
+
+            shown.Add(Item(entry));
         }
+
+        return data with { Matches = new Page<ApiMemberItem>(matches.Count, 0, shown.Count < matches.Count ? shown.Count : null, shown) };
     }
 
-    private static void TypeView(ResponseBuilder text, INamedTypeSymbol type, CancellationToken cancellationToken)
+    private static ApiTypeItem TypeView(ResponseBuilder text, INamedTypeSymbol type, CancellationToken cancellationToken)
     {
         var entry = PackageApi.Describe(type, withContainingType: true, cancellationToken);
         text.Line($"{entry.Kind} {type.ToDisplayString()}{(type.IsStatic ? " · static" : type.IsAbstract && type.TypeKind == TypeKind.Class ? " · abstract" : type.IsSealed && type.TypeKind == TypeKind.Class ? " · sealed" : string.Empty)}{(entry.Obsolete ? " · obsolete" : string.Empty)}");
         text.Line($"summary: {entry.Summary ?? "(no XML documentation)"}");
         var bases = new[] { type.BaseType }.OfType<INamedTypeSymbol>().Where(b => b.SpecialType is not (SpecialType.System_Object or SpecialType.System_ValueType or SpecialType.System_Enum)).Concat(type.Interfaces).ToList();
+        var inherits = bases.Select(b => b.ToDisplayString(Engine.Navigation.SymbolFormatter.Signature)).ToList();
         if (bases.Count > 0)
         {
-            text.Line($"inherits: {string.Join(", ", bases.Select(b => b.ToDisplayString(Engine.Navigation.SymbolFormatter.Signature)))}");
+            text.Line($"inherits: {string.Join(", ", inherits)}");
         }
 
         var members = PackageApi.Members(type).Select(m => PackageApi.Describe(m, withContainingType: false, cancellationToken)).ToList();
         var nested = type.GetTypeMembers().Where(t => t.DeclaredAccessibility is Accessibility.Public or Accessibility.Protected).ToList();
         text.Line($"members ({members.Count}){(nested.Count > 0 ? $" · nested types: {string.Join(", ", nested.Select(n => n.Name))}" : string.Empty)}:");
+        var shown = new List<ApiMemberItem>();
         for (var index = 0; index < members.Count; index++)
         {
             if (!text.TryLine("- " + Line(members[index])))
             {
                 text.More(members.Count - index, "query Type.Member for the rest, or raise maxTokens");
-                return;
+                break;
             }
+
+            shown.Add(Item(members[index]));
         }
+
+        var modifiers = type.IsStatic ? "static" : type.IsAbstract && type.TypeKind == TypeKind.Class ? "abstract" : type.IsSealed && type.TypeKind == TypeKind.Class ? "sealed" : null;
+        return new ApiTypeItem(
+            entry.Kind, type.ToDisplayString(), modifiers, entry.Obsolete, entry.Summary, inherits, [.. nested.Select(n => n.Name)],
+            new Page<ApiMemberItem>(members.Count, 0, shown.Count < members.Count ? shown.Count : null, shown));
     }
+
+    private static ApiMemberItem Item(ApiEntry entry) => new(entry.Kind, entry.Signature, entry.Obsolete, entry.Summary, entry.Symbol.GetDocumentationCommentId());
 
     private static string Line(ApiEntry entry)
     {
@@ -274,3 +291,27 @@ public sealed class PackageApiTool(WorkspaceManager workspaces, PackageFeeds fee
     private static string Problems(IReadOnlyList<string> problems) =>
         problems.Count == 0 ? string.Empty : $" Feed problems: {string.Join("; ", problems)}.";
 }
+
+/// <summary>
+/// Structured output of dotnet_package_api: <see cref="Namespaces"/> without a query, <see cref="Type"/> when the query names one type,
+/// <see cref="Matches"/> otherwise.
+/// </summary>
+public sealed record PackageApiOutput(
+    string Package,
+    string Version,
+    string TargetFramework,
+    string Folder,
+    IReadOnlyList<string> OtherTargetFrameworks,
+    string Origin,
+    string? VersionNote,
+    int? PublicTypes,
+    Page<ApiNamespaceItem>? Namespaces,
+    ApiTypeItem? Type,
+    Page<ApiMemberItem>? Matches);
+
+public sealed record ApiNamespaceItem(string Namespace, IReadOnlyList<string> Types);
+
+public sealed record ApiTypeItem(
+    string Kind, string Name, string? Modifier, bool Obsolete, string? Summary, IReadOnlyList<string> Inherits, IReadOnlyList<string> NestedTypes, Page<ApiMemberItem> Members);
+
+public sealed record ApiMemberItem(string Kind, string Signature, bool Obsolete, string? Summary, string? Id);

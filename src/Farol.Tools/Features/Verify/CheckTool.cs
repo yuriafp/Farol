@@ -10,6 +10,7 @@ using Farol.Engine.Diagnostics;
 using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
 using Microsoft.Extensions.Options;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Farol.Tools.Features.Verify;
@@ -21,12 +22,12 @@ public sealed class CheckTool(WorkspaceManager workspaces, IOptions<FarolEngineO
 
     private static readonly JsonSerializerOptions HookJson = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
-    [McpServerTool(Name = "dotnet_check", Title = "Check C#/VB edits for new errors", ReadOnly = true, Idempotent = true, OpenWorld = false)]
+    [McpServerTool(Name = "dotnet_check", Title = "Check C#/VB edits for new errors", ReadOnly = true, Idempotent = true, OpenWorld = false, UseStructuredContent = true, OutputSchemaType = typeof(CheckOutput))]
     [Description(
         "Compiler errors and warnings introduced since the workspace loaded — not the ones that were already there — in the edited files and in every " +
         "project their declaration changes can break, across C#, VB and every target framework. Call it after editing .cs/.vb files instead of " +
         "building: edits on disk are picked up automatically, and it takes about a second. Covers compiler diagnostics; analyzer rules (CA/IDE) show up in dotnet_build.")]
-    public Task<string> Run(
+    public Task<CallToolResult> Run(
         [Description("changed (default): files edited since load, plus the projects that depend on their declarations · file: one file ('path') · project: one project ('project') · solution: every project")] string? scope = null,
         [Description("Source file for scope=file, relative to the root as responses write paths.")] string? path = null,
         [Description("Project name for scope=project, as dotnet_overview lists it.")] string? project = null,
@@ -44,7 +45,7 @@ public sealed class CheckTool(WorkspaceManager workspaces, IOptions<FarolEngineO
             if (hook && !string.IsNullOrWhiteSpace(edited) && !MayBeOurs(edited.Trim()))
             {
                 // A hook fires for every edit the agent makes; one outside the trusted directories or in a non-C#/VB file is not ours to check.
-                return NothingToSay;
+                return Hook(NothingToSay);
             }
 
             WorkspaceSession session;
@@ -56,7 +57,7 @@ public sealed class CheckTool(WorkspaceManager workspaces, IOptions<FarolEngineO
             {
                 // A hook error is never shown to the agent: say it once in its context, and keep the failure in the usage log.
                 ToolCallOutcome.Current?.Fail(ex.Code);
-                return workspaces.FirstUnresolvedNotice() ? UnresolvedNotice(ex, Shown(edited)) : NothingToSay;
+                return Hook(workspaces.FirstUnresolvedNotice() ? UnresolvedNotice(ex, Shown(edited)) : NothingToSay);
             }
 
             var fullPath = kind == CheckScope.File && !string.IsNullOrWhiteSpace(path) ? workspaces.Paths.Resolve(path, session.Target.Directory) : null;
@@ -73,7 +74,7 @@ public sealed class CheckTool(WorkspaceManager workspaces, IOptions<FarolEngineO
                 editedFile = TryResolve(edited, session.Target.Directory);
                 if (editedFile is null || !IsSource(editedFile))
                 {
-                    return hook ? NothingToSay : throw new FarolException(ErrorCodes.InvalidArgument, $"'{edited}' is not a C# or VB file Farol can read.", "Pass a .cs or .vb file inside the workspace.");
+                    return hook ? Hook(NothingToSay) : throw new FarolException(ErrorCodes.InvalidArgument, $"'{edited}' is not a C# or VB file Farol can read.", "Pass a .cs or .vb file inside the workspace.");
                 }
 
                 session.NotifyEdited([editedFile]);
@@ -90,13 +91,13 @@ public sealed class CheckTool(WorkspaceManager workspaces, IOptions<FarolEngineO
             }
             catch (FarolException ex) when (hook && ex.Code == ErrorCodes.WorkspaceNotReady)
             {
-                return LoadingNotice(session, Shown(edited));
+                return Hook(LoadingNotice(session, Shown(edited)));
             }
             catch (FarolException ex) when (hook && ex.Code == ErrorCodes.WorkspaceLoadFailed)
             {
                 // The hook waited for a load that failed: a hook error is never shown, so say why in the agent's context.
                 ToolCallOutcome.Current?.Fail(ex.Code);
-                return LoadFailedNotice(ex, Shown(edited));
+                return Hook(LoadFailedNotice(ex, Shown(edited)));
             }
 
             if (fullPath is not null)
@@ -106,9 +107,17 @@ public sealed class CheckTool(WorkspaceManager workspaces, IOptions<FarolEngineO
 
             var result = await DiagnosticCheck.RunAsync(snapshot, new CheckRequest(kind, fullPath, project, includeExisting), cancellationToken);
             var text = new ResponseBuilder(maxTokens);
-            CheckRenderer.Render(text, result, snapshot, workspaces.RootDirectory, kind, offset);
-            return hook ? HookOutput(result, text.ToString(), editedFile is null ? null : DisplayPath.From(workspaces.RootDirectory, editedFile)) : text.ToString();
+            var data = CheckRenderer.Render(text, result, snapshot, workspaces.RootDirectory, kind, offset);
+            if (!hook)
+            {
+                return ToolOutput.Of(text.ToString(), data);
+            }
+
+            var json = HookOutput(result, text.ToString(), editedFile is null ? null : DisplayPath.From(workspaces.RootDirectory, editedFile));
+            return ToolOutput.Of(json, data with { Hook = json });
         });
+
+    private static ToolOutput<CheckOutput> Hook(string json) => ToolOutput.Of(json, CheckOutput.ForHook(json));
 
     private TimeSpan HookLoadWait => TimeSpan.FromSeconds(Math.Clamp(options.Value.HookLoadWaitSeconds, 0, FarolEngineOptions.MaxHookLoadWaitSeconds));
 

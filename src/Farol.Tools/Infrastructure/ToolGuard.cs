@@ -1,6 +1,7 @@
 using Farol.Core;
 using Farol.Core.Usage;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 
 namespace Farol.Tools.Infrastructure;
 
@@ -11,7 +12,12 @@ namespace Farol.Tools.Infrastructure;
 /// </summary>
 internal static class ToolGuard
 {
-    public static async Task<string> RunAsync(Func<Task<string>> action)
+    public static async Task<CallToolResult> RunAsync<T>(Func<Task<ToolOutput<T>>> action) =>
+        (CallToolResult)await RunAsync(async () => (object)(await action()).ToResult());
+
+    public static async Task<string> RunAsync(Func<Task<string>> action) => (string)await RunAsync(async () => (object)await action());
+
+    private static async Task<object> RunAsync(Func<Task<object>> action)
     {
         try
         {

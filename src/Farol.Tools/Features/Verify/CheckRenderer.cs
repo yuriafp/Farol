@@ -3,6 +3,7 @@ using Farol.Core.Paths;
 using Farol.Core.Text;
 using Farol.Engine.Diagnostics;
 using Farol.Engine.Workspaces;
+using Farol.Tools.Infrastructure;
 using Microsoft.CodeAnalysis;
 
 namespace Farol.Tools.Features.Verify;
@@ -12,14 +13,27 @@ internal static class CheckRenderer
 {
     private const int MaxMessageLength = 300;
 
-    public static void Render(ResponseBuilder text, CheckResult result, WorkspaceSnapshot snapshot, string root, CheckScope scope, int offset)
+    public static CheckOutput Render(ResponseBuilder text, CheckResult result, WorkspaceSnapshot snapshot, string root, CheckScope scope, int offset)
     {
         var baseline = $"baseline: the workspace as loaded {Ago(snapshot.Load.LoadedAt)}";
+        CheckOutput Output(Page<DiagnosticItem> found, Page<DiagnosticItem>? existing) => new(
+            scope.ToString().ToLowerInvariant(),
+            result.New.Count(e => e.Severity == DiagnosticSeverity.Error),
+            result.New.Count(e => e.Severity != DiagnosticSeverity.Error),
+            snapshot.Load.LoadedAt.ToString("o", CultureInfo.InvariantCulture),
+            [.. result.ChangedFiles.Select(f => DisplayPath.From(root, f))],
+            result.CheckedProjects,
+            [.. result.CheckedFiles.Select(f => DisplayPath.From(root, f))],
+            [.. result.ChangedDuringLoad.Select(f => DisplayPath.From(root, f))],
+            found,
+            existing,
+            null);
+
         if (scope == CheckScope.Changed && result.ChangedFiles.Count == 0)
         {
             text.Line($"no source files changed since the workspace loaded: nothing to check ({baseline}).");
             text.Line("hint: scope='solution' with includeExisting=true lists every diagnostic.");
-            return;
+            return Output(new Page<DiagnosticItem>(0, 0, null, []), null);
         }
 
         text.Line(result.New.Count == 0 ? "new since load: none — no errors or warnings introduced" : $"new since load: {Counts(result.New)}");
@@ -33,14 +47,24 @@ internal static class CheckRenderer
                 "and warnings are listed as new; some may be older.");
         }
 
-        Entries(text, result.New, root, offset);
-
+        var found = Page.From(result.New, Entries(text, result.New, root, offset), e => Item(e, root));
+        Page<DiagnosticItem>? existing = null;
         if (result.Existing.Count > 0)
         {
             text.Line($"existing at load, still present: {Counts(result.Existing)}");
-            Entries(text, result.Existing, root, 0);
+            existing = Page.From(result.Existing, Entries(text, result.Existing, root, 0), e => Item(e, root));
         }
+
+        return Output(found, existing);
     }
+
+    private static DiagnosticItem Item(DiagnosticEntry entry, string root) => new(
+        entry.FilePath is null ? null : DisplayPath.Location(root, entry.FilePath, entry.Line),
+        entry.Severity == DiagnosticSeverity.Error ? "error" : "warning",
+        entry.Id,
+        entry.Message.Length > MaxMessageLength ? string.Concat(entry.Message.AsSpan(0, MaxMessageLength), "…") : entry.Message,
+        entry.Project,
+        entry.TargetFrameworks);
 
     private static string Checked(CheckResult result, string root, CheckScope scope)
     {
@@ -65,7 +89,7 @@ internal static class CheckRenderer
         return string.Join(" · ", parts);
     }
 
-    private static void Entries(ResponseBuilder text, IReadOnlyList<DiagnosticEntry> entries, string root, int offset)
+    private static ListWindow Entries(ResponseBuilder text, IReadOnlyList<DiagnosticEntry> entries, string root, int offset)
     {
         var start = Math.Clamp(offset, 0, entries.Count);
         string? project = null;
@@ -90,6 +114,7 @@ internal static class CheckRenderer
         }
 
         text.More(entries.Count - index, ResponseBuilder.OffsetHint(index));
+        return new ListWindow(start, index, entries.Count);
     }
 
     private static string Line(DiagnosticEntry entry, string root)
@@ -121,3 +146,27 @@ internal static class CheckRenderer
             : $"{elapsed.TotalHours.ToString("0.#", CultureInfo.InvariantCulture)} h ago";
     }
 }
+
+/// <summary>
+/// Structured output of dotnet_check: the diagnostics the text lists. With format=hook the text is the hook's JSON and
+/// <see cref="Hook"/> holds it too.
+/// </summary>
+public sealed record CheckOutput(
+    string Scope,
+    int NewErrors,
+    int NewWarnings,
+    string? BaselineLoadedAt,
+    IReadOnlyList<string> ChangedFiles,
+    IReadOnlyList<string> CheckedProjects,
+    IReadOnlyList<string> CheckedFiles,
+    IReadOnlyList<string> ChangedDuringLoad,
+    Page<DiagnosticItem> New,
+    Page<DiagnosticItem>? Existing,
+    string? Hook,
+    [property: System.ComponentModel.Description("False when nothing was checked (a hook answer while the workspace loads, or for a file Farol does not check): the empty lists then say nothing.")] bool Checked = true)
+{
+    /// <summary>A hook answer given before anything was checked: an empty result that carries the hook's JSON.</summary>
+    public static CheckOutput ForHook(string json) => new("changed", 0, 0, null, [], [], [], [], new Page<DiagnosticItem>(0, 0, null, []), null, json, Checked: false);
+}
+
+public sealed record DiagnosticItem(string? Location, string Severity, string Id, string Message, string Project, IReadOnlyList<string> TargetFrameworks);

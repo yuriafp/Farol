@@ -221,7 +221,43 @@ public sealed partial class DistributionTests
             ["idempotent"] = annotations?.IdempotentHint,
             ["openWorld"] = annotations?.OpenWorldHint,
             ["parameters"] = new JsonArray([.. schema.GetProperty("properties").EnumerateObject().Select(p => (JsonNode)$"{p.Name}{(required.Contains(p.Name) ? "" : "?")}: {TypeOf(p.Value)}")]),
+            ["output"] = new JsonArray([.. OutputFields(tool.ProtocolTool.OutputSchema, string.Empty).Select(f => (JsonNode)f)]),
         };
+    }
+
+    // The output schema flattened to one "path: type" line per field (AC-68): a field removed, renamed or retyped shows in the diff.
+    private static IEnumerable<string> OutputFields(JsonElement? schema, string path)
+    {
+        if (schema is not { ValueKind: JsonValueKind.Object } node)
+        {
+            yield break;
+        }
+
+        if (node.TryGetProperty("properties", out var properties))
+        {
+            foreach (var property in properties.EnumerateObject())
+            {
+                var name = path.Length == 0 ? property.Name : $"{path}.{property.Name}";
+                yield return property.Value.TryGetProperty("$ref", out var reference) ? $"{name}: ref {reference.GetString()}" : $"{name}: {TypeOf(property.Value)}";
+                foreach (var nested in OutputFields(property.Value, name))
+                {
+                    yield return nested;
+                }
+            }
+        }
+
+        if (node.TryGetProperty("items", out var items))
+        {
+            if (items.TryGetProperty("$ref", out var reference))
+            {
+                yield return $"{path}[]: ref {reference.GetString()}";
+            }
+
+            foreach (var nested in OutputFields(items, path + "[]"))
+            {
+                yield return nested;
+            }
+        }
     }
 
     private static string TypeOf(JsonElement property) => property.TryGetProperty("type", out var type)

@@ -4,11 +4,13 @@ using Farol.Core.Text;
 using Farol.Engine.Toolchain;
 using Farol.Engine.Workspaces;
 
+using Farol.Tools.Infrastructure;
+
 namespace Farol.Tools.Features.Workspaces;
 
 internal static class WorkspaceStatusRenderer
 {
-    public static string Render(WorkspaceSession session, ToolchainInfo toolchain, string root, bool readOnly)
+    public static ToolOutput<WorkspaceOutput> Render(WorkspaceSession session, ToolchainInfo toolchain, string root, bool readOnly)
     {
         var text = new ResponseBuilder(TokenBudget.DefaultTokens);
         text.Line($"workspace: {DisplayPath.From(root, session.Target.Path)}");
@@ -39,7 +41,7 @@ internal static class WorkspaceStatusRenderer
                 text.Line("hint: the other dotnet_* tools wait for the load to finish, so call the one you need now; action='load' waits for it here.");
                 break;
             case WorkspaceState.Failed:
-                text.Line($"state: failed · {session.FailureMessage}");
+                text.Line($"state: failed · {DisplayPath.InText(root, session.FailureMessage ?? string.Empty)}");
                 text.Line("hint: fix the cause, then call again with action='reload'.");
                 break;
             default:
@@ -58,7 +60,29 @@ internal static class WorkspaceStatusRenderer
             text.List("load issues", report.Issues, i => $"{i.Severity}: {DisplayPath.InText(root, i.Message)}", continuation: _ => "results for the affected projects may be incomplete");
         }
 
-        return text.ToString();
+        var state = session.State;
+        var ready = state == WorkspaceState.Ready && report is not null;
+        var data = new WorkspaceOutput(
+            DisplayPath.From(root, session.Target.Path),
+            state switch { WorkspaceState.Ready => "ready", WorkspaceState.Loading => "loading", WorkspaceState.Failed => "failed", _ => "not loaded" },
+            ready ? report!.Elapsed.TotalSeconds : null,
+            ready ? report!.Loader : null,
+            ready ? report!.ProjectFiles : null,
+            ready ? report!.Documents : null,
+            ready ? session.WarmedIn?.TotalSeconds : null,
+            ready && session.IsWarming,
+            ready ? session.CurrentSnapshot?.Version : null,
+            ready ? session.TracksFileChanges : null,
+            state == WorkspaceState.Loading ? session.LoadingFor.TotalSeconds : null,
+            state == WorkspaceState.Loading ? session.LastLoadTook?.TotalSeconds : null,
+            state == WorkspaceState.Failed && session.FailureMessage is { } failure ? DisplayPath.InText(root, failure) : null,
+            toolchain.DotnetSdkVersion,
+            toolchain.PreferredVisualStudio is { } vs ? $"{vs.DisplayName} {vs.ShortVersion}" : null,
+            readOnly,
+            report is { Issues.Count: > 0 }
+                ? Page.From(report.Issues, text.WindowOf("load issues"), i => new LoadIssueItem(i.Severity.ToString().ToLowerInvariant(), DisplayPath.InText(root, i.Message)))
+                : new Page<LoadIssueItem>(0, 0, null, []));
+        return ToolOutput.Of(text.ToString(), data);
     }
 
     public static string ToolchainLine(ToolchainInfo toolchain)
@@ -73,3 +97,25 @@ internal static class WorkspaceStatusRenderer
     private static string Seconds(TimeSpan elapsed) =>
         elapsed.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture) + "s";
 }
+
+/// <summary>Structured output of dotnet_workspace. Fields of a state the workspace is not in are null.</summary>
+public sealed record WorkspaceOutput(
+    string Workspace,
+    string State,
+    double? LoadedInSeconds,
+    string? Loader,
+    int? Projects,
+    int? Documents,
+    double? WarmedInSeconds,
+    bool Warming,
+    int? SnapshotVersion,
+    bool? TracksFileChanges,
+    double? LoadingForSeconds,
+    double? LastLoadSeconds,
+    string? Failure,
+    string? DotnetSdk,
+    string? VisualStudio,
+    bool ReadOnly,
+    Page<LoadIssueItem> LoadIssues);
+
+public sealed record LoadIssueItem(string Severity, string Message);

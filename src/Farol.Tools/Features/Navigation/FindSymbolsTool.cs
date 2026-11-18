@@ -4,6 +4,7 @@ using Farol.Core.Text;
 using Farol.Engine.Navigation;
 using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Farol.Tools.Features.Navigation;
@@ -11,11 +12,11 @@ namespace Farol.Tools.Features.Navigation;
 [McpServerToolType]
 public sealed class FindSymbolsTool(WorkspaceManager workspaces)
 {
-    [McpServerTool(Name = "dotnet_find_symbols", Title = "Find C#/VB declarations", ReadOnly = true, Idempotent = true, OpenWorld = false)]
+    [McpServerTool(Name = "dotnet_find_symbols", Title = "Find C#/VB declarations", ReadOnly = true, Idempotent = true, OpenWorld = false, UseStructuredContent = true, OutputSchemaType = typeof(FindSymbolsOutput))]
     [Description(
         "Finds where C#/VB types and members are declared, by name: exact, prefix, substring or camel-case humps ('OrdCalc' finds OrderCalculator). " +
         "Use instead of grep to locate a declaration: it ignores comments, strings and usages. Returns path:line and an id to pass to other dotnet_* tools.")]
-    public Task<string> Run(
+    public Task<CallToolResult> Run(
         [Description("Name or pattern to search for.")] string query,
         [Description("any (default), type, class, interface, struct, enum, record, delegate, method, property, field or event.")] string kind = "any",
         [Description("Only declarations in this project (name as shown by dotnet_overview).")] string? project = null,
@@ -42,10 +43,13 @@ public sealed class FindSymbolsTool(WorkspaceManager workspaces)
             var text = new ResponseBuilder(maxTokens);
             if (candidates.Count == 0)
             {
-                return $"no declarations match '{query}' (kind: {kind}). Try a shorter pattern or kind='any'.";
+                return ToolOutput.Of(
+                    $"no declarations match '{query}' (kind: {kind}). Try a shorter pattern or kind='any'.",
+                    new FindSymbolsOutput(query, kind, new Page<SymbolItem>(0, 0, null, [])));
             }
 
-            text.List($"symbols matching '{query}'", candidates, c => NavigationText.Candidate(c, snapshot, workspaces.RootDirectory), offset, ResponseBuilder.OffsetHint);
-            return text.ToString();
+            var title = $"symbols matching '{query}'";
+            text.List(title, candidates, c => NavigationText.Candidate(c, snapshot, workspaces.RootDirectory), offset, ResponseBuilder.OffsetHint);
+            return ToolOutput.Of(text.ToString(), new FindSymbolsOutput(query, kind, Page.From(candidates, text.WindowOf(title), c => NavigationItems.Of(c, snapshot, workspaces.RootDirectory))));
         });
 }

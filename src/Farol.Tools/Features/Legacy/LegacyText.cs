@@ -12,4 +12,11 @@ internal static class LegacyText
 
     public static string Places(IEnumerable<UsageLocation> locations, string root, int max = 6) =>
         DisplayPath.Places(root, locations.Select(l => $"{l.FilePath}:{l.Line}"), max);
+
+    /// <summary>The first places as display paths, for structured output; the full count goes alongside.</summary>
+    public static IReadOnlyList<string> Located(IEnumerable<string> locations, string root, int max = 20) =>
+        [.. locations.Take(max).Select(l => DisplayPath.InText(root, l))];
+
+    public static IReadOnlyList<string> Located(IEnumerable<UsageLocation> locations, string root, int max = 20) =>
+        [.. locations.Take(max).Select(l => DisplayPath.Location(root, l.FilePath, l.Line))];
 }

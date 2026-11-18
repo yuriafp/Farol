@@ -7,6 +7,7 @@ using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Farol.Tools.Features.Navigation;
@@ -16,12 +17,12 @@ public sealed class SymbolTool(WorkspaceManager workspaces)
 {
     private static readonly string[] IncludeOptions = ["signature", "docs", "source"];
 
-    [McpServerTool(Name = "dotnet_symbol", Title = "Inspect one C#/VB symbol", ReadOnly = true, Idempotent = true, OpenWorld = false)]
+    [McpServerTool(Name = "dotnet_symbol", Title = "Inspect one C#/VB symbol", ReadOnly = true, Idempotent = true, OpenWorld = false, UseStructuredContent = true, OutputSchemaType = typeof(SymbolOutput))]
     [Description(
         "Signature, location, documentation and optionally the source of one C#/VB symbol, without reading its whole file. " +
         "External symbols (packages, the framework) come with the package and version they are from; their source is decompiled. " +
         "For a type, include='source' returns a skeleton (members with signatures, no bodies). An ambiguous name returns the candidates with their ids.")]
-    public Task<string> Run(
+    public Task<CallToolResult> Run(
         [Description(SymbolArgument.Description)] string symbol,
         [Description("Comma-separated: signature (always), docs (XML documentation summary), source (the declaration's code; a skeleton for types). Default: signature,docs.")] string include = "signature,docs",
         [McpHeader(ToolParameters.WorkspaceHeader), Description(ToolParameters.WorkspaceDescription)] string? workspace = null,
@@ -37,10 +38,10 @@ public sealed class SymbolTool(WorkspaceManager workspaces)
 
             var root = workspaces.RootDirectory;
             var snapshot = await workspaces.GetSession(workspace, SymbolLocator.LocationPath(symbol)).GetSnapshotAsync(wait: true, cancellationToken);
-            var (candidate, ambiguity) = await SymbolArgument.ResolveAsync(snapshot, workspaces.Paths, symbol, cancellationToken);
+            var (candidate, ambiguity, candidates) = await SymbolArgument.ResolveAsync(snapshot, workspaces.Paths, symbol, cancellationToken);
             if (candidate is null)
             {
-                return ambiguity!;
+                return ToolOutput.Of(ambiguity!, new SymbolOutput(null, null, null, null, [], null, [], null, null, null, candidates));
             }
 
             var target = candidate.Symbol;
@@ -49,30 +50,42 @@ public sealed class SymbolTool(WorkspaceManager workspaces)
             var project = snapshot.Projects.Get(candidate.Variants[0].ProjectId);
             var frameworks = candidate.Variants.Select(v => snapshot.Projects.Get(v.ProjectId)?.TargetFramework).OfType<string>().Distinct().Order(StringComparer.OrdinalIgnoreCase);
             var assembly = IsExternal(target) ? await ExternalAssemblyAsync(snapshot.Solution, target, cancellationToken) : null;
-            text.Line(project is null && IsExternal(target)
-                ? $"namespace: {SymbolFormatter.Namespace(target)} · assembly: {target.ContainingAssembly?.Identity.GetDisplayName() ?? "unknown"}"
-                : $"namespace: {SymbolFormatter.Namespace(target)} · project: {project?.Name ?? target.ContainingAssembly?.Name} ({string.Join(", ", frameworks)})");
+            var externalAssembly = project is null && IsExternal(target) ? target.ContainingAssembly?.Identity.GetDisplayName() ?? "unknown" : null;
+            var projectName = externalAssembly is null ? project?.Name ?? target.ContainingAssembly?.Name : null;
+            text.Line(externalAssembly is not null
+                ? $"namespace: {SymbolFormatter.Namespace(target)} · assembly: {externalAssembly}"
+                : $"namespace: {SymbolFormatter.Namespace(target)} · project: {projectName} ({string.Join(", ", frameworks)})");
             text.Line($"id: {candidate.Id}");
-            text.Line(assembly is null
-                ? $"declared at: {string.Join(", ", target.Locations.Where(l => l.IsInSource).Select(l => Core.Paths.DisplayPath.Location(root, l.SourceTree!.FilePath, l.GetLineSpan().StartLinePosition.Line + 1)).DefaultIfEmpty(SymbolFormatter.Location(target, root)))}"
-                : $"declared in: {MetadataSource.Describe(assembly)}");
+            var declaredAt = assembly is null
+                ? target.Locations.Where(l => l.IsInSource).Select(l => Core.Paths.DisplayPath.Location(root, l.SourceTree!.FilePath, l.GetLineSpan().StartLinePosition.Line + 1)).DefaultIfEmpty(SymbolFormatter.Location(target, root)).ToList()
+                : [];
+            var declaredIn = assembly is null ? null : MetadataSource.Describe(assembly);
+            text.Line(assembly is null ? $"declared at: {string.Join(", ", declaredAt)}" : $"declared in: {declaredIn}");
+            var inherits = new List<string>();
 
             if (target is INamedTypeSymbol type)
             {
                 var bases = new[] { type.BaseType }.OfType<INamedTypeSymbol>().Where(b => b.SpecialType != SpecialType.System_Object).Concat(type.Interfaces).ToList();
                 if (bases.Count > 0)
                 {
-                    text.Line($"inherits: {string.Join(", ", bases.Select(b => b.ToDisplayString(SymbolFormatter.Signature)))}");
+                    inherits.AddRange(bases.Select(b => b.ToDisplayString(SymbolFormatter.Signature)));
+                    text.Line($"inherits: {string.Join(", ", inherits)}");
                 }
             }
 
+            string? summary = null;
             if (parts.Contains("docs", StringComparer.OrdinalIgnoreCase))
             {
-                text.Line($"summary: {SymbolFormatter.Summary(target, cancellationToken) ?? "(no XML documentation)"}");
+                summary = SymbolFormatter.Summary(target, cancellationToken);
+                text.Line($"summary: {summary ?? "(no XML documentation)"}");
             }
 
+            string? source = null;
+            string? sourceKind = null;
             if (parts.Contains("source", StringComparer.OrdinalIgnoreCase))
             {
+                sourceKind = IsExternal(target) ? target is INamedTypeSymbol ? "public API skeleton" : "decompiled" : target is INamedTypeSymbol ? "skeleton" : "source";
+                var before = text.ToString().Length;
                 if (IsExternal(target))
                 {
                     AppendExternalSource(text, target, assembly);
@@ -81,9 +94,14 @@ public sealed class SymbolTool(WorkspaceManager workspaces)
                 {
                     await AppendSourceAsync(text, snapshot.Solution, target, root, cancellationToken);
                 }
+
+                // The section as the text writes it: the code (or skeleton) with its fences and notes.
+                source = text.ToString()[before..].TrimStart('\n');
             }
 
-            return text.ToString();
+            return ToolOutput.Of(text.ToString(), new SymbolOutput(
+                NavigationItems.Of(candidate, snapshot, root), SymbolFormatter.Namespace(target), projectName, externalAssembly,
+                declaredAt, declaredIn, inherits, summary, source, sourceKind, null));
         });
 
     private static bool IsExternal(ISymbol symbol) => !symbol.Locations.Any(l => l.IsInSource);

@@ -19,7 +19,7 @@ internal static class NavigationText
         $"{SymbolFormatter.Display(symbol)} · {SymbolFormatter.Location(symbol, root)}";
 
     /// <summary>Hits grouped under project headers, paged by <paramref name="offset"/> over the flat list.</summary>
-    public static void Hits(ResponseBuilder text, IReadOnlyList<SourceHit> hits, string root, int offset)
+    public static ListWindow Hits(ResponseBuilder text, IReadOnlyList<SourceHit> hits, string root, int offset)
     {
         var start = Math.Clamp(offset, 0, hits.Count);
         string? project = null;
@@ -46,6 +46,7 @@ internal static class NavigationText
         }
 
         text.More(hits.Count - index, ResponseBuilder.OffsetHint(index));
+        return new ListWindow(start, index, hits.Count);
     }
 
     private static string Frameworks(SymbolCandidate candidate, WorkspaceSnapshot snapshot)

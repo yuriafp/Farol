@@ -8,6 +8,7 @@ using Farol.Tools.Features.Navigation;
 using Farol.Tools.Infrastructure;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Farol.Tools.Features.BuildAndTest;
@@ -17,12 +18,12 @@ public sealed partial class TestTool(WorkspaceManager workspaces, TestRunner tes
 {
     private const string Changes = "changes";
 
-    [McpServerTool(Name = "dotnet_test", Title = "Run .NET tests", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false)]
+    [McpServerTool(Name = "dotnet_test", Title = "Run .NET tests", ReadOnly = false, Destructive = false, Idempotent = false, OpenWorld = false, UseStructuredContent = true, OutputSchemaType = typeof(TestOutput))]
     [Description(
         "Runs tests — all, those whose name contains a text, or only the ones affected by a symbol or by your edits since the workspace loaded — and " +
         "reports failures only: the assertion message and the stack frames in your code. Builds first with the right toolchain; runs classic " +
         ".NET Framework tests with vstest.console and SDK-style ones with dotnet test (VSTest or Microsoft.Testing.Platform).")]
-    public Task<string> Run(
+    public Task<CallToolResult> Run(
         [Description("Test project name; default: every test project.")] string? project = null,
         [Description("Only tests whose fully qualified name contains this text.")] string? filter = null,
         [Description("Only tests that reach this symbol (name, dotted name, id or path:line), or 'changes' for the members edited since the workspace loaded.")] string? affectedBy = null,
@@ -45,10 +46,10 @@ public sealed partial class TestTool(WorkspaceManager workspaces, TestRunner tes
             }
             else if (!string.IsNullOrWhiteSpace(affectedBy))
             {
-                var (candidate, ambiguity) = await SymbolArgument.ResolveAsync(snapshot, workspaces.Paths, affectedBy, cancellationToken);
+                var (candidate, ambiguity, _) = await SymbolArgument.ResolveAsync(snapshot, workspaces.Paths, affectedBy, cancellationToken);
                 if (candidate is null)
                 {
-                    return ambiguity!;
+                    return ToolOutput.Of(ambiguity!, new TestOutput("ambiguous", "ambiguous symbol", 0, 0, 0, 0, 0, ambiguity!, []));
                 }
 
                 affected = (candidate.Variants, SymbolFormatter.Display(candidate.Symbol));
@@ -57,15 +58,15 @@ public sealed partial class TestTool(WorkspaceManager workspaces, TestRunner tes
             var selection = await TestSelector.SelectAsync(snapshot, project, filter, affected, cancellationToken);
             if (selection.Targets.Count == 0)
             {
-                return $"no tests to run: {selection.Description}.";
+                return ToolOutput.Of($"no tests to run: {selection.Description}.", new TestOutput("none", "no test ran", 0, 0, 0, 0, 0, selection.Description, []));
             }
 
             LogTests(logger, selection.Description, caller.User, caller.Origin);
             var runs = await tests.RunAsync(snapshot, session.Target, selection.Targets, configuration.Trim(), root, workspaces.Paths.Contains, new ToolProgress(progress), cancellationToken);
 
             var text = new ResponseBuilder(maxTokens);
-            TestRenderer.Render(text, runs, selection, root);
-            return text.ToString();
+            var data = TestRenderer.Render(text, runs, selection, root);
+            return ToolOutput.Of(text.ToString(), data);
         });
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Test run ({Selection}) requested by {User} via {Origin}")]

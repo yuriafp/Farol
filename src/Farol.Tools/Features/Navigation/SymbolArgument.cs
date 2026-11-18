@@ -17,7 +17,7 @@ internal static class SymbolArgument
     /// Resolves the argument. An ambiguous name is an answer, not an error: the returned text lists the
     /// candidates with the IDs to call again with.
     /// </summary>
-    public static async Task<(SymbolCandidate? Candidate, string? Ambiguity)> ResolveAsync(
+    public static async Task<(SymbolCandidate? Candidate, string? Ambiguity, IReadOnlyList<SymbolItem>? Candidates)> ResolveAsync(
         WorkspaceSnapshot snapshot, PathSandbox paths, string symbol, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(symbol))
@@ -29,7 +29,7 @@ internal static class SymbolArgument
         var candidates = await SymbolLocator.ResolveAsync(snapshot, path => paths.Resolve(path, snapshot.Target.Directory), symbol, cancellationToken);
         if (candidates.Count == 1)
         {
-            return (candidates[0], null);
+            return (candidates[0], null, null);
         }
 
         if (candidates.Count == 0)
@@ -43,6 +43,6 @@ internal static class SymbolArgument
         var text = new ResponseBuilder(TokenBudget.DefaultTokens);
         text.Line($"'{symbol}' matches {candidates.Count} symbols. Call again with the id of the one you mean:");
         text.List("candidates", candidates, c => NavigationText.Candidate(c, snapshot, paths.Root), continuation: _ => "use a more specific name");
-        return (null, text.ToString());
+        return (null, text.ToString(), [.. text.WindowOf("candidates").Of(candidates).Select(c => NavigationItems.Of(c, snapshot, paths.Root))]);
     }
 }

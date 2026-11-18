@@ -5,6 +5,7 @@ using Farol.Engine.Packages;
 using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Farol.Tools.Features.Packages;
@@ -12,13 +13,13 @@ namespace Farol.Tools.Features.Packages;
 [McpServerToolType]
 public sealed class PackagesTool(WorkspaceManager workspaces, PackageFeeds feeds)
 {
-    [McpServerTool(Name = "dotnet_packages", Title = "List NuGet packages and their problems", ReadOnly = true, Idempotent = true, OpenWorld = true)]
+    [McpServerTool(Name = "dotnet_packages", Title = "List NuGet packages and their problems", ReadOnly = true, Idempotent = true, OpenWorld = true, UseStructuredContent = true, OutputSchemaType = typeof(PackagesOutput))]
     [Description(
         "NuGet packages of each project with the versions restore resolved: direct ones and transitive ones with the package that brings each in, " +
         "for PackageReference projects (central package management included) and packages.config ones. Flags vulnerable packages (with their " +
         "advisories), deprecated ones (with the replacement) and newer versions, from the solution's NuGet feeds. Use it before upgrading or " +
         "adding a package, or to answer which version a project really uses.")]
-    public Task<string> Run(
+    public Task<CallToolResult> Run(
         [Description("A project name as dotnet_overview lists it. Omit for every project.")] string? project = null,
         [Description("Which packages, comma-separated: all (default: direct and transitive), direct, vulnerable, deprecated, outdated. " +
             "Problem filters combine as 'any of' (vulnerable,deprecated); with direct they apply to direct packages only.")] string include = "all",
@@ -46,8 +47,8 @@ public sealed class PackagesTool(WorkspaceManager workspaces, PackageFeeds feeds
 
             var check = await feeds.CheckAsync(context, identities, cancellationToken);
             var text = new ResponseBuilder(maxTokens);
-            PackagesRenderer.Render(text, session.Target, projects, check, filter, feeds.Offline, workspaces.RootDirectory);
-            return text.ToString();
+            var data = PackagesRenderer.Render(text, session.Target, projects, check, filter, feeds.Offline, workspaces.RootDirectory);
+            return ToolOutput.Of(text.ToString(), data);
         });
 }
 

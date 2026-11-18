@@ -23,6 +23,11 @@ public sealed class ResponseBuilder
 
     public bool Truncated { get; private set; }
 
+    private readonly Dictionary<string, ListWindow> _windows = new(StringComparer.Ordinal);
+
+    /// <summary>The part of each titled list the text shows, so structured output can carry the same items.</summary>
+    public ListWindow WindowOf(string title) => _windows.TryGetValue(title, out var window) ? window : new ListWindow(0, 0, 0);
+
     /// <summary>Writes a line regardless of the budget (headers, summaries).</summary>
     public ResponseBuilder Line(string line = "")
     {
@@ -80,6 +85,7 @@ public sealed class ResponseBuilder
             index++;
         }
 
+        _windows[title] = new ListWindow(start, index, items.Count);
         return More(items.Count - index, continuation?.Invoke(index));
     }
 
@@ -87,4 +93,12 @@ public sealed class ResponseBuilder
 
     /// <summary>The standard continuation hint for tools that take an offset.</summary>
     public static Func<int, string> OffsetHint { get; } = next => $"call again with offset={next}";
+}
+
+/// <summary>Items [<see cref="Start"/>, <see cref="End"/>) of a list of <see cref="Total"/> items were written.</summary>
+public readonly record struct ListWindow(int Start, int End, int Total)
+{
+    public int? NextOffset => End < Total ? End : null;
+
+    public IEnumerable<T> Of<T>(IReadOnlyList<T> items) => items.Skip(Start).Take(End - Start);
 }
