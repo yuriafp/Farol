@@ -27,7 +27,10 @@ internal static class CheckRenderer
             [.. result.ChangedDuringLoad.Select(f => DisplayPath.From(root, f))],
             found,
             existing,
-            null);
+            null)
+        {
+            Analyzers = result.Analyzers is { } run ? new AnalyzersOutput(Math.Round(run.Elapsed.TotalSeconds, 2), run.Files, run.Analyzers, run.Failures, run.Unfinished) : null,
+        };
 
         if (scope == CheckScope.Changed && result.ChangedFiles.Count == 0)
         {
@@ -36,8 +39,30 @@ internal static class CheckRenderer
             return Output(new Page<DiagnosticItem>(0, 0, null, []), null);
         }
 
-        text.Line(result.New.Count == 0 ? "new since load: none — no errors or warnings introduced" : $"new since load: {Counts(result.New)}");
+        var partial = result.Analyzers is { } ran && (ran.Unfinished.Count > 0 || ran.Failures.Count > 0)
+            ? " (analyzers that failed or did not finish are not covered)"
+            : string.Empty;
+        text.Line(result.New.Count == 0 ? $"new since load: none — no errors or warnings introduced{partial}" : $"new since load: {Counts(result.New)}{partial}");
         text.Line(Checked(result, root, scope) + " · " + baseline);
+        if (result.Analyzers is { } analyzers)
+        {
+            text.Line(analyzers.Files == 0
+                ? "analyzers: no files to analyze (they run on the checked and edited files)"
+                : analyzers.Analyzers == 0
+                    ? analyzers.Failures.Count == 0 ? "analyzers: the checked projects reference none" : "analyzers: none could be loaded"
+                    : $"analyzers: {analyzers.Analyzers} on {analyzers.Files} file(s) in {analyzers.Elapsed.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture)} s");
+            foreach (var failure in analyzers.Failures.Take(5))
+            {
+                text.Line($"analyzer failed: {failure}");
+            }
+
+            text.More(analyzers.Failures.Count - Math.Min(5, analyzers.Failures.Count), "analyzer failures");
+
+            if (analyzers.Unfinished.Count > 0)
+            {
+                text.Line($"analyzers that did not finish in time (their findings are missing): {string.Join(", ", analyzers.Unfinished)} — raise Farol:AnalyzerTimeoutSeconds");
+            }
+        }
         if (result.ChangedDuringLoad.Count > 0)
         {
             var files = string.Join(", ", result.ChangedDuringLoad.Take(5).Select(f => DisplayPath.From(root, f)));
@@ -165,8 +190,14 @@ public sealed record CheckOutput(
     string? Hook,
     [property: System.ComponentModel.Description("False when nothing was checked (a hook answer while the workspace loads, or for a file Farol does not check): the empty lists then say nothing.")] bool Checked = true)
 {
+    /// <summary>The analyzer run, when analyzers were asked for.</summary>
+    public AnalyzersOutput? Analyzers { get; init; }
+
     /// <summary>A hook answer given before anything was checked: an empty result that carries the hook's JSON.</summary>
     public static CheckOutput ForHook(string json) => new("changed", 0, 0, null, [], [], [], [], new Page<DiagnosticItem>(0, 0, null, []), null, json, Checked: false);
 }
+
+/// <summary>How the analyzers ran: seconds, files, analyzers, the ones that threw, and the assemblies that did not finish in time.</summary>
+public sealed record AnalyzersOutput(double Seconds, int Files, int Analyzers, IReadOnlyList<string> Failures, IReadOnlyList<string> Unfinished);
 
 public sealed record DiagnosticItem(string? Location, string Severity, string Id, string Message, string Project, IReadOnlyList<string> TargetFrameworks);

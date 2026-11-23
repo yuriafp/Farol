@@ -96,6 +96,27 @@
   project's source files, references, packages and the errors of it and its dependents with before; a failed restore
   or a project without source files after the reload is never reported as the same.
 
+- 2026-11-18 — **Slice 5 done** (AC-58; AC-59's p95 is measured with the benchmarks of slice 10): `dotnet_check`
+  takes `analyzers` (default `Farol:CheckAnalyzers`, false), which runs the analyzers the checked projects reference
+  on the checked files: the file for `scope=file`, the project's files for `scope=project`, the bound and edited files
+  for `changed`, the edited files for `solution`. Severities are the build's (compilation options, `.editorconfig`,
+  warnings as errors); a file's analyzer diagnostics at load are its baseline, computed once per load like the
+  compiler's. Each analyzer assembly runs on its own under `Farol:AnalyzerTimeoutSeconds` (default 10; the baseline runs
+  beside the current pass under the same limit); the answer gives the analyzers' count, files and time, the analyzers that threw (with the exception)
+  and the assemblies that did not finish. The modern fixture raises CA1507 to an error in Modern.Core's
+  `.editorconfig`. After the second review: an assembly whose analyzers cannot be loaded, or that
+  throws outside an analyzer callback, is a failure; a group that ignores cancellation is abandoned one second after
+  the limit and named as unfinished; a load baseline that did not complete is reported ("at load: …") and not cached,
+  so the next check retries it; the verdict line says when coverage was partial. Per-file analysis does not run
+  compilation-end or symbol-end rules (e.g. CA1812, IDE0051): those stay with `dotnet_build`. After a third review
+  (Gemini 4 Neon via Antigravity, two rounds): an unresolved analyzer reference or an assembly that fails to load is named (Roslyn
+  reports these through `AnalyzerLoadFailed`, not by throwing); every assembly's suppressors run beside each assembly's
+  analyzers; findings of rules the load could not run are listed as existing, not new; a file Farol moved is compared
+  with its load path's baseline; `scope=changed` analyzes the bound files even when their project is also checked
+  whole; a failed or incomplete baseline entry leaves the cache when it ends, and a batch starts only once its call
+  has registered all its files; analyzer loads are cached per reference and language behind one lock; the verdict line
+  counts failures as partial coverage too.
+
 ## Problem
 
 Phase 1 made Farol answer from the compiler for legacy and modern .NET, and close the edit → check loop. Three limits

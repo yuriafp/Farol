@@ -26,12 +26,13 @@ public sealed class CheckTool(WorkspaceManager workspaces, IOptions<FarolEngineO
     [Description(
         "Compiler errors and warnings introduced since the workspace loaded — not the ones that were already there — in the edited files and in every " +
         "project their declaration changes can break, across C#, VB and every target framework. Call it after editing .cs/.vb files instead of " +
-        "building: edits on disk are picked up automatically, and it takes about a second. Covers compiler diagnostics; analyzer rules (CA/IDE) show up in dotnet_build.")]
+        "building: edits on disk are picked up automatically, and it takes about a second. With analyzers=true it also runs the projects' analyzers (CA and IDE rules, NuGet analyzers) on the checked files.")]
     public Task<CallToolResult> Run(
         [Description("changed (default): files edited since load, plus the projects that depend on their declarations · file: one file ('path') · project: one project ('project') · solution: every project")] string? scope = null,
         [Description("Source file for scope=file, relative to the root as responses write paths.")] string? path = null,
         [Description("Project name for scope=project, as dotnet_overview lists it.")] string? project = null,
         [Description("Also list, separately, the diagnostics that already existed when the workspace loaded. Default false.")] bool includeExisting = false,
+        [Description("Also run the projects' analyzers (CA/IDE rules, NuGet analyzers) on the checked files, as the build would report them; slower. Default: the server's Farol:CheckAnalyzers (false unless set).")] bool? analyzers = null,
         [Description("text (default), or hook: the JSON a Claude Code PostToolUse hook returns — the new errors as a blocking reason, new warnings as added context, {} when the edits are clean, a note while the workspace loads.")] string format = "text",
         [Description("For editor hooks: the file just edited, read before checking so the answer never lags the edit.")] string? edited = null,
         [McpHeader(ToolParameters.WorkspaceHeader), Description(ToolParameters.WorkspaceDescription)] string? workspace = null,
@@ -105,7 +106,7 @@ public sealed class CheckTool(WorkspaceManager workspaces, IOptions<FarolEngineO
                 SourceDocuments.Find(snapshot, fullPath, path!.Trim());
             }
 
-            var result = await DiagnosticCheck.RunAsync(snapshot, new CheckRequest(kind, fullPath, project, includeExisting), cancellationToken);
+            var result = await DiagnosticCheck.RunAsync(snapshot, new CheckRequest(kind, fullPath, project, includeExisting, analyzers ?? options.Value.CheckAnalyzers, TimeSpan.FromSeconds(Math.Clamp(options.Value.AnalyzerTimeoutSeconds, 1, 600))), cancellationToken);
             var text = new ResponseBuilder(maxTokens);
             var data = CheckRenderer.Render(text, result, snapshot, workspaces.RootDirectory, kind, offset);
             if (!hook)

@@ -42,6 +42,9 @@ internal static class Help
           --Farol:TestTimeoutMinutes <n>   The same, per test project run. Default: 20.
           --Farol:HookLoadWaitSeconds <n>  How long, from the start of a load, the edit hook waits for it.
                                            Default: 20; at most 30; 0 never waits.
+          --Farol:CheckAnalyzers true      Run the projects' analyzers in every dotnet_check, the edit
+                                           hook's included. Default: false (a call can pass analyzers=true).
+          --Farol:AnalyzerTimeoutSeconds <n>  How long one check's analyzers may run. Default: 10.
           -h, --help                       Show this help.
 
         Commands:

@@ -134,7 +134,13 @@
         "check.existing.nextOffset: integer|null",
         "check.existing.items: ref #/properties/check/properties/new/properties/items",
         "check.hook: string|null",
-        "check.checked: boolean"
+        "check.checked: boolean",
+        "check.analyzers: object|null",
+        "check.analyzers.seconds: number",
+        "check.analyzers.files: integer",
+        "check.analyzers.analyzers: integer",
+        "check.analyzers.failures: array",
+        "check.analyzers.unfinished: array"
       ]
     },
     {
@@ -148,6 +154,7 @@
         "path?: string|null",
         "project?: string|null",
         "includeExisting?: boolean",
+        "analyzers?: boolean|null",
         "format?: string",
         "edited?: string|null",
         "workspace?: string|null",
@@ -180,7 +187,13 @@
         "existing.nextOffset: integer|null",
         "existing.items: ref #/properties/new/properties/items",
         "hook: string|null",
-        "checked: boolean"
+        "checked: boolean",
+        "analyzers: object|null",
+        "analyzers.seconds: number",
+        "analyzers.files: integer",
+        "analyzers.analyzers: integer",
+        "analyzers.failures: array",
+        "analyzers.unfinished: array"
       ]
     },
     {
@@ -251,7 +264,13 @@
         "check.existing.nextOffset: integer|null",
         "check.existing.items: ref #/properties/check/properties/new/properties/items",
         "check.hook: string|null",
-        "check.checked: boolean"
+        "check.checked: boolean",
+        "check.analyzers: object|null",
+        "check.analyzers.seconds: number",
+        "check.analyzers.files: integer",
+        "check.analyzers.analyzers: integer",
+        "check.analyzers.failures: array",
+        "check.analyzers.unfinished: array"
       ]
     },
     {
@@ -395,7 +414,13 @@
         "check.existing.nextOffset: integer|null",
         "check.existing.items: ref #/properties/check/properties/new/properties/items",
         "check.hook: string|null",
-        "check.checked: boolean"
+        "check.checked: boolean",
+        "check.analyzers: object|null",
+        "check.analyzers.seconds: number",
+        "check.analyzers.files: integer",
+        "check.analyzers.analyzers: integer",
+        "check.analyzers.failures: array",
+        "check.analyzers.unfinished: array"
       ]
     },
     {
@@ -646,7 +671,13 @@
         "check.existing.nextOffset: integer|null",
         "check.existing.items: ref #/properties/check/properties/new/properties/items",
         "check.hook: string|null",
-        "check.checked: boolean"
+        "check.checked: boolean",
+        "check.analyzers: object|null",
+        "check.analyzers.seconds: number",
+        "check.analyzers.files: integer",
+        "check.analyzers.analyzers: integer",
+        "check.analyzers.failures: array",
+        "check.analyzers.unfinished: array"
       ]
     },
     {
@@ -914,7 +945,13 @@
         "check.existing.nextOffset: integer|null",
         "check.existing.items: ref #/properties/check/properties/new/properties/items",
         "check.hook: string|null",
-        "check.checked: boolean"
+        "check.checked: boolean",
+        "check.analyzers: object|null",
+        "check.analyzers.seconds: number",
+        "check.analyzers.files: integer",
+        "check.analyzers.analyzers: integer",
+        "check.analyzers.failures: array",
+        "check.analyzers.unfinished: array"
       ]
     },
     {

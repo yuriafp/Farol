@@ -18,6 +18,7 @@ internal sealed class DiagnosticBaseline
     private readonly Solution _loaded;
     private readonly ConcurrentDictionary<ProjectId, Lazy<Task<DiagnosticSet>>> _projects = new();
     private readonly ConcurrentDictionary<DocumentId, Lazy<Task<DiagnosticSet>>> _documents = new();
+    private readonly ConcurrentDictionary<DocumentId, Lazy<Task<AnalyzerBaseline>>> _analyzerDocuments = new();
 
     private DiagnosticBaseline(Solution loaded)
     {
@@ -33,6 +34,98 @@ internal sealed class DiagnosticBaseline
 
     public Task<DiagnosticSet> DocumentAsync(DocumentId id, CancellationToken cancellationToken) =>
         _documents.GetOrAdd(id, key => new Lazy<Task<DiagnosticSet>>(() => Task.Run(() => ComputeAsync(_loaded.GetDocument(key))))).Value.WaitAsync(cancellationToken);
+
+    /// <summary>
+    /// The analyzer diagnostics at load of files of one project, computed in one analyzer run for the files not known
+    /// yet and kept for the load. A run where an analyzer failed or did not finish, or that threw, is dropped from the
+    /// cache as soon as it ends: the next check tries again.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<DocumentId, AnalyzerBaseline>> AnalyzerDocumentsAsync(ProjectId project, IReadOnlyList<DocumentId> ids, TimeSpan limit, CancellationToken cancellationToken)
+    {
+        var wanted = ids.Distinct().ToList();
+        var won = new List<DocumentId>();
+        var registered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var batch = new Lazy<Task<Dictionary<DocumentId, AnalyzerBaseline>>>(() => Task.Run(async () =>
+        {
+            // Another check may reach an entry of this call before the loop below ends: the batch waits for the full list.
+            await registered.Task;
+            return await ComputeAnalyzersAsync(project, [.. won], limit);
+        }));
+        var entries = new List<(DocumentId Id, Lazy<Task<AnalyzerBaseline>> Entry)>();
+        try
+        {
+            foreach (var id in wanted)
+            {
+                var mine = Entry(id, async () => (await batch.Value)[id]);
+                var entry = _analyzerDocuments.GetOrAdd(id, mine);
+                if (ReferenceEquals(entry, mine))
+                {
+                    won.Add(id);
+                }
+
+                entries.Add((id, entry));
+            }
+        }
+        finally
+        {
+            registered.TrySetResult();
+        }
+
+        // The batch starts only now, with the files this call registered; the others are already computing elsewhere.
+        var results = await Task.WhenAll(entries.Select(e => e.Entry.Value)).WaitAsync(cancellationToken);
+        return entries.Select((e, i) => (e.Id, Result: results[i])).ToDictionary(x => x.Id, x => x.Result);
+    }
+
+    private Lazy<Task<AnalyzerBaseline>> Entry(DocumentId id, Func<Task<AnalyzerBaseline>> compute)
+    {
+        Lazy<Task<AnalyzerBaseline>>? entry = null;
+        entry = new Lazy<Task<AnalyzerBaseline>>(async () =>
+        {
+            try
+            {
+                var result = await compute();
+                if (!result.Complete)
+                {
+                    _analyzerDocuments.TryRemove(new KeyValuePair<DocumentId, Lazy<Task<AnalyzerBaseline>>>(id, entry!));
+                }
+
+                return result;
+            }
+            catch
+            {
+                _analyzerDocuments.TryRemove(new KeyValuePair<DocumentId, Lazy<Task<AnalyzerBaseline>>>(id, entry!));
+                throw;
+            }
+        });
+        return entry;
+    }
+
+    private async Task<Dictionary<DocumentId, AnalyzerBaseline>> ComputeAnalyzersAsync(ProjectId id, List<DocumentId> ids, TimeSpan limit)
+    {
+        var none = new AnalyzerBaseline(DiagnosticSet.Empty, [], [], new HashSet<string>(StringComparer.Ordinal));
+        var result = ids.ToDictionary(d => d, _ => none);
+        if (_loaded.GetProject(id) is not { } project || await project.GetCompilationAsync() is not { } compilation)
+        {
+            return result;
+        }
+
+        var trees = new List<(DocumentId Id, SyntaxTree Tree)>();
+        foreach (var documentId in ids)
+        {
+            if (project.GetDocument(documentId) is { } document && await document.GetSyntaxTreeAsync() is { } tree)
+            {
+                trees.Add((documentId, tree));
+            }
+        }
+
+        var run = await AnalyzerDiagnostics.ForTreesAsync(project, compilation, [.. trees.Select(t => t.Tree)], limit, CancellationToken.None);
+        foreach (var (documentId, tree) in trees)
+        {
+            result[documentId] = new AnalyzerBaseline(DiagnosticSet.From([.. run.Diagnostics.Where(d => d.Location.SourceTree == tree)]), run.Failures, run.Unfinished, run.Uncovered);
+        }
+
+        return result;
+    }
 
     private static async Task<DiagnosticSet> ComputeAsync(Project? project) =>
         project is null ? DiagnosticSet.Empty : DiagnosticSet.From(await CompilerDiagnostics.ForProjectAsync(project, CancellationToken.None));

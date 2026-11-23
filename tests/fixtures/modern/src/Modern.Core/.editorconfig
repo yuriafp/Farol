@@ -1,0 +1,3 @@
+[*.cs]
+# A CA rule raised to an error, as a team that treats warnings as errors has it (spec 002, AC-58).
+dotnet_diagnostic.CA1507.severity = error

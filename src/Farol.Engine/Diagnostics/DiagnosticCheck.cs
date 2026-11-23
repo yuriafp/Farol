@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Globalization;
 using Farol.Core;
 using Farol.Engine.Workspaces;
@@ -66,6 +67,67 @@ public static class DiagnosticCheck
             found.Add((id.ProjectId, fresh, existing));
         });
 
+        AnalyzerRun? analyzerRun = null;
+        if (request.Analyzers)
+        {
+            var limit = request.AnalyzerLimit ?? DefaultAnalyzerLimit;
+            var tally = new AnalyzerDiagnostics.Tally();
+            var targets = AnalyzerTargets(snapshot, plan, request.Scope);
+            await Parallel.ForEachAsync(targets.GroupBy(id => id.ProjectId), options, async (group, token) =>
+            {
+                if (solution.GetProject(group.Key) is not { } project || await compilations.GetAsync(group.Key, token) is not { } compilation)
+                {
+                    return;
+                }
+
+                // The trees of the compilation the files are bound against: the current one for an edited project, else the load's.
+                var source = compilations.IsEdited(group.Key) ? solution : loaded;
+                var documents = new List<(DocumentId Id, SyntaxTree Tree)>();
+                foreach (var id in group)
+                {
+                    if (source.GetDocument(id) is { } document && await document.GetSyntaxTreeAsync(token) is { } tree)
+                    {
+                        documents.Add((id, tree));
+                    }
+                }
+
+                // The load's analyzer diagnostics of these files (a moved file's under its load path) are computed beside
+                // the current ones, under the same limit.
+                var atLoadIds = documents.ToDictionary(d => d.Id, d => AtLoad(snapshot, loaded, group.Key, d.Id, d.Tree.FilePath));
+                var atLoad = baseline.AnalyzerDocumentsAsync(group.Key, [.. atLoadIds.Values.OfType<DocumentId>()], limit, token);
+                var pass = AnalyzerDiagnostics.ForTreesAsync(project, compilation, [.. documents.Select(d => d.Tree)], limit, token);
+                await Task.WhenAll(atLoad, pass);
+                var (before, run) = (atLoad.Result, pass.Result);
+                tally.Add(
+                    documents.Select(d => d.Tree.FilePath),
+                    run.Analyzers,
+                    run.Failures.Concat(before.Values.SelectMany(b => b.Failures).Select(p => $"at load: {p}")),
+                    run.Unfinished.Concat(before.Values.SelectMany(b => b.Unfinished).Select(p => $"at load: {p}")));
+                foreach (var (id, tree) in documents)
+                {
+                    var current = run.Diagnostics.Where(d => d.Location.SourceTree == tree).ToImmutableArray();
+                    if (current.IsEmpty)
+                    {
+                        continue;
+                    }
+
+                    var known = atLoadIds[id] is { } loadId && before.TryGetValue(loadId, out var b) ? b : null;
+                    var (fresh, existing) = WithUnseenAsNew((known?.Diagnostics ?? DiagnosticSet.Empty).Split(current, rewrites), unseen);
+
+                    // A rule the load could not run (it threw or ran out of time there) has no baseline: its findings are not called new.
+                    if (known is { Uncovered.Count: > 0 } && !unseen.Contains(tree.FilePath, StringComparer.OrdinalIgnoreCase))
+                    {
+                        existing = [.. existing, .. fresh.Where(d => known.Uncovered.Contains(d.Id))];
+                        fresh = [.. fresh.Where(d => !known.Uncovered.Contains(d.Id))];
+                    }
+
+                    found.Add((group.Key, fresh, existing));
+                }
+            });
+
+            analyzerRun = tally.Finish();
+        }
+
         return new CheckResult(
             Merge(snapshot, found.SelectMany(f => f.New.Select(d => (f.Project, d)))),
             request.IncludeExisting ? Merge(snapshot, found.SelectMany(f => f.Existing.Select(d => (f.Project, d)))) : [],
@@ -73,7 +135,60 @@ public static class DiagnosticCheck
             [.. plan.Projects.Select(id => ProjectName(snapshot, id)).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)],
             [.. plan.Documents.Select(id => solution.GetDocument(id)?.FilePath).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)],
             [.. unseen.Where(path => solution.GetDocumentIdsWithFilePath(path).Any(id => plan.Projects.Contains(id.ProjectId) || plan.Documents.Contains(id)))
-                .Order(StringComparer.OrdinalIgnoreCase)]);
+                .Order(StringComparer.OrdinalIgnoreCase)])
+        {
+            Analyzers = analyzerRun,
+        };
+    }
+
+    /// <summary>The time analyzers get on one check, unless Farol:AnalyzerTimeoutSeconds says otherwise.</summary>
+    public static readonly TimeSpan DefaultAnalyzerLimit = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// The files analyzers run on: the one file, the project's files, or the files the check binds plus the edited
+    /// ones (the whole solution would take minutes; its edited files are what a change can break).
+    /// </summary>
+    private static List<DocumentId> AnalyzerTargets(WorkspaceSnapshot snapshot, CheckPlan plan, CheckScope scope)
+    {
+        var solution = snapshot.Solution;
+        IEnumerable<DocumentId> targets = scope switch
+        {
+            CheckScope.File => plan.Documents,
+            CheckScope.Project => plan.Projects.SelectMany(id => solution.GetProject(id)?.DocumentIds ?? []),
+            CheckScope.Changed => plan.Bound.Concat(Edited(snapshot)),
+            _ => Edited(snapshot),
+        };
+        return [.. targets.Distinct()];
+    }
+
+    /// <summary>The file's document in the loaded solution: the same id, or for a file Farol moved, the document at its load path.</summary>
+    private static DocumentId? AtLoad(WorkspaceSnapshot snapshot, Solution loaded, ProjectId project, DocumentId id, string? path)
+    {
+        if (loaded.GetDocument(id) is not null)
+        {
+            return id;
+        }
+
+        var moves = snapshot.Load.Moves.ToArray();
+        var moved = false;
+        for (var i = moves.Length - 1; path is not null && i >= 0; i--)
+        {
+            if (string.Equals(moves[i].To, path, StringComparison.OrdinalIgnoreCase))
+            {
+                path = moves[i].From;
+                moved = true;
+            }
+        }
+
+        return moved && path is not null ? loaded.GetDocumentIdsWithFilePath(path).FirstOrDefault(d => d.ProjectId == project) : null;
+    }
+
+    private static IEnumerable<DocumentId> Edited(WorkspaceSnapshot snapshot)
+    {
+        var current = snapshot.Solution;
+        var changes = current.GetChanges(snapshot.Load.Solution).GetProjectChanges();
+        return changes.SelectMany(p => p.GetChangedDocuments(onlyGetDocumentsWithTextChanges: true).Concat(p.GetAddedDocuments()))
+            .Concat(snapshot.Load.ChangedDuringLoad.SelectMany(path => current.GetDocumentIdsWithFilePath(path)));
     }
 
     /// <summary>
@@ -174,7 +289,7 @@ public static class DiagnosticCheck
             }
         }
 
-        return new CheckPlan([.. projects], [.. documents.Where(d => !projects.Contains(d.ProjectId))], [.. changedFiles]);
+        return new CheckPlan([.. projects], [.. documents.Where(d => !projects.Contains(d.ProjectId))], [.. changedFiles]) { Bound = [.. documents] };
     }
 
     // Edits inside bodies cannot change what other files or projects bind to; const initializers count as declarations.
@@ -258,5 +373,9 @@ public static class DiagnosticCheck
         }
     }
 
-    private sealed record CheckPlan(IReadOnlyList<ProjectId> Projects, IReadOnlyList<DocumentId> Documents, IReadOnlyList<string> ChangedFiles);
+    private sealed record CheckPlan(IReadOnlyList<ProjectId> Projects, IReadOnlyList<DocumentId> Documents, IReadOnlyList<string> ChangedFiles)
+    {
+        /// <summary>The files a change binds, before those of wholly checked projects are folded into them; analyzers run on these.</summary>
+        public IReadOnlyList<DocumentId> Bound { get; init; } = Documents;
+    }
 }

@@ -11,8 +11,11 @@ public enum CheckScope
     Solution,
 }
 
-/// <summary>What dotnet_check looks at. <paramref name="IncludeExisting"/> also returns what was already there at load.</summary>
-public sealed record CheckRequest(CheckScope Scope, string? FilePath = null, string? Project = null, bool IncludeExisting = false);
+/// <summary>
+/// What dotnet_check looks at. <paramref name="IncludeExisting"/> also returns what was already there at load;
+/// <paramref name="Analyzers"/> runs the projects' analyzers on the checked files too, within <paramref name="AnalyzerLimit"/>.
+/// </summary>
+public sealed record CheckRequest(CheckScope Scope, string? FilePath = null, string? Project = null, bool IncludeExisting = false, bool Analyzers = false, TimeSpan? AnalyzerLimit = null);
 
 /// <summary>One compiler diagnostic. Found in several target frameworks of a project, it is one entry listing them.</summary>
 public sealed record DiagnosticEntry(
@@ -37,4 +40,8 @@ public sealed record CheckResult(
     IReadOnlyList<string> ChangedFiles,
     IReadOnlyList<string> CheckedProjects,
     IReadOnlyList<string> CheckedFiles,
-    IReadOnlyList<string> ChangedDuringLoad);
+    IReadOnlyList<string> ChangedDuringLoad)
+{
+    /// <summary>The analyzer run, when the request asked for analyzers.</summary>
+    public AnalyzerRun? Analyzers { get; init; }
+}

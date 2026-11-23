@@ -43,6 +43,12 @@ public sealed class FarolEngineOptions
 
     public const int MaxHookLoadWaitSeconds = 30;
 
+    /// <summary>Whether dotnet_check runs the projects' analyzers when a call does not say (the edit hook included). Off by default.</summary>
+    public bool CheckAnalyzers { get; set; }
+
+    /// <summary>How long the analyzers of one dotnet_check may run; those still running then are named in the answer.</summary>
+    public int AnalyzerTimeoutSeconds { get; set; } = 10;
+
     /// <summary>Global MSBuild properties for design-time builds, e.g. Configuration=Release.</summary>
     public IDictionary<string, string> MSBuildProperties { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 }
