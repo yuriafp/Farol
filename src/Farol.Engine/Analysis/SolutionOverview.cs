@@ -24,7 +24,11 @@ public sealed record SolutionOverview(
     IReadOnlyList<ProjectOverview> Projects,
     bool CentralPackageManagement,
     string? GlobalJsonSdk,
-    IReadOnlyList<string> BindingRedirectFiles);
+    IReadOnlyList<string> BindingRedirectFiles)
+{
+    /// <summary>The loader of the workspace ("msbuild-workspace" or "heuristic"), when it is loaded.</summary>
+    public string? Loader { get; init; }
+}
 
 public static class TargetFrameworkNames
 {

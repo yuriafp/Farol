@@ -12,7 +12,7 @@ end (0.2.0), after the exit criteria.
 | 3 | `dotnet_change_signature`, `dotnet_move_type`, `dotnet_extract_method`, C# and VB | AC-62 – AC-64 | done |
 | 4 | `dotnet_convert_project`: classic → SDK-style keeping the target framework, packages.config → PackageReference, then a reload | AC-66, AC-67 | done |
 | 5 | Project analyzers in `dotnet_check` (`analyzers`, `Farol:CheckAnalyzers`, the hook), with a time limit and the analyzers' time in the answer; a fixture project with a CA rule as error | AC-58, AC-59 | done (benchmark p95 measured at slice 10) |
-| 6 | Heuristic loader: project files, packages, reference assemblies from `Microsoft.NETFramework.ReferenceAssemblies`, markup; chosen when no MSBuild can evaluate .NET Framework projects; `check` with the note, build and test refused; Linux CI job | AC-54, AC-55, AC-57, AC-70 | not started |
+| 6 | Heuristic loader: project files, packages, reference assemblies from `Microsoft.NETFramework.ReferenceAssemblies`, markup; chosen when no MSBuild can evaluate .NET Framework projects; `check` with the note, build and test refused; Linux CI job | AC-54, AC-55, AC-57, AC-70 | done |
 | 7 | Binary-log loader (`workspace` or `Farol:Binlog`), from the compiler invocations the log records | AC-56 | not started |
 | 8 | Persistent index: SQLite store, written after the load and warm-up and kept up to date in the background, read at startup; index answers for navigation and `dotnet_overview`, with the files changed since; retention, `Farol:Index`, corrupt or old indexes; startup benchmark on both corpora | AC-50 – AC-53 | not started |
 | 9 | MCP Registry: a workflow publishes `server.json` with GitHub OIDC on a published release; a test checks `server.json` against the Registry's schema | AC-69 | not started |

@@ -35,10 +35,11 @@ public sealed class ModernPackageTests(ModernWorkspaceFixture fixture)
         var core = Assert.Single(PackageInventory.Read(fixture.Snapshot, Context, "Modern.Core"));
 
         Assert.Equal(["net10.0", "net48"], core.Frameworks);
-        var json = Assert.Single(core.Packages, p => p.IsDirect);
+        // Without a .NET Framework targeting pack (Linux), the SDK also references Microsoft.NETFramework.ReferenceAssemblies implicitly.
+        var json = Assert.Single(core.Packages, p => p.IsDirect && !p.IsImplicit);
         Assert.Equal(("System.Text.Json", "8.0.4"), (json.Id, json.Version.ToNormalizedString()));
         Assert.Equal(["net48"], json.Frameworks);
-        Assert.All(core.Packages.Where(p => !p.IsDirect), p => Assert.Equal(["System.Text.Json"], p.Via.Take(1)));
+        Assert.All(core.Packages.Where(p => !p.IsDirect && !p.Id.StartsWith("Microsoft.NETFramework.ReferenceAssemblies", StringComparison.Ordinal)), p => Assert.Equal(["System.Text.Json"], p.Via.Take(1)));
     }
 
     [Fact]

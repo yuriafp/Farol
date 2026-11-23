@@ -27,7 +27,10 @@ public static class SolutionOverviewBuilder
             projects,
             UsesCentralPackageManagement(target.Directory),
             ReadGlobalJsonSdk(target.Directory),
-            FindBindingRedirects(projects));
+            FindBindingRedirects(projects))
+        {
+            Loader = report?.Loader,
+        };
     }
 
     private static ProjectOverview DescribeProject(string path, List<Project> variants, Solution solution, LoadReport? report)

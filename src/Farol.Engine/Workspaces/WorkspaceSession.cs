@@ -30,7 +30,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     // File times can lag the clock by a timer tick: a file written as the load starts may carry a slightly earlier time.
     private static readonly TimeSpan FileTimeSlack = TimeSpan.FromSeconds(1);
 
-    private readonly MSBuildWorkspaceLoader _loader;
+    private readonly WorkspaceLoader _loader;
     private readonly IReadOnlyDictionary<string, string> _properties;
     private readonly ILogger _logger;
     private readonly IUsageLog _usage;
@@ -61,7 +61,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     private long _warmedInTicks = -1;
     private long _lastLoadTicks = -1;
 
-    internal WorkspaceSession(WorkspaceTarget target, MSBuildWorkspaceLoader loader, IReadOnlyDictionary<string, string> properties, ILogger logger, IUsageLog usage)
+    internal WorkspaceSession(WorkspaceTarget target, WorkspaceLoader loader, IReadOnlyDictionary<string, string> properties, ILogger logger, IUsageLog usage)
     {
         Target = target;
         _loader = loader;
@@ -401,7 +401,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
 
                 _loaded = loaded;
                 _watcher = watcher;
-                _snapshot = new WorkspaceSnapshot(loaded.Solution, 1, projects, new WorkspaceLoad(loaded.Solution, DateTimeOffset.UtcNow, changedDuringLoad), Target);
+                _snapshot = new WorkspaceSnapshot(loaded.Solution, 1, projects, new WorkspaceLoad(loaded.Solution, DateTimeOffset.UtcNow, changedDuringLoad) { Loader = loaded.Report.Loader }, Target);
                 _warmupStartedAt = DateTimeOffset.UtcNow;
                 _warmedInTicks = -1;
                 _lastLoadTicks = loaded.Report.Elapsed.Ticks;

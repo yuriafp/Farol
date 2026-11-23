@@ -115,13 +115,13 @@ public sealed class TestCommandsTests
     [Fact]
     public void Only_frames_in_user_code_are_kept_in_any_language()
     {
-        const string root = @"C:\repo";
-        const string trace = """
+        var root = Native(@"C:\repo");
+        var trace = Native("""
                at App.Core.Pricing.Total(Decimal price) in C:\repo\src\Pricing.cs:line 19
                at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
                em App.Tests.PriceTests.Total() na C:\repo\tests\PriceTests.cs:linha 16
                at Xunit.Sdk.Runner.Run() in C:\agent\xunit\src\Runner.cs:line 300
-            """;
+            """);
 
         var frames = StackFrames.InUserCode(trace, root, path => path.StartsWith(root, StringComparison.OrdinalIgnoreCase));
 
@@ -133,11 +133,11 @@ public sealed class TestCommandsTests
     [Fact]
     public void Console_output_is_the_fallback_when_the_binary_log_cannot_be_read()
     {
-        const string output = """
+        var output = Native("""
             C:\repo\src\Core\Price.cs(19,20): error CS0019: Operator '*' cannot be applied [C:\repo\src\Core\Core.csproj::TargetFramework=net48]
             C:\repo\src\Core\Price.cs(19,20): error CS0019: Operator '*' cannot be applied [C:\repo\src\Core\Core.csproj::TargetFramework=net10.0]
             C:\repo\src\Core\Old.cs(3,7): warning CS0618: 'Old' is obsolete [C:\repo\src\Core\Core.csproj]
-            """;
+            """);
 
         var (errors, warnings) = BuildLogReader.ReadConsoleOutput(output).Issues();
 
@@ -146,6 +146,10 @@ public sealed class TestCommandsTests
         Assert.Equal(["net10.0", "net48"], error.TargetFrameworks);
         Assert.Equal("CS0618", Assert.Single(warnings).Code);
     }
+
+    // Paths as the platform writes them: runners and MSBuild print Windows paths on Windows only.
+    private static string Native(string text) =>
+        OperatingSystem.IsWindows() ? text : text.Replace(@"C:\", "/", StringComparison.Ordinal).Replace('\\', '/');
 
     private static TestProjectInfo Project(string framework) =>
         new("App.Tests", @"C:\repo\tests\App.Tests\App.Tests.csproj", IsSdkStyle: true, [framework], [Variant]);

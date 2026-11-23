@@ -37,6 +37,8 @@ public static class EngineServiceCollectionExtensions
         services.AddSingleton(sp => new ServerPermissions(sp.GetRequiredService<IOptions<FarolEngineOptions>>().Value.ReadOnly));
         services.AddSingleton<ToolchainProbe>();
         services.AddSingleton<MSBuildWorkspaceLoader>();
+        services.AddSingleton<HeuristicWorkspaceLoader>();
+        services.AddSingleton<WorkspaceLoader>();
         services.AddSingleton<WorkspaceManager>();
         services.AddSingleton<BuildRunner>();
         services.AddSingleton<TestRunner>();

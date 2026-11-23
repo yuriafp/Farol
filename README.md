@@ -40,6 +40,7 @@ Symbols can be passed as names, dotted names, documentation comment IDs from ear
 
 - .NET 10 SDK (it provides `dnx`, which runs Farol from NuGet without installing it).
 - Classic .NET Framework projects: Windows with Visual Studio 2022+ or Build Tools (full fidelity comes from Visual Studio's MSBuild); running their tests also needs Visual Studio's testing tools (`vstest.console.exe`).
+- Without that MSBuild (on Linux or macOS, or on Windows without Visual Studio or Build Tools), Farol loads classic projects heuristically: it reads the project files directly and compiles against the .NET Framework reference assemblies (the `Microsoft.NETFramework.ReferenceAssemblies` packages, downloaded into the NuGet cache on the first load). Navigation and `dotnet_check` work; code MSBuild targets generate (XAML code-behind parts) is missing, and `dotnet_build` and `dotnet_test` need MSBuild. Answers say when a load is heuristic.
 
 ## Install
 
@@ -129,6 +130,7 @@ To run a local build instead, point the client at the host assembly:
 | `Farol:BuildTimeoutMinutes` | `--Farol:BuildTimeoutMinutes 30` | `15` | A longer build is stopped with its whole process tree. |
 | `Farol:TestTimeoutMinutes` | `--Farol:TestTimeoutMinutes 30` | `20` | The same, per test project run. |
 | `Farol:HookLoadWaitSeconds` | `--Farol:HookLoadWaitSeconds 0` | `20` | How long, from the start of a workspace load, the plugin's edit hook waits for the load before it answers that the edit is checked once the load is done. At most 30; `0` never waits. |
+| `Farol:Loader` | `--Farol:Loader heuristic` | `auto` | Which loader opens workspaces: `auto` uses MSBuild when it can evaluate every project and the heuristic loader otherwise; `msbuild` or `heuristic` forces one. |
 | `Farol:CheckAnalyzers` | `--Farol:CheckAnalyzers true` | `false` | Run the projects' analyzers in every `dotnet_check` that does not pass `analyzers`, the plugin's edit hook included. |
 | `Farol:AnalyzerTimeoutSeconds` | `--Farol:AnalyzerTimeoutSeconds 30` | `10` | How long one check's analyzers may run; the answer names the analyzer assemblies that did not finish. |
 

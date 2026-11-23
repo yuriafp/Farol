@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Farol.Engine.Loading;
 
-public sealed record LoadedWorkspace(MSBuildWorkspace Workspace, Solution Solution, LoadReport Report);
+public sealed record LoadedWorkspace(Workspace Workspace, Solution Solution, LoadReport Report);
 
 /// <summary>
 /// Loads solutions through Roslyn's MSBuildWorkspace. MSBuild runs out of process in a BuildHost:
@@ -42,22 +42,13 @@ public sealed partial class MSBuildWorkspaceLoader(ToolchainProbe toolchain, ILo
             onProgress?.Invoke(p);
         });
 
-        var global = new Dictionary<string, string>(properties, StringComparer.OrdinalIgnoreCase);
-        if (!global.ContainsKey("VSToolsPath") && await VisualStudioToolsPathAsync(target.Directory, cancellationToken) is { } vsTools)
-        {
-            global["VSToolsPath"] = vsTools;
-        }
-
-        var workspace = MSBuildWorkspace.Create(global);
+        var workspace = await CreateAsync(target, properties, cancellationToken);
         try
         {
             var solution = target.Kind == WorkspaceTargetKind.Project
                 ? (await workspace.OpenProjectAsync(target.Path, progress, cancellationToken)).Solution
                 : await workspace.OpenSolutionAsync(target.Path, progress, cancellationToken);
-            (solution, var missingAnalyzers) = WithoutUnresolvedAnalyzers(solution);
-            (solution, var newerAnalyzers) = AnalyzerCompatibility.WithRunnableAnalyzers(solution, target.Directory);
-            (solution, var uncopiedAnalyzers) = AnalyzerCopies.WithCopies(solution);
-            await ReadAllTextAsync(solution, cancellationToken);
+            (solution, var prepared) = await PrepareAsync(solution, target.Directory, cancellationToken);
             stopwatch.Stop();
 
             var report = new LoadReport(
@@ -70,7 +61,7 @@ public sealed partial class MSBuildWorkspaceLoader(ToolchainProbe toolchain, ILo
                     kv => kv.Key,
                     kv => (IReadOnlyList<string>)[.. kv.Value.Keys.Order(StringComparer.OrdinalIgnoreCase)],
                     StringComparer.OrdinalIgnoreCase),
-                Issues: [.. Issues(workspace.Diagnostics, solution), .. missingAnalyzers, .. newerAnalyzers, .. uncopiedAnalyzers]);
+                Issues: [.. Issues(workspace.Diagnostics, solution), .. prepared]);
 
             LogLoaded(logger, target.Path, report.ProjectFiles, report.Documents, report.Issues.Count, report.Elapsed);
             return new LoadedWorkspace(workspace, solution, report);
@@ -81,6 +72,34 @@ public sealed partial class MSBuildWorkspaceLoader(ToolchainProbe toolchain, ILo
             throw;
         }
     }
+
+    /// <summary>An MSBuildWorkspace with the load's global properties, and VSToolsPath when Visual Studio has one.</summary>
+    internal async Task<MSBuildWorkspace> CreateAsync(WorkspaceTarget target, IReadOnlyDictionary<string, string> properties, CancellationToken cancellationToken)
+    {
+        var global = new Dictionary<string, string>(properties, StringComparer.OrdinalIgnoreCase);
+        if (!global.ContainsKey("VSToolsPath") && await VisualStudioToolsPathAsync(target.Directory, cancellationToken) is { } vsTools)
+        {
+            global["VSToolsPath"] = vsTools;
+        }
+
+        return MSBuildWorkspace.Create(global);
+    }
+
+    /// <summary>
+    /// What every load does to the solution it opened: analyzers that do not exist or cannot run in this compiler are
+    /// dropped (with an issue), the others are copied so builds can replace them, and all text is read now.
+    /// </summary>
+    internal static async Task<(Solution Solution, List<LoadIssue> Issues)> PrepareAsync(Solution solution, string directory, CancellationToken cancellationToken)
+    {
+        (solution, var missingAnalyzers) = WithoutUnresolvedAnalyzers(solution);
+        (solution, var newerAnalyzers) = AnalyzerCompatibility.WithRunnableAnalyzers(solution, directory);
+        (solution, var uncopiedAnalyzers) = AnalyzerCopies.WithCopies(solution);
+        await ReadAllTextAsync(solution, cancellationToken);
+        return (solution, [.. missingAnalyzers, .. newerAnalyzers, .. uncopiedAnalyzers]);
+    }
+
+    /// <summary>MSBuildWorkspace's diagnostics as load issues (see <see cref="Issues(IEnumerable{WorkspaceDiagnostic}, Solution)"/>).</summary>
+    internal static List<LoadIssue> IssuesOf(MSBuildWorkspace workspace, Solution solution) => Issues(workspace.Diagnostics, solution);
 
     /// <summary>
     /// MSBuildWorkspace reports every message of a design-time build as a failure, warnings included. Design-time builds

@@ -30,9 +30,10 @@ public sealed class PackageToolsTests(ModernCopyFixture modern) : IClassFixture<
             text,
             StringComparison.Ordinal);
         Assert.Contains("- transitive Microsoft.IdentityModel.Protocols.OpenIdConnect 7.0.3 · deprecated (legacy, critical bugs) · via Microsoft.AspNetCore.Authentication.JwtBearer", text, StringComparison.Ordinal);
-        Assert.Contains("Modern.Core (net10.0, net48) · versions in Directory.Packages.props · 1 direct, 8 transitive", text, StringComparison.Ordinal);
+        // Without a .NET Framework targeting pack (Linux), the SDK adds Microsoft.NETFramework.ReferenceAssemblies (and its net48 package) implicitly.
+        Assert.Matches(OperatingSystem.IsWindows() ? @"Modern\.Core \(net10\.0, net48\) · versions in Directory\.Packages\.props · 1 direct, 8 transitive" : @"Modern\.Core \(net10\.0, net48\) · versions in Directory\.Packages\.props · 2 direct, \d+ transitive", text);
         Assert.Matches(@"- System\.Text\.Json 8\.0\.4 · net48 · vulnerable: high GHSA-8g4q-xg66-9fp4 · latest \d+", text);
-        Assert.Contains("  other transitive (8): Microsoft.Bcl.AsyncInterfaces 8.0.0 (net48),", text, StringComparison.Ordinal);
+        Assert.Matches(@"  other transitive \(\d+\): Microsoft\.Bcl\.AsyncInterfaces 8\.0\.0 \(net48\),", text);
         Assert.Contains("- xunit.v3 4.0.1", text, StringComparison.Ordinal);
     }
 

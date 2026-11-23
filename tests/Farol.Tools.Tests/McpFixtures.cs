@@ -94,6 +94,15 @@ public sealed class LegacyServer : IAsyncDisposable
         return new LegacyServer(copy, harness);
     }
 
+    /// <summary>The legacy fixture loaded by the heuristic loader, which needs no MSBuild: runs on every OS.</summary>
+    public static async Task<LegacyServer> StartHeuristicAsync()
+    {
+        var copy = FixtureCopy.Create(TestPaths.LegacyDirectory);
+        var harness = await McpHarness.StartAsync(copy.Root, Ct, o => o.Loader = "heuristic");
+        await harness.CallAsync("dotnet_workspace", new() { ["action"] = "load" }, Ct);
+        return new LegacyServer(copy, harness);
+    }
+
     public async Task<string> CallAsync(string tool, Dictionary<string, object?> arguments)
     {
         var (isError, text) = await Harness!.CallAsync(tool, arguments, Ct);

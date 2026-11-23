@@ -45,6 +45,8 @@ internal static class Help
           --Farol:CheckAnalyzers true      Run the projects' analyzers in every dotnet_check, the edit
                                            hook's included. Default: false (a call can pass analyzers=true).
           --Farol:AnalyzerTimeoutSeconds <n>  How long one check's analyzers may run. Default: 10.
+          --Farol:Loader auto|msbuild|heuristic  Which loader opens workspaces. Default: auto (MSBuild when it
+                                           can evaluate every project, else classic projects are read directly).
           -h, --help                       Show this help.
 
         Commands:

@@ -30,3 +30,21 @@ jobs:
 
       - name: Test
         run: dotnet test --solution Farol.slnx -c Release --no-build
+
+  linux:
+    # Linux has no MSBuild that can evaluate .NET Framework projects: the legacy fixtures load through the heuristic
+    # loader (spec 002, AC-70), and the tests that need Visual Studio's MSBuild skip themselves.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build Farol.slnx -c Release
+
+      - name: Test
+        run: dotnet test --solution Farol.slnx -c Release --no-build

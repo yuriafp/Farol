@@ -116,6 +116,43 @@
   whole; a failed or incomplete baseline entry leaves the cache when it ends, and a batch starts only once its call
   has registered all its files; analyzer loads are cached per reference and language behind one lock; the verdict line
   counts failures as partial coverage too.
+- 2026-11-23 — **Slice 6 done** (AC-54, AC-55, AC-57, AC-70): without an MSBuild that can evaluate .NET Framework
+  projects, `auto` loads them heuristically. A classic project file is read as XML for its Debug|AnyCPU configuration
+  (else its first Debug one, else its first one), with MSBuild's conditions evaluated (==, !=, ordering, And, Or, !,
+  Exists, Choose/When; what it cannot read, such as property functions, is taken as true) and undefined properties
+  empty: its compiled files (wildcards, Exclude, Remove and links included), references (an existing HintPath; one
+  into an unrestored `packages` folder, mapped to the package in the global packages folder, downloaded unless offline; else the framework assembly of that name), project references,
+  analyzers, VB imports and options. Compiler options come from Roslyn's csc and vbc command-line parsers fed with the
+  project's properties (C# 7.3 when the project names no LangVersion, as the SDK builds .NET Framework; VB's
+  CONFIG/DEBUG/TRACE/_MyType/PLATFORM constants as the VB targets pass them), with the desktop assembly identity
+  comparer; the `.editorconfig` files up the tree are passed as MSBuild passes them. SDK-style projects of the same
+  solution still load through MSBuildWorkspace (the .NET SDK's build host), and their references to classic projects
+  point at the heuristic ones. The legacy fixture loads with no compiler error outside the WPF project, whose XAML parts
+  are missing (the load says so per project). `dotnet_overview` (a `load:` line), `dotnet_workspace` (`loader:`) and
+  `dotnet_check` (the baseline line) say the load is heuristic; `dotnet_build` and `dotnet_test` of classic projects on
+  a heuristic load are refused as needing MSBuild when no Visual Studio is found. A new option, `Farol:Loader` (`auto`, `msbuild`, `heuristic`), forces
+  a loader; the tests use it to run the heuristic load on Windows too. CI gains a Linux job that runs the suite; the
+  tests that need Visual Studio's MSBuild skip there, and the heuristic ones run.
+  Review (Sonnet, then Neon high via agy) applied before the merge: the MSBuild workspace is disposed when the load fails
+  or is cancelled; classic projects behind SDK-style ones (unlisted) are read heuristically too, and SDK-style projects
+  behind classic ones load through MSBuild; duplicate assembly names no longer break the wiring of SDK references, which
+  now evaluates conditional ProjectReference items per target framework and prefers a classic project's net4*, then
+  netstandard variant; System.Core is referenced implicitly from .NET Framework 3.5, as MSBuild does; v3.5 and v3.0 also
+  compile against the frameworks their RedistList includes; an assembly a HintPath or package brings wins over the
+  framework's copy of the same name; a reference written twice keeps the one with a HintPath, and an Include that is a
+  file path is its HintPath; packages.config folders match the package version however it is written; a classic
+  project's PackageReference items resolve to their own assemblies (without dependencies, with a warning); VB's
+  DEBUG/TRACE follow DefineDebug/DefineTrace and `_MyType` defaults from the output type; C# gets WarningsNotAsErrors and
+  StartupObject; on Linux, paths written in another case resolve to the file on disk; unreadable solution files and
+  `.editorconfig` files are reported instead of failing the load. Known limits, not fixed: COM references (interop
+  assemblies come from a target), signing (`/keyfile`: an unsigned compilation can miss `InternalsVisibleTo` with a
+  public key), the dependencies of classic PackageReference packages, and property functions in conditions.
+  A second Neon round on the fixes: And/Or short-circuit as in MSBuild (a guard no longer compares an empty value),
+  a function result can be compared, a quoted property function is taken as true; wildcards keep a rooted fixed part and
+  match a directory written in another case; item metadata honors its conditions (the last one wins); SDK-style
+  ProjectReference items expand properties, see TargetFrameworkIdentifier and the project's own TargetFramework, and
+  follow Choose branches; classic → SDK-style → classic chains are walked to a fixed point; a classic project takes the
+  SDK-style variant NuGet would pick; a PackageReference assembly wins over a framework one of the same name.
 
 ## Problem
 

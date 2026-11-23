@@ -489,7 +489,7 @@ public static partial class ProjectConverter
             var unconditioned = listed.Where(e => ConditionOf(e) is null).Select(e => Full(directory, (string)e.Attribute("Include")!)).ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var file in Globbed(directory, extension).Where(f => !unconditioned.Contains(f)).Order(StringComparer.OrdinalIgnoreCase))
             {
-                group.Add(new XElement(itemName, new XAttribute("Remove", Path.GetRelativePath(directory, file))));
+                group.Add(new XElement(itemName, new XAttribute("Remove", Path.GetRelativePath(directory, file).Replace('/', '\\'))));
             }
 
             foreach (var item in listed)

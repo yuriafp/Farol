@@ -157,6 +157,15 @@ public sealed partial class BuildRunner(IProcessRunner runner, ToolchainProbe to
 
         if ((await toolchain.ProbeAsync(target.Directory, cancellationToken)).PreferredVisualStudio is not { MSBuildPath: { } msbuild } visualStudio)
         {
+            // A heuristic load read the classic projects without MSBuild: building them needs the MSBuild it did not have.
+            if (snapshot.Load.IsHeuristic)
+            {
+                throw new FarolException(
+                    ErrorCodes.InvalidArgument,
+                    "This workspace loaded heuristically (no MSBuild here can evaluate .NET Framework projects): building and testing classic projects needs the MSBuild of Visual Studio or Build Tools.",
+                    "dotnet_check finds the compiler errors an edit introduced without a build; build these projects on Windows with Visual Studio or Build Tools.");
+            }
+
             throw new FarolException(
                 ErrorCodes.InvalidArgument,
                 "Building classic .NET Framework projects needs the MSBuild of Visual Studio or Build Tools, and none was found.",

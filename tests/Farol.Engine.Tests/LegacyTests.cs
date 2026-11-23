@@ -139,6 +139,8 @@ public sealed class TargetSurfaceTests
     [Fact]
     public void Windows_targets_include_winforms_and_wpf()
     {
+        // The Windows Desktop targeting pack ships with the .NET SDK on Windows only.
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "The Microsoft.WindowsDesktop.App.Ref targeting pack is installed on Windows only.");
         var windows = TargetSurface.Load(TargetSurface.ParseTarget("net10.0-windows"), windowsDesktop: false, Packages);
 
         Assert.Equal("net10.0-windows", windows.TargetFramework);

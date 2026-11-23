@@ -43,6 +43,12 @@ public sealed class FarolEngineOptions
 
     public const int MaxHookLoadWaitSeconds = 30;
 
+    /// <summary>
+    /// Which loader opens workspaces: "auto" (MSBuild when it can evaluate every project, else the heuristic loader for
+    /// classic .NET Framework projects), "msbuild" or "heuristic".
+    /// </summary>
+    public string? Loader { get; set; } = "auto";
+
     /// <summary>Whether dotnet_check runs the projects' analyzers when a call does not say (the edit hook included). Off by default.</summary>
     public bool CheckAnalyzers { get; set; }
 

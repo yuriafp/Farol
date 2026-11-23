@@ -19,6 +19,11 @@ internal static class OverviewRenderer
 
         var text = new ResponseBuilder(maxTokens);
         text.Line($"solution: {DisplayPath.From(root, overview.Target.Path)} · {projects.Count} project(s) · SDK-style {projects.Count - classic}, classic {classic} · {languages}");
+        if (overview.Loader == "heuristic")
+        {
+            text.Line("load: heuristic — no MSBuild here can evaluate .NET Framework projects, so their project files were read directly: " +
+                "navigation and dotnet_check work, generated code (XAML parts) is missing, and dotnet_build and dotnet_test need MSBuild (Visual Studio or Build Tools on Windows).");
+        }
         text.Line(WorkspaceStatusRenderer.ToolchainLine(toolchain));
         var build = BuildAdvisor.SuggestBuildCommand(overview, toolchain, root);
         text.Line($"build: {build}");
@@ -50,7 +55,10 @@ internal static class OverviewRenderer
             [.. overview.BindingRedirectFiles.Select(f => DisplayPath.From(root, f))],
             Page.From(projects, text.WindowOf("projects"), p => new OverviewProject(
                 p.Name, DisplayPath.From(root, p.FilePath), p.Language, p.IsSdkStyle ? "sdk" : "classic", p.TargetFrameworks, p.OutputKind,
-                p.AppModels, p.TestFrameworks, p.ProjectReferences, p.DocumentCount, p.HasPackagesConfig)));
+                p.AppModels, p.TestFrameworks, p.ProjectReferences, p.DocumentCount, p.HasPackagesConfig)))
+        {
+            Loader = overview.Loader,
+        };
         return ToolOutput.Of(text.ToString(), data);
     }
 
@@ -139,7 +147,11 @@ public sealed record OverviewOutput(
     bool CentralPackageManagement,
     string? GlobalJsonSdk,
     IReadOnlyList<string> BindingRedirectFiles,
-    Page<OverviewProject> Projects);
+    Page<OverviewProject> Projects)
+{
+    /// <summary>"heuristic" when the classic projects were read without MSBuild; "msbuild-workspace" for a full-fidelity load.</summary>
+    public string? Loader { get; init; }
+}
 
 public sealed record OverviewProject(
     string Name,

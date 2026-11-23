@@ -739,7 +739,8 @@
         "projects.items[].testFrameworks: array",
         "projects.items[].projectReferences: array",
         "projects.items[].files: integer",
-        "projects.items[].packagesConfig: boolean"
+        "projects.items[].packagesConfig: boolean",
+        "loader: string|null"
       ]
     },
     {

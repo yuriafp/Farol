@@ -13,7 +13,7 @@ namespace Farol.Engine.Workspaces;
 /// out for the default: <c>--workspace</c>, the one discovered in the root, else the one in use in this server process.
 /// Nothing lives in the protocol session, so a future HTTP gateway serving several clients routes by naming it on every call.
 /// </summary>
-public sealed class WorkspaceManager(MSBuildWorkspaceLoader loader, PathSandbox paths, IOptions<FarolEngineOptions> options, ILoggerFactory loggerFactory, IUsageLog usage) : IAsyncDisposable
+public sealed class WorkspaceManager(WorkspaceLoader loader, PathSandbox paths, IOptions<FarolEngineOptions> options, ILoggerFactory loggerFactory, IUsageLog usage) : IAsyncDisposable
 {
     private readonly ConcurrentDictionary<string, WorkspaceSession> _sessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly FarolEngineOptions _options = options.Value;
