@@ -171,6 +171,12 @@
   limits: the watcher covers the log's folder and does not notice a rewritten log (reopen the workspace), files are
   read with UTF-8 detection rather than the call's `/codepage`, and a log replayed on another OS keeps that OS's paths.
 
+- 2026-11-25 — **Slice 9 done** (AC-69): `.github/workflows/registry.yml` runs when a GitHub release is published:
+  it checks that `server.json` names the release's version, validates it with `mcp-publisher validate` (v1.8.16,
+  verified with cosign), logs in with GitHub OIDC and publishes, trying again for 20 minutes while nuget.org indexes the
+  package; run by hand it only validates. The CI Linux job validates `server.json` the same way on every run, and a test
+  checks what the Registry verifies (name, schema 2025-12-11, the `mcp-name` line in the package README). 0.1.1's
+  README has no `mcp-name` line, so the first listing is 0.2.0.
 - 2026-11-25 — **Slice 8 done** (AC-50 – AC-52; AC-53's benchmark runs in slice 10): after a load and its warm-up,
   each workspace's index is written to a temporary SQLite file and moved into place under
   `Farol/index/<hash of the workspace's full path>/index.db` (Microsoft.Data.Sqlite), then written again every five

@@ -56,4 +56,9 @@ Create the GitHub release from the tag, with the version's `CHANGELOG.md` sectio
 Published package workflow, which waits up to 20 minutes for nuget.org to list the version the plugin runs, installs it
 and checks it on the fixtures; it also runs every week. Claude Code users receive the new plugin version when they update the marketplace (`/plugin marketplace update farol`); the plugin then runs the new server version.
 
-The MCP Registry listing (`server.json` is ready for it) comes in Phase 2.
+Publishing it also starts the MCP Registry workflow, which checks that `server.json` names the release's version,
+validates it and publishes it to the [MCP Registry](https://registry.modelcontextprotocol.io) as
+`io.github.yuriafp/farol`, logged in with the workflow's GitHub OIDC token (no secret). The Registry checks the package
+on nuget.org (the `mcp-name` line in `src/Farol.Host/README.md`), so the workflow tries again for 20 minutes while
+nuget.org indexes it. A version is listed once and cannot change: a fix to the listing alone needs a new version. If
+the workflow fails, the package release stands; run it again from the release once the cause is fixed.

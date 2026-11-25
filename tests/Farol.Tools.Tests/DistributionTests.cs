@@ -42,6 +42,30 @@ public sealed partial class DistributionTests
         Assert.All(pins, p => Assert.True(p.Version == Version, $"{p.File} pins Farol.Mcp@{p.Version}, not {Version}."));
     }
 
+    /// <summary>
+    /// Spec 002, AC-69: what the MCP Registry checks before it lists a NuGet server. The schema itself is checked by
+    /// <c>mcp-publisher validate</c> in CI (the Linux job and the MCP Registry workflow).
+    /// </summary>
+    [Fact]
+    public async Task AC69_server_json_is_what_the_registry_lists_and_the_package_readme_names_it()
+    {
+        var serverJson = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "src", "Farol.Host", ".mcp", "server.json"), Ct))!;
+        Assert.Equal("https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json", (string?)serverJson["$schema"]);
+        Assert.Equal("io.github.yuriafp/farol", (string?)serverJson["name"]);
+        Assert.InRange(((string?)serverJson["description"])!.Length, 1, 100);
+        Assert.Equal("https://github.com/yuriafp/Farol", (string?)serverJson["repository"]!["url"]);
+        Assert.Equal("https://api.nuget.org", (string?)serverJson["packages"]![0]!["registryBaseUrl"]);
+
+        // nuget.org ownership: the README packed with the package names the server, on a line of its own.
+        var readme = await File.ReadAllLinesAsync(Path.Combine(TestPaths.RepoRoot, "src", "Farol.Host", "README.md"), Ct);
+        Assert.Contains($"<!-- mcp-name: {(string?)serverJson["name"]} -->", readme);
+
+        var workflow = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, ".github", "workflows", "registry.yml"), Ct);
+        Assert.Contains("types: [published]", workflow, StringComparison.Ordinal);
+        Assert.Contains("id-token: write", workflow, StringComparison.Ordinal);
+        Assert.Contains("mcp-publisher login github-oidc", workflow, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task AC34_the_package_is_an_mcp_server_tool_that_starts_from_its_own_files()
     {
