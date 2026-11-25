@@ -13,7 +13,11 @@ public sealed record SymbolItem(string Symbol, string Kind, string Location, str
 public sealed record HitItem(string Project, string Location, string Kind, string? Via, IReadOnlyList<string> TargetFrameworks, string Snippet);
 
 /// <summary>Structured output of dotnet_find_symbols.</summary>
-public sealed record FindSymbolsOutput(string Query, string Kind, Page<SymbolItem> Symbols);
+public sealed record FindSymbolsOutput(string Query, string Kind, Page<SymbolItem> Symbols)
+{
+    /// <summary>Set when the answer comes from the persistent index while the workspace loads.</summary>
+    public IndexNote? Index { get; init; }
+}
 
 /// <summary>Structured output of dotnet_find_references. <see cref="Candidates"/> is set instead when the name is ambiguous.</summary>
 public sealed record FindReferencesOutput(
@@ -23,22 +27,38 @@ public sealed record FindReferencesOutput(
     IReadOnlyList<string> DefinedAt,
     IReadOnlyList<ThroughItem> Through,
     Page<HitItem>? References,
-    IReadOnlyList<SymbolItem>? Candidates);
+    IReadOnlyList<SymbolItem>? Candidates)
+{
+    /// <summary>Set when the answer comes from the persistent index while the workspace loads.</summary>
+    public IndexNote? Index { get; init; }
+}
 
 public sealed record ThroughItem(SymbolItem Member, string Via, int References);
 
 /// <summary>Structured output of dotnet_hierarchy.</summary>
-public sealed record HierarchyOutput(SymbolItem? Symbol, string Direction, Page<RelatedItem>? Related, IReadOnlyList<SymbolItem>? Candidates);
+public sealed record HierarchyOutput(SymbolItem? Symbol, string Direction, Page<RelatedItem>? Related, IReadOnlyList<SymbolItem>? Candidates)
+{
+    /// <summary>Set when the answer comes from the persistent index while the workspace loads.</summary>
+    public IndexNote? Index { get; init; }
+}
 
 public sealed record RelatedItem(string Relation, SymbolItem Symbol);
 
 /// <summary>Structured output of dotnet_call_hierarchy: the tree as far as the text shows it, in text order, each node naming its parent's index.</summary>
-public sealed record CallHierarchyOutput(SymbolItem? Symbol, string Direction, int Depth, IReadOnlyList<CallItem>? Calls, int Omitted, IReadOnlyList<SymbolItem>? Candidates);
+public sealed record CallHierarchyOutput(SymbolItem? Symbol, string Direction, int Depth, IReadOnlyList<CallItem>? Calls, int Omitted, IReadOnlyList<SymbolItem>? Candidates)
+{
+    /// <summary>Set when the answer comes from the persistent index while the workspace loads.</summary>
+    public IndexNote? Index { get; init; }
+}
 
 public sealed record CallItem(int Depth, int? Parent, SymbolItem Symbol, IReadOnlyList<string> Sites);
 
 /// <summary>Structured output of dotnet_outline.</summary>
-public sealed record OutlineOutput(string Title, int Total, IReadOnlyList<OutlineItem>? Declarations, IReadOnlyList<SymbolItem>? Candidates);
+public sealed record OutlineOutput(string Title, int Total, IReadOnlyList<OutlineItem>? Declarations, IReadOnlyList<SymbolItem>? Candidates)
+{
+    /// <summary>Set when the answer comes from the persistent index while the workspace loads.</summary>
+    public IndexNote? Index { get; init; }
+}
 
 public sealed record OutlineItem(int Depth, string Kind, string Signature, string Location);
 
@@ -54,7 +74,11 @@ public sealed record SymbolOutput(
     string? Summary,
     string? Source,
     string? SourceKind,
-    IReadOnlyList<SymbolItem>? Candidates);
+    IReadOnlyList<SymbolItem>? Candidates)
+{
+    /// <summary>Set when the answer comes from the persistent index while the workspace loads.</summary>
+    public IndexNote? Index { get; init; }
+}
 
 internal static class NavigationItems
 {

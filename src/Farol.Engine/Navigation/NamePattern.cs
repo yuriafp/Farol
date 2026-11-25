@@ -48,6 +48,32 @@ internal sealed class NamePattern
         return true;
     }
 
+    /// <summary>Like <see cref="MatchesContainers(ISymbol)"/> over container names, outermost first (as the index stores them).</summary>
+    public bool MatchesContainers(IReadOnlyList<string> containers)
+    {
+        ArgumentNullException.ThrowIfNull(containers);
+        if (_qualifier.Length > containers.Count)
+        {
+            return false;
+        }
+
+        for (var i = 1; i <= _qualifier.Length; i++)
+        {
+            if (!_qualifier[^i].Matches(containers[^i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// SQL LIKE patterns (escape character <c>\</c>) that every name the pattern matches matches too: the query as a
+    /// substring, and its camel-case chunks in order. A table scan narrows with them before <see cref="MatchesName"/>.
+    /// </summary>
+    public IReadOnlyList<string> LikePatterns() => _name.LikePatterns();
+
     private sealed class Segment
     {
         private readonly string _text;
@@ -57,6 +83,19 @@ internal sealed class NamePattern
         {
             _text = text;
             _chunks = [.. Humps(text)];
+        }
+
+        public List<string> LikePatterns()
+        {
+            var patterns = new List<string> { $"%{Escape(_text)}%" };
+            if (_chunks.Length >= 2)
+            {
+                patterns.Add("%" + string.Join("%", _chunks.Select(c => Escape(_text.Substring(c.Start, c.Length)))) + "%");
+            }
+
+            return patterns;
+
+            static string Escape(string text) => text.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("%", "\\%", StringComparison.Ordinal).Replace("_", "\\_", StringComparison.Ordinal);
         }
 
         public bool Matches(string name) =>

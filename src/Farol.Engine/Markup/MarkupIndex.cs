@@ -29,6 +29,10 @@ public sealed class MarkupIndex
     public IReadOnlyList<MarkupReference> ReferencesTo(string symbolId) =>
         _bySymbol.TryGetValue(symbolId, out var references) ? references : [];
 
+    /// <summary>Every reference, with the ID of the symbol it resolves to: what the persistent index stores.</summary>
+    internal IEnumerable<(string Id, MarkupReference Reference)> All() =>
+        _bySymbol.SelectMany(e => e.Value.Select(r => (e.Key, r)));
+
     public static Task<MarkupIndex> GetAsync(WorkspaceSnapshot snapshot, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(snapshot);

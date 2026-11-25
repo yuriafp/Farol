@@ -41,7 +41,8 @@ public sealed partial class WorkspaceTool(WorkspaceManager workspaces, Toolchain
             }
 
             var info = await toolchain.ProbeAsync(session.Target.Directory, cancellationToken);
-            return WorkspaceStatusRenderer.Render(session, info, workspaces.RootDirectory, permissions.ReadOnly);
+            var index = session.State == WorkspaceState.Loading ? workspaces.Indexes.Open(session.Target)?.WrittenAt : null;
+            return WorkspaceStatusRenderer.Render(session, info, workspaces.RootDirectory, permissions.ReadOnly, index);
         });
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Reload of {Workspace} requested by {User} via {Origin}")]

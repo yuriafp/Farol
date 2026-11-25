@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text;
 using Farol.Core;
 using Farol.Core.Usage;
+using Farol.Engine.Indexing;
 using Farol.Engine.Loading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
@@ -34,6 +35,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     private readonly IReadOnlyDictionary<string, string> _properties;
     private readonly ILogger _logger;
     private readonly IUsageLog _usage;
+    private readonly WorkspaceIndexes? _indexes;
     private readonly Lock _gate = new();
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
@@ -51,6 +53,8 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
 
     private Task? _loadTask;
     private Task? _warmup;
+    private Task? _indexing;
+    private long _indexedTicks = -1;
     private LoadedWorkspace? _loaded;
     private WorkspaceSnapshot? _snapshot;
     private WorkspaceWatcher? _watcher;
@@ -61,8 +65,9 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     private long _warmedInTicks = -1;
     private long _lastLoadTicks = -1;
 
-    internal WorkspaceSession(WorkspaceTarget target, WorkspaceLoader loader, IReadOnlyDictionary<string, string> properties, ILogger logger, IUsageLog usage)
+    internal WorkspaceSession(WorkspaceTarget target, WorkspaceLoader loader, IReadOnlyDictionary<string, string> properties, ILogger logger, IUsageLog usage, WorkspaceIndexes? indexes = null)
     {
+        _indexes = indexes;
         Target = target;
         _loader = loader;
         _properties = properties;
@@ -116,6 +121,12 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
 
     /// <summary>How long the background warm-up of the current load took; null while it runs or if it did not finish.</summary>
     public TimeSpan? WarmedIn => Volatile.Read(ref _warmedInTicks) is >= 0 and var ticks ? TimeSpan.FromTicks(ticks) : null;
+
+    /// <summary>How often the index is written again while the workspace changes (AC-50: kept up to date in the background).</summary>
+    internal static TimeSpan IndexRefreshInterval { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>When this server last wrote the workspace's persistent index; null before it has.</summary>
+    public DateTimeOffset? IndexWrittenAt => Volatile.Read(ref _indexedTicks) is >= 0 and var ticks ? new DateTimeOffset(ticks, TimeSpan.Zero) : null;
 
     /// <summary>False when file changes cannot be observed (e.g. the file watcher could not start).</summary>
     public bool TracksFileChanges => Volatile.Read(ref _watcher) is not null;
@@ -350,6 +361,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
 
             previous = _loaded;
             watcher = _watcher;
+            _indexedTicks = -1;
             _loaded = null;
             _snapshot = null;
             _watcher = null;
@@ -371,6 +383,11 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         if (Volatile.Read(ref _warmup) is { } warmup)
         {
             await warmup.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        }
+
+        if (Volatile.Read(ref _indexing) is { } indexing)
+        {
+            await indexing.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
 
         Volatile.Read(ref _watcher)?.Dispose();
@@ -405,7 +422,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
                 _warmupStartedAt = DateTimeOffset.UtcNow;
                 _warmedInTicks = -1;
                 _lastLoadTicks = loaded.Report.Elapsed.Ticks;
-                _warmup = Task.Run(() => WarmAsync(loaded.Solution, cancellationToken), CancellationToken.None);
+                _warmup = Task.Run(() => WarmAsync(loaded, cancellationToken), CancellationToken.None);
             }
 
             RecordUsage(UsageEventKind.Load, loaded.Report.Elapsed, loaded.Report);
@@ -424,15 +441,19 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         }
     }
 
-    private async Task WarmAsync(Solution solution, CancellationToken cancellationToken)
+    private async Task WarmAsync(LoadedWorkspace loaded, CancellationToken cancellationToken)
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            await WorkspaceWarmup.RunAsync(solution, cancellationToken);
+            await WorkspaceWarmup.RunAsync(loaded.Solution, cancellationToken);
             Volatile.Write(ref _warmedInTicks, clock.Elapsed.Ticks);
             LogWarm(_logger, Target.Path, clock.Elapsed.TotalSeconds);
             RecordUsage(UsageEventKind.Warm, clock.Elapsed);
+            if (_indexes is { Enabled: true } indexes)
+            {
+                Volatile.Write(ref _indexing, Task.Run(() => IndexAsync(indexes, loaded, cancellationToken), CancellationToken.None));
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -444,6 +465,61 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
         {
             LogWarmFailed(_logger, ex, Target.Path);
             RecordUsage(UsageEventKind.Warm, clock.Elapsed, error: ex);
+            if (_indexes is { Enabled: true } indexes && !cancellationToken.IsCancellationRequested)
+            {
+                Volatile.Write(ref _indexing, Task.Run(() => IndexAsync(indexes, loaded, cancellationToken), CancellationToken.None));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Writes the persistent index after the warm-up, then again every <see cref="IndexRefreshInterval"/> while the
+    /// workspace changes, until the next load (whose warm-up starts its own) or the end of the session. Each write is from
+    /// an up-to-date snapshot, so the file times it records match the code it indexes.
+    /// </summary>
+    private async Task IndexAsync(WorkspaceIndexes indexes, LoadedWorkspace loaded, CancellationToken cancellationToken)
+    {
+        var written = -1;
+        while (!cancellationToken.IsCancellationRequested && ReferenceEquals(Volatile.Read(ref _loaded), loaded))
+        {
+            try
+            {
+                if (CurrentSnapshot is not null)
+                {
+                    var snapshot = await RefreshAsync(cancellationToken);
+                    if (snapshot.Version != written && ReferenceEquals(Volatile.Read(ref _loaded), loaded))
+                    {
+                        await indexes.WriteAsync(snapshot, loaded.Report, () => ReferenceEquals(Volatile.Read(ref _loaded), loaded), cancellationToken);
+                        if (!ReferenceEquals(Volatile.Read(ref _loaded), loaded))
+                        {
+                            return;
+                        }
+
+                        written = snapshot.Version;
+                        Volatile.Write(ref _indexedTicks, DateTimeOffset.UtcNow.UtcTicks);
+                    }
+                }
+
+                await Task.Delay(IndexRefreshInterval, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+#pragma warning disable CA1031 // The index is an optimization: a failure is logged and the next round tries again.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                LogIndexFailed(_logger, ex, Target.Path);
+                try
+                {
+                    await Task.Delay(IndexRefreshInterval, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+            }
         }
     }
 
@@ -826,6 +902,9 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Compilations and search indexes of {Workspace} ready in {Seconds:N1} s")]
     private static partial void LogWarm(ILogger logger, string workspace, double seconds);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Writing the index of {Workspace} failed; the next round tries again")]
+    private static partial void LogIndexFailed(ILogger logger, Exception exception, string workspace);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Background warm-up of {Workspace} failed; queries build what they need")]
     private static partial void LogWarmFailed(ILogger logger, Exception exception, string workspace);

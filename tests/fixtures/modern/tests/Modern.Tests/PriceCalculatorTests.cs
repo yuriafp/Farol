@@ -37,8 +37,10 @@ public sealed class PriceCalculatorTests
 
 public sealed class SystemClockTests
 {
+    private static readonly SystemClock Clock = new();
+
     [Fact]
-    public void UtcNow_is_in_utc() => Assert.Equal(DateTimeKind.Utc, new SystemClock().UtcNow.Kind);
+    public void UtcNow_is_in_utc() => Assert.Equal(DateTimeKind.Utc, Clock.UtcNow.Kind);
 }
 
 internal sealed class FixedClock(DateTime now) : IClock

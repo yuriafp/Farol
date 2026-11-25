@@ -19,7 +19,7 @@ internal static class NavigationText
         $"{SymbolFormatter.Display(symbol)} · {SymbolFormatter.Location(symbol, root)}";
 
     /// <summary>Hits grouped under project headers, paged by <paramref name="offset"/> over the flat list.</summary>
-    public static ListWindow Hits(ResponseBuilder text, IReadOnlyList<SourceHit> hits, string root, int offset)
+    public static ListWindow Hits(ResponseBuilder text, IReadOnlyList<SourceHit> hits, string root, int offset, Func<string, string>? mark = null)
     {
         var start = Math.Clamp(offset, 0, hits.Count);
         string? project = null;
@@ -39,7 +39,7 @@ internal static class NavigationText
 
             var frameworks = hit.TargetFrameworks.Count > 1 ? $" · {string.Join(", ", hit.TargetFrameworks)}" : string.Empty;
             var via = hit.Via is null ? string.Empty : $" via {hit.Via}";
-            if (!text.TryLine($"- {DisplayPath.Location(root, hit.FilePath, hit.Line)} · {hit.Kind}{via}{frameworks} · {hit.Snippet}"))
+            if (!text.TryLine($"- {DisplayPath.Location(root, hit.FilePath, hit.Line)} · {hit.Kind}{via}{frameworks} · {hit.Snippet}{mark?.Invoke(hit.FilePath)}"))
             {
                 break;
             }

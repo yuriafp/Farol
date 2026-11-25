@@ -27,6 +27,7 @@ internal sealed class EngineHarness : IAsyncDisposable
             {
                 o.RootDirectory = rootDirectory;
                 o.AutoLoad = false;
+                o.Index = false; // tests that need an index turn it on, in a folder of their own
                 configure?.Invoke(o);
             })
             .BuildServiceProvider());

@@ -10,7 +10,7 @@ namespace Farol.Tools.Features.Workspaces;
 
 internal static class WorkspaceStatusRenderer
 {
-    public static ToolOutput<WorkspaceOutput> Render(WorkspaceSession session, ToolchainInfo toolchain, string root, bool readOnly)
+    public static ToolOutput<WorkspaceOutput> Render(WorkspaceSession session, ToolchainInfo toolchain, string root, bool readOnly, DateTimeOffset? indexWrittenAt = null)
     {
         var text = new ResponseBuilder(TokenBudget.DefaultTokens);
         text.Line($"workspace: {DisplayPath.From(root, session.Target.Path)}");
@@ -33,12 +33,19 @@ internal static class WorkspaceStatusRenderer
                 text.Line(session.TracksFileChanges
                     ? $"snapshot: v{session.CurrentSnapshot?.Version} · file changes: tracked automatically"
                     : $"snapshot: v{session.CurrentSnapshot?.Version} · file changes: NOT tracked (call again with action='reload' after edits)");
+                if (session.IndexWrittenAt is { } indexed)
+                {
+                    text.Line($"index: written {Utc(indexed)}, kept up to date in the background for the next start");
+                }
+
                 break;
             case WorkspaceState.Loading:
                 // An agent told only to call again went back to grep (AC-45): say that the other tools wait, and for about how long.
                 var last = session.LastLoadTook is { } took ? $" · the last load here took {Seconds(took)}" : string.Empty;
                 text.Line($"state: loading · {session.EvaluationSteps} project evaluation step(s) done · {Seconds(session.LoadingFor)} elapsed{last}");
-                text.Line("hint: the other dotnet_* tools wait for the load to finish, so call the one you need now; action='load' waits for it here.");
+                text.Line(indexWrittenAt is { } from
+                    ? $"hint: navigation and dotnet_overview answer now from the index written {Utc(from)}; dotnet_check, code actions, build and test wait for the load, so call the one you need now."
+                    : "hint: the other dotnet_* tools wait for the load to finish, so call the one you need now; action='load' waits for it here.");
                 break;
             case WorkspaceState.Failed:
                 text.Line($"state: failed · {DisplayPath.InText(root, session.FailureMessage ?? string.Empty)}");
@@ -82,8 +89,10 @@ internal static class WorkspaceStatusRenderer
             report is { Issues.Count: > 0 }
                 ? Page.From(report.Issues, text.WindowOf("load issues"), i => new LoadIssueItem(i.Severity.ToString().ToLowerInvariant(), DisplayPath.InText(root, i.Message)))
                 : new Page<LoadIssueItem>(0, 0, null, []));
-        return ToolOutput.Of(text.ToString(), data);
+        return ToolOutput.Of(text.ToString(), data with { IndexWrittenAt = (session.IndexWrittenAt ?? indexWrittenAt)?.ToString("O", CultureInfo.InvariantCulture) });
     }
+
+    private static string Utc(DateTimeOffset time) => time.UtcDateTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + " UTC";
 
     public static string ToolchainLine(ToolchainInfo toolchain)
     {
@@ -116,6 +125,10 @@ public sealed record WorkspaceOutput(
     string? DotnetSdk,
     string? VisualStudio,
     bool ReadOnly,
-    Page<LoadIssueItem> LoadIssues);
+    Page<LoadIssueItem> LoadIssues)
+{
+    /// <summary>When the persistent index was written: by this server once loaded, or the one answering while the load runs.</summary>
+    public string? IndexWrittenAt { get; init; }
+}
 
 public sealed record LoadIssueItem(string Severity, string Message);

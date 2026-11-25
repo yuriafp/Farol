@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Farol.Core;
 using Farol.Core.Paths;
 using Farol.Core.Text;
+using Farol.Engine.Indexing;
 using Farol.Engine.Navigation;
 using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
@@ -31,7 +32,13 @@ public sealed class FindReferencesTool(WorkspaceManager workspaces)
         {
             var filter = ParseKinds(kinds);
             var root = workspaces.RootDirectory;
-            var snapshot = await workspaces.GetSession(workspace, SymbolLocator.LocationPath(symbol)).GetSnapshotAsync(wait: true, cancellationToken);
+            var session = workspaces.GetSession(workspace, SymbolLocator.LocationPath(symbol));
+            if (IndexedAnswers.Answer(workspaces, session, indexed => FromIndex(indexed, workspaces.Paths, symbol, filter, maxTokens, offset)) is { } answer)
+            {
+                return answer;
+            }
+
+            var snapshot = await session.GetSnapshotAsync(wait: true, cancellationToken);
             var (candidate, ambiguity, candidates) = await SymbolArgument.ResolveAsync(snapshot, workspaces.Paths, symbol, cancellationToken);
             if (candidate is null)
             {
@@ -78,6 +85,56 @@ public sealed class FindReferencesTool(WorkspaceManager workspaces)
                 page,
                 null);
         });
+
+    private static ToolOutput<FindReferencesOutput>? FromIndex(IndexedAnswers indexed, PathSandbox paths, string symbol, HashSet<string>? filter, int maxTokens, int offset)
+    {
+        if (indexed.Resolve(paths, symbol) is not var (candidate, ambiguity, candidates))
+        {
+            return null;
+        }
+
+        if (candidate is null)
+        {
+            return ToolOutput.Of(ambiguity!, new FindReferencesOutput(null, 0, 0, [], [], null, candidates) { Index = indexed.Note });
+        }
+
+        var root = indexed.Root;
+        var result = indexed.Index.References(candidate);
+        var references = result.References.Where(r => filter is null || filter.Contains(r.Kind)).Select(IndexedAnswers.Hit).ToList();
+        var projects = references.Select(r => r.Project).Distinct(StringComparer.Ordinal).Count();
+        var definedAt = result.Definitions.Select(d => DisplayPath.Location(root, d.FilePath, d.Line)).ToList();
+
+        var text = new ResponseBuilder(maxTokens);
+        indexed.Header(text);
+        text.Line($"references to {candidate.Display}: {references.Count} in {projects} project(s)");
+        if (definedAt.Count > 0)
+        {
+            text.Line($"defined at: {string.Join(", ", definedAt)}");
+        }
+
+        var through = new List<ThroughItem>();
+        foreach (var member in result.Through)
+        {
+            var via = member.Via ?? string.Empty;
+            if (references.Count(r => r.Via == via) is > 0 and var count)
+            {
+                through.Add(new ThroughItem(indexed.Item(member), via, count));
+                text.Line($"{count} of them through {member.Display} · {indexed.Location(member)}, marked 'via {via}'");
+            }
+        }
+
+        if (references.Count == 0)
+        {
+            text.Line("no references found in code or markup (it may still be used through reflection, configuration files or other repositories).");
+            return ToolOutput.Of(text.ToString(), Output(new Page<HitItem>(0, 0, null, [])));
+        }
+
+        var window = NavigationText.Hits(text, references, root, offset, indexed.Mark);
+        return ToolOutput.Of(text.ToString(), Output(Page.From(references, window, h => NavigationItems.Of(h, root))));
+
+        FindReferencesOutput Output(Page<HitItem> page) =>
+            new(indexed.Item(candidate), references.Count, projects, definedAt, through, page, null) { Index = indexed.Note };
+    }
 
     private static HashSet<string>? ParseKinds(string? kinds)
     {

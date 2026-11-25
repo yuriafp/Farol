@@ -3,6 +3,7 @@ using Farol.Core.Text;
 using Farol.Engine.Analysis;
 using Farol.Engine.Toolchain;
 using Farol.Engine.Workspaces;
+using Farol.Tools.Features.Navigation;
 using Farol.Tools.Infrastructure;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -24,6 +25,15 @@ public sealed class OverviewTool(WorkspaceManager workspaces, ToolchainProbe too
         ToolGuard.RunAsync(async () =>
         {
             var session = workspaces.GetSession(workspace);
+            if (IndexedAnswers.Answer(workspaces, session, i => i.Index.Overview(session.Target) is { } o ? Tuple.Create(i, o) : null) is var (indexed, fromIndex))
+            {
+                var probed = await toolchain.ProbeAsync(session.Target.Directory, cancellationToken);
+                var rendered = OverviewRenderer.Render(fromIndex, probed, workspaces.RootDirectory, maxTokens);
+                var header = new ResponseBuilder(maxTokens);
+                indexed.Header(header);
+                return ToolOutput.Of($"{header}\n{rendered.Text}", rendered.Data with { Index = indexed.Note });
+            }
+
             var solution = await session.GetSolutionAsync(wait: true, cancellationToken);
             var overview = SolutionOverviewBuilder.Build(session.Target, solution, session.Report);
             var info = await toolchain.ProbeAsync(session.Target.Directory, cancellationToken);

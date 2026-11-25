@@ -50,6 +50,9 @@ internal static class Help
           --Farol:Binlog <path>            Load the workspace from a build's binary log (.binlog): the projects as
                                            that build compiled them, without MSBuild. A call can also name a .binlog
                                            as its workspace.
+          --Farol:Index false              Read and write no persistent index. Default: true (navigation and
+                                           dotnet_overview answer from the last index while a load runs).
+          --Farol:IndexDirectory <dir>     Where indexes go. Default: Farol/index in local application data.
           -h, --help                       Show this help.
 
         Commands:

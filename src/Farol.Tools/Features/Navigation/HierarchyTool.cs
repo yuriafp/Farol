@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using Farol.Core;
+using Farol.Core.Paths;
 using Farol.Core.Text;
 using Farol.Engine.Navigation;
 using Farol.Engine.Workspaces;
@@ -24,7 +26,13 @@ public sealed class HierarchyTool(WorkspaceManager workspaces)
         ToolGuard.RunAsync(async () =>
         {
             var root = workspaces.RootDirectory;
-            var snapshot = await workspaces.GetSession(workspace, SymbolLocator.LocationPath(symbol)).GetSnapshotAsync(wait: true, cancellationToken);
+            var session = workspaces.GetSession(workspace, SymbolLocator.LocationPath(symbol));
+            if (IndexedAnswers.Answer(workspaces, session, indexed => FromIndex(indexed, workspaces.Paths, symbol, direction, maxTokens)) is { } answer)
+            {
+                return answer;
+            }
+
+            var snapshot = await session.GetSnapshotAsync(wait: true, cancellationToken);
             var (candidate, ambiguity, candidates) = await SymbolArgument.ResolveAsync(snapshot, workspaces.Paths, symbol, cancellationToken);
             if (candidate is null)
             {
@@ -46,4 +54,37 @@ public sealed class HierarchyTool(WorkspaceManager workspaces)
             return ToolOutput.Of(text.ToString(), new HierarchyOutput(
                 item, direction, Page.From(entries, text.WindowOf("related"), e => new RelatedItem(e.Relation, NavigationItems.Of(e.Symbol, root))), null));
         });
+
+    private static ToolOutput<HierarchyOutput>? FromIndex(IndexedAnswers indexed, PathSandbox paths, string symbol, string direction, int maxTokens)
+    {
+        if (!HierarchyFinder.Directions.Contains(direction.Trim(), StringComparer.OrdinalIgnoreCase))
+        {
+            throw new FarolException(ErrorCodes.InvalidArgument, $"Unknown direction '{direction.Trim().ToUpperInvariant()}'.", $"Use one of: {string.Join(", ", HierarchyFinder.Directions)}.");
+        }
+
+        if (indexed.Resolve(paths, symbol) is not var (candidate, ambiguity, candidates))
+        {
+            return null;
+        }
+
+        if (candidate is null)
+        {
+            return ToolOutput.Of(ambiguity!, new HierarchyOutput(null, direction, null, candidates) { Index = indexed.Note });
+        }
+
+        var item = indexed.Item(candidate);
+        var entries = indexed.Index.Hierarchy(candidate, direction);
+        var text = new ResponseBuilder(maxTokens);
+        indexed.Header(text);
+        text.Line($"hierarchy of {candidate.Display} (direction: {direction})");
+        if (entries.Count == 0)
+        {
+            text.Line("nothing found in that direction.");
+            return ToolOutput.Of(text.ToString(), new HierarchyOutput(item, direction, new Page<RelatedItem>(0, 0, null, []), null) { Index = indexed.Note });
+        }
+
+        text.List("related", entries, e => $"{e.Relation} · {e.Symbol.Kind} {e.Signature} · {indexed.Location(e.Symbol)}{indexed.Mark(e.Symbol.FilePath)}", continuation: _ => "narrow the direction or raise maxTokens");
+        return ToolOutput.Of(text.ToString(), new HierarchyOutput(
+            item, direction, Page.From(entries, text.WindowOf("related"), e => new RelatedItem(e.Relation, indexed.Item(e.Symbol) with { Symbol = e.Signature })), null) { Index = indexed.Note });
+    }
 }

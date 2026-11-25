@@ -171,6 +171,36 @@
   limits: the watcher covers the log's folder and does not notice a rewritten log (reopen the workspace), files are
   read with UTF-8 detection rather than the call's `/codepage`, and a log replayed on another OS keeps that OS's paths.
 
+- 2026-11-25 — **Slice 8 done** (AC-50 – AC-52; AC-53's benchmark runs in slice 10): after a load and its warm-up,
+  each workspace's index is written to a temporary SQLite file and moved into place under
+  `Farol/index/<hash of the workspace's full path>/index.db` (Microsoft.Data.Sqlite), then written again every five
+  minutes while the workspace changes. It holds the overview's facts, every declaration (ID, kind, signatures, summary,
+  locations), every reference to a declaration with its kind, the member it is in and its one line of code (markup
+  references included), calls into referenced assemblies (callees only), constructor calls without a name (`: base(...)`
+  and implicit ones: callees and callers, never references, as Roslyn files them), the upward hierarchy (read the other
+  way for derived types, implementations and overrides) and each file's time and size, read before the code. A new
+  server answers `dotnet_find_symbols`, `dotnet_find_references`, `dotnet_symbol` (the source read from the file, unless
+  it changed), `dotnet_outline`, `dotnet_hierarchy`, `dotnet_call_hierarchy` and `dotnet_overview` from it while its
+  load runs, opening with when it was written, the files changed since (results in them marked "changed since the
+  index") and whether project files changed (the projects may have changed); the structured content carries the same
+  in `index`. `dotnet_workspace` says so while loading, and when the index was written once loaded. A symbol the index
+  cannot tell (one of a referenced assembly, a file it does not know) waits for the load. Tests compare the index with
+  the finders over the load for every declaration of the legacy fixture (C#, VB, WebForms, XAML) and of the
+  multi-targeted modern one: references, definitions, the members a use goes through, hierarchy, callers and callees,
+  outlines and target frameworks match; past a VB to C# call the index follows the C# method on where the load stops
+  (Roslyn hands VB a compiled copy of a C# project). `Farol:Index=false` reads and writes none; an unreadable index or
+  one of another format version is deleted and replaced; an index unused for 30 days is deleted at the next start.
+  After the second reviews (Sonnet, Neon): a query of the index that fails answers from the load instead (a corrupt
+  index is deleted, a busy one kept; SQLite missing turns indexes off for the server); a load that failed is reported,
+  never hidden behind index answers; a path:line in a changed file waits for the load; the retention sweep only touches
+  folders named as index folders and the files Farol writes there (and temporary files over a day old); a write
+  superseded by a reload is not moved into place; files saved while the index is written, and the project inputs the
+  watcher reloads on (Directory.Build.*, Directory.Packages.props, global.json, nuget.config, packages.config), are
+  stamped so freshness reports them; target-typed `new()` is a reference of the constructor, as Roslyn lists it; a
+  file written again by another server between two queries of one answer sends that answer to the load. Known limits,
+  revisited with the AC-53 benchmark in slice 10: files added since the index are not listed as changed, and
+  `dotnet_find_symbols` scans the symbol names (no index on substrings).
+
 ## Problem
 
 Phase 1 made Farol answer from the compiler for legacy and modern .NET, and close the edit → check loop. Three limits

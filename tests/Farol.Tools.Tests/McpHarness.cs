@@ -36,6 +36,7 @@ public sealed class McpHarness : IAsyncDisposable
         {
             o.RootDirectory = rootDirectory;
             o.AutoLoad = false;
+            o.Index = false; // tests that need an index turn it on, in a folder of their own
             configure?.Invoke(o);
         });
         builder.Services

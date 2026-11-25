@@ -156,6 +156,9 @@ public sealed record OverviewOutput(
 {
     /// <summary>"heuristic" when the classic projects were read without MSBuild; "binlog" when loaded from a binary log; "msbuild-workspace" for a full-fidelity load.</summary>
     public string? Loader { get; init; }
+
+    /// <summary>Set when the answer comes from the persistent index while the workspace loads.</summary>
+    public Navigation.IndexNote? Index { get; init; }
 }
 
 public sealed record OverviewProject(

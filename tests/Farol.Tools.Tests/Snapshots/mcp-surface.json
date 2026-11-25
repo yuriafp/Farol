@@ -79,7 +79,11 @@
         "candidates[].kind: string",
         "candidates[].location: string",
         "candidates[].id: string|null",
-        "candidates[].targetFrameworks: ref #/properties/symbol/properties/targetFrameworks"
+        "candidates[].targetFrameworks: ref #/properties/symbol/properties/targetFrameworks",
+        "index: object|null",
+        "index.writtenAt: string",
+        "index.changedFiles: array",
+        "index.projectsMayHaveChanged: boolean"
       ]
     },
     {
@@ -471,7 +475,11 @@
         "candidates[].kind: string",
         "candidates[].location: string",
         "candidates[].id: string|null",
-        "candidates[].targetFrameworks: ref #/properties/symbol/properties/targetFrameworks"
+        "candidates[].targetFrameworks: ref #/properties/symbol/properties/targetFrameworks",
+        "index: object|null",
+        "index.writtenAt: string",
+        "index.changedFiles: array",
+        "index.projectsMayHaveChanged: boolean"
       ]
     },
     {
@@ -500,7 +508,11 @@
         "symbols.items[].kind: string",
         "symbols.items[].location: string",
         "symbols.items[].id: string|null",
-        "symbols.items[].targetFrameworks: array"
+        "symbols.items[].targetFrameworks: array",
+        "index: object|null",
+        "index.writtenAt: string",
+        "index.changedFiles: array",
+        "index.projectsMayHaveChanged: boolean"
       ]
     },
     {
@@ -540,7 +552,11 @@
         "candidates[].kind: string",
         "candidates[].location: string",
         "candidates[].id: string|null",
-        "candidates[].targetFrameworks: ref #/properties/symbol/properties/targetFrameworks"
+        "candidates[].targetFrameworks: ref #/properties/symbol/properties/targetFrameworks",
+        "index: object|null",
+        "index.writtenAt: string",
+        "index.changedFiles: array",
+        "index.projectsMayHaveChanged: boolean"
       ]
     },
     {
@@ -705,7 +721,11 @@
         "candidates[].kind: string",
         "candidates[].location: string",
         "candidates[].id: string|null",
-        "candidates[].targetFrameworks: array"
+        "candidates[].targetFrameworks: array",
+        "index: object|null",
+        "index.writtenAt: string",
+        "index.changedFiles: array",
+        "index.projectsMayHaveChanged: boolean"
       ]
     },
     {
@@ -740,7 +760,11 @@
         "projects.items[].projectReferences: array",
         "projects.items[].files: integer",
         "projects.items[].packagesConfig: boolean",
-        "loader: string|null"
+        "loader: string|null",
+        "index: object|null",
+        "index.writtenAt: string",
+        "index.changedFiles: array",
+        "index.projectsMayHaveChanged: boolean"
       ]
     },
     {
@@ -988,7 +1012,11 @@
         "candidates[].kind: string",
         "candidates[].location: string",
         "candidates[].id: string|null",
-        "candidates[].targetFrameworks: ref #/properties/symbol/properties/targetFrameworks"
+        "candidates[].targetFrameworks: ref #/properties/symbol/properties/targetFrameworks",
+        "index: object|null",
+        "index.writtenAt: string",
+        "index.changedFiles: array",
+        "index.projectsMayHaveChanged: boolean"
       ]
     },
     {
@@ -1092,7 +1120,8 @@
         "loadIssues.nextOffset: integer|null",
         "loadIssues.items: array",
         "loadIssues.items[].severity: string",
-        "loadIssues.items[].message: string"
+        "loadIssues.items[].message: string",
+        "indexWrittenAt: string|null"
       ]
     }
   ],

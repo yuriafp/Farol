@@ -61,6 +61,15 @@ public sealed class FarolEngineOptions
     /// <summary>How long the analyzers of one dotnet_check may run; those still running then are named in the answer.</summary>
     public int AnalyzerTimeoutSeconds { get; set; } = 10;
 
+    /// <summary>
+    /// Whether a persistent index of each workspace is written after its load and read at the next start, so navigation
+    /// and dotnet_overview answer before the load is done (AC-50). False reads and writes none.
+    /// </summary>
+    public bool Index { get; set; } = true;
+
+    /// <summary>Where indexes live; defaults to Farol/index under the local application data folder.</summary>
+    public string? IndexDirectory { get; set; }
+
     /// <summary>Global MSBuild properties for design-time builds, e.g. Configuration=Release.</summary>
     public IDictionary<string, string> MSBuildProperties { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 }

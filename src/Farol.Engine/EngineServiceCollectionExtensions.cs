@@ -3,6 +3,7 @@ using Farol.Core.Execution;
 using Farol.Core.Paths;
 using Farol.Core.Usage;
 using Farol.Engine.Building;
+using Farol.Engine.Indexing;
 using Farol.Engine.Loading;
 using Farol.Engine.Packages;
 using Farol.Engine.Testing;
@@ -40,6 +41,7 @@ public static class EngineServiceCollectionExtensions
         services.AddSingleton<HeuristicWorkspaceLoader>();
         services.AddSingleton<BinlogWorkspaceLoader>();
         services.AddSingleton<WorkspaceLoader>();
+        services.AddSingleton<WorkspaceIndexes>();
         services.AddSingleton<WorkspaceManager>();
         services.AddSingleton<BuildRunner>();
         services.AddSingleton<TestRunner>();

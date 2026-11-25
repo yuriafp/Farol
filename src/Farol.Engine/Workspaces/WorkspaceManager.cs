@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Farol.Core;
 using Farol.Core.Paths;
 using Farol.Core.Usage;
+using Farol.Engine.Indexing;
 using Farol.Engine.Loading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -13,13 +14,16 @@ namespace Farol.Engine.Workspaces;
 /// out for the default: <c>--workspace</c>, the one discovered in the root, else the one in use in this server process.
 /// Nothing lives in the protocol session, so a future HTTP gateway serving several clients routes by naming it on every call.
 /// </summary>
-public sealed class WorkspaceManager(WorkspaceLoader loader, PathSandbox paths, IOptions<FarolEngineOptions> options, ILoggerFactory loggerFactory, IUsageLog usage) : IAsyncDisposable
+public sealed class WorkspaceManager(WorkspaceLoader loader, PathSandbox paths, IOptions<FarolEngineOptions> options, ILoggerFactory loggerFactory, IUsageLog usage, WorkspaceIndexes indexes) : IAsyncDisposable
 {
     private readonly ConcurrentDictionary<string, WorkspaceSession> _sessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly FarolEngineOptions _options = options.Value;
     private int _unresolvedNoticeGiven;
 
     public string RootDirectory => _options.RootDirectory;
+
+    /// <summary>The persistent indexes navigation answers from before a load is done.</summary>
+    public WorkspaceIndexes Indexes => indexes;
 
     /// <summary>Where tools may read and write; every path argument goes through it.</summary>
     public PathSandbox Paths => paths;
@@ -34,7 +38,7 @@ public sealed class WorkspaceManager(WorkspaceLoader loader, PathSandbox paths, 
         paths.Demand(target.Path, $"Workspace '{target.DisplayName}'");
         return _sessions.GetOrAdd(
             target.Path,
-            _ => new WorkspaceSession(target, loader, _options.MSBuildProperties.AsReadOnly(), loggerFactory.CreateLogger<WorkspaceSession>(), usage));
+            _ => new WorkspaceSession(target, loader, _options.MSBuildProperties.AsReadOnly(), loggerFactory.CreateLogger<WorkspaceSession>(), usage, indexes));
     }
 
     /// <summary>

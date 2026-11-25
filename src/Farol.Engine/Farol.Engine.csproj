@@ -20,6 +20,7 @@
     <PackageReference Include="NuGet.ProjectModel" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" />
     <PackageReference Include="ICSharpCode.Decompiler" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Options" />

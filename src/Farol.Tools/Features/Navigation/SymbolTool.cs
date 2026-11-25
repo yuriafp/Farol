@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Farol.Core;
 using Farol.Core.Text;
+using Farol.Engine.Indexing;
 using Farol.Engine.Navigation;
 using Farol.Engine.Packages;
 using Farol.Engine.Workspaces;
@@ -37,7 +38,13 @@ public sealed class SymbolTool(WorkspaceManager workspaces)
             }
 
             var root = workspaces.RootDirectory;
-            var snapshot = await workspaces.GetSession(workspace, SymbolLocator.LocationPath(symbol)).GetSnapshotAsync(wait: true, cancellationToken);
+            var session = workspaces.GetSession(workspace, SymbolLocator.LocationPath(symbol));
+            if (IndexedAnswers.Answer(workspaces, session, indexed => FromIndex(indexed, workspaces.Paths, symbol, parts, maxTokens)) is { } answer)
+            {
+                return answer;
+            }
+
+            var snapshot = await session.GetSnapshotAsync(wait: true, cancellationToken);
             var (candidate, ambiguity, candidates) = await SymbolArgument.ResolveAsync(snapshot, workspaces.Paths, symbol, cancellationToken);
             if (candidate is null)
             {
@@ -103,6 +110,106 @@ public sealed class SymbolTool(WorkspaceManager workspaces)
                 NavigationItems.Of(candidate, snapshot, root), SymbolFormatter.Namespace(target), projectName, externalAssembly,
                 declaredAt, declaredIn, inherits, summary, source, sourceKind, null));
         });
+
+    private static ToolOutput<SymbolOutput>? FromIndex(IndexedAnswers indexed, Core.Paths.PathSandbox paths, string symbol, string[] parts, int maxTokens)
+    {
+        if (indexed.Resolve(paths, symbol) is not var (candidate, ambiguity, candidates))
+        {
+            return null;
+        }
+
+        if (candidate is null)
+        {
+            return ToolOutput.Of(ambiguity!, new SymbolOutput(null, null, null, null, [], null, [], null, null, null, candidates) { Index = indexed.Note });
+        }
+
+        var root = indexed.Root;
+        var text = new ResponseBuilder(maxTokens);
+        indexed.Header(text);
+        text.Line($"{candidate.Display}{indexed.Mark(candidate.FilePath)}");
+        var projectName = candidate.Projects.Count > 0 ? candidate.Projects[0] : null;
+        text.Line($"namespace: {candidate.Namespace} · project: {projectName} ({string.Join(", ", candidate.TargetFrameworks)})");
+        text.Line($"id: {candidate.Id}");
+        var declaredAt = indexed.Index.DeclaredAt(candidate).Select(d => Core.Paths.DisplayPath.Location(root, d.Path, d.Line)).DefaultIfEmpty(indexed.Location(candidate)).ToList();
+        text.Line($"declared at: {string.Join(", ", declaredAt)}");
+        if (candidate.Inherits.Count > 0)
+        {
+            text.Line($"inherits: {string.Join(", ", candidate.Inherits)}");
+        }
+
+        string? summary = null;
+        if (parts.Contains("docs", StringComparer.OrdinalIgnoreCase))
+        {
+            summary = candidate.Summary;
+            text.Line($"summary: {summary ?? "(no XML documentation)"}");
+        }
+
+        string? source = null;
+        string? sourceKind = null;
+        if (parts.Contains("source", StringComparer.OrdinalIgnoreCase))
+        {
+            var isType = candidate.Match.StartsWith("type", StringComparison.Ordinal);
+            sourceKind = isType ? "skeleton" : "source";
+            var before = text.ToString().Length;
+            if (isType)
+            {
+                text.Line("skeleton:");
+                foreach (var entry in indexed.Index.OutlineOfType(candidate).Skip(1))
+                {
+                    if (!text.TryLine($"{new string(' ', entry.Depth * 2)}- {entry.Line} {entry.Symbol.Kind} {entry.Symbol.Member}"))
+                    {
+                        text.More(1, "raise maxTokens to see more members");
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                AppendIndexedSource(text, indexed, paths, candidate);
+            }
+
+            source = text.ToString()[before..].TrimStart('\n');
+        }
+
+        return ToolOutput.Of(text.ToString(), new SymbolOutput(
+            indexed.Item(candidate), candidate.Namespace, projectName, null, declaredAt, null, candidate.Inherits, summary, source, sourceKind, null) { Index = indexed.Note });
+    }
+
+    // The index keeps no code: the declaration's lines are read from its file, unless the file changed since the index.
+    private static void AppendIndexedSource(ResponseBuilder text, IndexedAnswers indexed, Core.Paths.PathSandbox paths, IndexedSymbol symbol)
+    {
+        if (symbol.FilePath is not { } path || !paths.Contains(path) || !File.Exists(path) || indexed.Freshness.IsChanged(path) || symbol.StartLine < 1)
+        {
+            text.Line($"source: not available from the index ({indexed.Location(symbol)} changed since it was written); call again once the load is done.");
+            return;
+        }
+
+        // Lines as the compiler splits them (the index's line numbers are its).
+        SourceText source;
+        using (var stream = File.OpenRead(path))
+        {
+            source = SourceText.From(stream);
+        }
+
+        var first = Math.Min(symbol.StartLine, source.Lines.Count) - 1;
+        var last = Math.Min(Math.Max(symbol.EndLine, symbol.StartLine), source.Lines.Count) - 1;
+        var lines = Enumerable.Range(first, last - first + 1).Select(i => source.Lines[i].ToString()).ToList();
+        var indent = lines.Where(l => l.Trim().Length > 0).Select(l => l.Length - l.TrimStart().Length).DefaultIfEmpty(0).Min();
+        text.Line(symbol.Language == LanguageNames.VisualBasic ? "```vb" : "```cs");
+        var written = 0;
+        foreach (var line in lines)
+        {
+            if (!text.TryLine(line.Length >= indent ? line[indent..] : line.TrimStart()))
+            {
+                break;
+            }
+
+            written++;
+        }
+
+        text.Line("```");
+        text.More(lines.Count - written, "source truncated; raise maxTokens");
+    }
 
     private static bool IsExternal(ISymbol symbol) => !symbol.Locations.Any(l => l.IsInSource);
 

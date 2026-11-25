@@ -31,7 +31,13 @@ public sealed class FindSymbolsTool(WorkspaceManager workspaces)
                 throw new FarolException(ErrorCodes.InvalidArgument, "'query' is empty.", "Pass a name or the start of one; camel-case humps work too ('OrdCalc' finds OrderCalculator).");
             }
 
-            var snapshot = await workspaces.GetSession(workspace).GetSnapshotAsync(wait: true, cancellationToken);
+            var session = workspaces.GetSession(workspace);
+            if (IndexedAnswers.Answer(workspaces, session, indexed => FromIndex(indexed, query, kind, project, maxTokens, offset)) is { } answer)
+            {
+                return answer;
+            }
+
+            var snapshot = await session.GetSnapshotAsync(wait: true, cancellationToken);
             if (!string.IsNullOrWhiteSpace(project) && snapshot.Projects.FindByName(project).Count == 0)
             {
                 var names = snapshot.Projects.Names;
@@ -52,4 +58,33 @@ public sealed class FindSymbolsTool(WorkspaceManager workspaces)
             text.List(title, candidates, c => NavigationText.Candidate(c, snapshot, workspaces.RootDirectory), offset, ResponseBuilder.OffsetHint);
             return ToolOutput.Of(text.ToString(), new FindSymbolsOutput(query, kind, Page.From(candidates, text.WindowOf(title), c => NavigationItems.Of(c, snapshot, workspaces.RootDirectory))));
         });
+
+    private static ToolOutput<FindSymbolsOutput> FromIndex(IndexedAnswers indexed, string query, string kind, string? project, int maxTokens, int offset)
+    {
+        if (!DeclarationSearch.Kinds.Contains(kind.Trim(), StringComparer.OrdinalIgnoreCase))
+        {
+            throw new FarolException(ErrorCodes.InvalidArgument, $"Unknown kind '{kind}'.", $"Use one of: {string.Join(", ", DeclarationSearch.Kinds)}.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(project) && indexed.Index.Overview(indexed.Session.Target) is { } overview
+            && !overview.Projects.Any(p => p.Name.Equals(project.Trim(), StringComparison.OrdinalIgnoreCase)))
+        {
+            var names = overview.Projects.Select(p => p.Name).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+            var more = names.Count > 40 ? $", … {names.Count - 40} more" : string.Empty;
+            throw new FarolException(ErrorCodes.InvalidArgument, $"No project named '{project}'.", $"Projects: {string.Join(", ", names.Take(40))}{more}.");
+        }
+
+        var found = indexed.Index.FindSymbols(query, kind, project);
+        var text = new ResponseBuilder(maxTokens);
+        indexed.Header(text);
+        if (found.Count == 0)
+        {
+            text.Line($"no declarations match '{query}' (kind: {kind}). Try a shorter pattern or kind='any'.");
+            return ToolOutput.Of(text.ToString(), new FindSymbolsOutput(query, kind, new Page<SymbolItem>(0, 0, null, [])) { Index = indexed.Note });
+        }
+
+        var title = $"symbols matching '{query}'";
+        text.List(title, found, indexed.Candidate, offset, ResponseBuilder.OffsetHint);
+        return ToolOutput.Of(text.ToString(), new FindSymbolsOutput(query, kind, Page.From(found, text.WindowOf(title), indexed.Item)) { Index = indexed.Note });
+    }
 }

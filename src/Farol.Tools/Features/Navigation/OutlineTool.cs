@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Farol.Core;
 using Farol.Core.Paths;
 using Farol.Core.Text;
+using Farol.Engine.Indexing;
 using Farol.Engine.Navigation;
 using Farol.Engine.Workspaces;
 using Farol.Tools.Infrastructure;
@@ -34,6 +35,11 @@ public sealed class OutlineTool(WorkspaceManager workspaces)
             var root = workspaces.RootDirectory;
             var session = workspaces.GetSession(workspace, string.IsNullOrWhiteSpace(path) ? SymbolLocator.LocationPath(symbol) : path);
             var fullPath = string.IsNullOrWhiteSpace(path) ? null : workspaces.Paths.Resolve(path, session.Target.Directory);
+            if (IndexedAnswers.Answer(workspaces, session, indexed => FromIndex(indexed, workspaces.Paths, fullPath, symbol, maxTokens)) is { } answer)
+            {
+                return answer;
+            }
+
             var snapshot = await session.GetSnapshotAsync(wait: true, cancellationToken);
             IReadOnlyList<OutlineEntry> entries;
             string title;
@@ -88,4 +94,61 @@ public sealed class OutlineTool(WorkspaceManager workspaces)
             text.More(entries.Count - written.Count, "raise maxTokens, or outline a single type with 'symbol'");
             return ToolOutput.Of(text.ToString(), new OutlineOutput(title, entries.Count, written, null));
         });
+
+    private static ToolOutput<OutlineOutput>? FromIndex(IndexedAnswers indexed, PathSandbox paths, string? fullPath, string? symbol, int maxTokens)
+    {
+        var root = indexed.Root;
+        IReadOnlyList<IndexedDeclaration> entries;
+        string title;
+        if (fullPath is not null)
+        {
+            if (!indexed.Index.Knows(fullPath))
+            {
+                return null;
+            }
+
+            entries = indexed.Index.OutlineOfFile(fullPath);
+            title = $"outline of {DisplayPath.From(root, fullPath)}";
+        }
+        else
+        {
+            if (indexed.Resolve(paths, symbol!) is not var (candidate, ambiguity, candidates))
+            {
+                return null;
+            }
+
+            if (candidate is null)
+            {
+                return ToolOutput.Of(ambiguity!, new OutlineOutput(symbol!, 0, null, candidates) { Index = indexed.Note });
+            }
+
+            if (!candidate.Match.StartsWith("type", StringComparison.Ordinal))
+            {
+                throw new FarolException(ErrorCodes.InvalidArgument, $"'{symbol}' is a {candidate.Kind}, not a type.", "Use dotnet_symbol for members.");
+            }
+
+            entries = indexed.Index.OutlineOfType(candidate);
+            title = $"outline of {candidate.Display}";
+        }
+
+        var text = new ResponseBuilder(maxTokens);
+        indexed.Header(text);
+        var multipleFiles = entries.Select(e => e.FilePath).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1;
+        text.Line($"{title} ({entries.Count} declarations){(multipleFiles ? string.Empty : indexed.Mark(entries.Count > 0 ? entries[0].FilePath : fullPath))}");
+        var written = new List<OutlineItem>();
+        foreach (var entry in entries)
+        {
+            var where = multipleFiles ? DisplayPath.Location(root, entry.FilePath, entry.Line) : entry.Line.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var mark = multipleFiles ? indexed.Mark(entry.FilePath) : string.Empty;
+            if (!text.TryLine($"{new string(' ', entry.Depth * 2)}- {where} {entry.Symbol.Kind} {entry.Symbol.Member}{mark}"))
+            {
+                break;
+            }
+
+            written.Add(new OutlineItem(entry.Depth, entry.Symbol.Kind, entry.Symbol.Member, DisplayPath.Location(root, entry.FilePath, entry.Line)));
+        }
+
+        text.More(entries.Count - written.Count, "raise maxTokens, or outline a single type with 'symbol'");
+        return ToolOutput.Of(text.ToString(), new OutlineOutput(title, entries.Count, written, null) { Index = indexed.Note });
+    }
 }
