@@ -226,6 +226,12 @@ internal sealed class BenchmarkRun(Corpus corpus, string repository, FarolServer
         }
 
         series?.Add(label, answer.Elapsed);
+
+        // What the analyzers took, as the answer says it, for reading a slow check in the log.
+        if (series == CheckWithAnalyzers && answer.Text.Split('\n').FirstOrDefault(l => l.Contains("analyzer", StringComparison.OrdinalIgnoreCase)) is { } line)
+        {
+            progress.WriteLine($"  {label}: {answer.Elapsed.TotalMilliseconds:N0} ms; {line.Trim()}");
+        }
     }
 
     private static Dictionary<string, object?> Arguments(params (string Name, string Value)[] arguments) =>

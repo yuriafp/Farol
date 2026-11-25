@@ -92,12 +92,16 @@ public static class DiagnosticCheck
                 }
 
                 // The load's analyzer diagnostics of these files (a moved file's under its load path) are computed beside
-                // the current ones, under the same limit.
+                // the current ones, under the same limit. Like the compiler's, they are waited for only when the current
+                // pass finds something in these files; otherwise they finish in the background for the next check.
                 var atLoadIds = documents.ToDictionary(d => d.Id, d => AtLoad(snapshot, loaded, group.Key, d.Id, d.Tree.FilePath));
                 var atLoad = baseline.AnalyzerDocumentsAsync(group.Key, [.. atLoadIds.Values.OfType<DocumentId>()], limit, token);
-                var pass = AnalyzerDiagnostics.ForTreesAsync(project, compilation, [.. documents.Select(d => d.Tree)], limit, token);
-                await Task.WhenAll(atLoad, pass);
-                var (before, run) = (atLoad.Result, pass.Result);
+                _ = atLoad.ContinueWith(static t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                var run = await AnalyzerDiagnostics.ForTreesAsync(project, compilation, [.. documents.Select(d => d.Tree)], limit, token);
+                var trees = documents.Select(d => d.Tree).ToHashSet();
+                var before = run.Diagnostics.Any(d => d.Location.SourceTree is { } t && trees.Contains(t))
+                    ? await atLoad
+                    : new Dictionary<DocumentId, AnalyzerBaseline>();
                 tally.Add(
                     documents.Select(d => d.Tree.FilePath),
                     run.Analyzers,
