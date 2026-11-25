@@ -39,6 +39,30 @@ internal static class AnalyzerDiagnostics
 
     private sealed record LoadedAnalyzers(ImmutableArray<DiagnosticAnalyzer> Analyzers, IReadOnlyList<string> Problems);
 
+    // One analysis per compilation with every analyzer of its project: WithAnalyzers clones the compilation, whose symbols
+    // are then built again, which on a large project took seconds per analyzer assembly and per check. The load's
+    // compilation never changes, and an edited one is reused by every check until the next edit.
+    private static readonly ConditionalWeakTable<Compilation, Lazy<SharedAnalysis>> Analyses = [];
+
+    /// <summary>A compilation's analysis, and the analyzers that threw in it (reported by every pass that runs them).</summary>
+    private sealed class SharedAnalysis
+    {
+        public SharedAnalysis(Project project, Compilation compilation, ImmutableArray<DiagnosticAnalyzer> analyzers)
+        {
+            var options = new CompilationWithAnalyzersOptions(
+                project.AnalyzerOptions,
+                onAnalyzerException: (exception, analyzer, _) => Exceptions.TryAdd(analyzer, $"{exception.GetType().Name}: {exception.Message}"),
+                concurrentAnalysis: true,
+                logAnalyzerExecutionTime: false,
+                reportSuppressedDiagnostics: false);
+            Analysis = compilation.WithAnalyzers(analyzers, options);
+        }
+
+        public CompilationWithAnalyzers Analysis { get; }
+
+        public ConcurrentDictionary<DiagnosticAnalyzer, string> Exceptions { get; } = new();
+    }
+
     /// <summary>The analyzer diagnostics located in the given files of one project's compilation.</summary>
     public static async Task<AnalyzerPass> ForTreesAsync(
         Project project, Compilation compilation, IReadOnlyList<SyntaxTree> trees, TimeSpan limit, CancellationToken cancellationToken)
@@ -66,6 +90,7 @@ internal static class AnalyzerDiagnostics
         }
 
         var suppressors = groups.SelectMany(g => g.Analyzers.OfType<DiagnosticSuppressor>()).ToImmutableArray();
+        var shared = Analyses.GetValue(compilation, c => new Lazy<SharedAnalysis>(() => new SharedAnalysis(project, c, [.. groups.SelectMany(g => g.Analyzers).Distinct()]))).Value;
         var unfinished = new ConcurrentBag<string>();
         var found = new ConcurrentBag<Diagnostic>();
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -86,26 +111,25 @@ internal static class AnalyzerDiagnostics
                 var work = Task.Run(
                 async () =>
                 {
-                    var options = new CompilationWithAnalyzersOptions(
-                        project.AnalyzerOptions,
-                        onAnalyzerException: (exception, analyzer, _) =>
-                        {
-                            failures.TryAdd($"{analyzer.GetType().Name} ({group.Name})", $"{exception.GetType().Name}: {exception.Message}");
-                            Uncover([analyzer]);
-                        },
-                        concurrentAnalysis: true,
-                        logAnalyzerExecutionTime: false,
-                        reportSuppressedDiagnostics: false);
                     var local = new List<Diagnostic>();
                     try
                     {
+                        // The group's analyzers, with every assembly's suppressors, in the compilation's one analysis.
                         var analyzers = group.Analyzers.AddRange(suppressors.Where(s => !group.Analyzers.Contains(s)));
-                        var analysis = compilation.WithAnalyzers(analyzers, options);
                         foreach (var tree in trees)
                         {
                             token.ThrowIfCancellationRequested();
-                            local.AddRange(await analysis.GetAnalyzerSyntaxDiagnosticsAsync(tree, token));
-                            local.AddRange(await analysis.GetAnalyzerSemanticDiagnosticsAsync(compilation.GetSemanticModel(tree), filterSpan: null, token));
+                            local.AddRange(await shared.Analysis.GetAnalyzerSyntaxDiagnosticsAsync(tree, analyzers, token));
+                            local.AddRange(await shared.Analysis.GetAnalyzerSemanticDiagnosticsAsync(compilation.GetSemanticModel(tree), filterSpan: null, analyzers, token));
+                        }
+
+                        foreach (var analyzer in group.Analyzers)
+                        {
+                            if (shared.Exceptions.TryGetValue(analyzer, out var message))
+                            {
+                                failures.TryAdd($"{analyzer.GetType().Name} ({group.Name})", message);
+                                Uncover([analyzer]);
+                            }
                         }
 
                         return local;
