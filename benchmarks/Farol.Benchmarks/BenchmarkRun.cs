@@ -91,9 +91,9 @@ internal sealed class BenchmarkRun(Corpus corpus, string repository, FarolServer
             await TimeEditAsync(edit, analyzers: false, cancellationToken);
         }
 
-        // The analyzers load on the first call that runs them: one untimed call first.
+        // The analyzers load, once per session, on the first check that runs them on a file: the first edit untimed.
         progress.WriteLine($"Edits with analyzers: {corpus.Edits.Count}...");
-        await CallAsync("dotnet_check", new() { ["analyzers"] = true }, "warm-up analyzers", series: null, cancellationToken);
+        await TimeEditAsync(corpus.Edits[^1], analyzers: true, cancellationToken, timed: false);
         foreach (var edit in corpus.Edits)
         {
             await TimeEditAsync(edit, analyzers: true, cancellationToken);
@@ -181,7 +181,7 @@ internal sealed class BenchmarkRun(Corpus corpus, string repository, FarolServer
     }
 
     /// <summary>Applies the edit, times dotnet_check the way the plugin's hook calls it, then puts the file back.</summary>
-    private async Task TimeEditAsync(SourceEdit edit, bool analyzers, CancellationToken cancellationToken)
+    private async Task TimeEditAsync(SourceEdit edit, bool analyzers, CancellationToken cancellationToken, bool timed = true)
     {
         var path = Path.Combine(repository, edit.Path);
         var original = await File.ReadAllBytesAsync(path, cancellationToken);
@@ -198,7 +198,7 @@ internal sealed class BenchmarkRun(Corpus corpus, string repository, FarolServer
         try
         {
             await File.WriteAllBytesAsync(path, [.. encoding.Preamble, .. encoding.GetBytes(edited)], cancellationToken);
-            await CallAsync("dotnet_check", new() { ["edited"] = edit.Path, ["analyzers"] = analyzers }, $"{edit.Kind} edit of {edit.Path}", analyzers ? CheckWithAnalyzers : Check, cancellationToken);
+            await CallAsync("dotnet_check", new() { ["edited"] = edit.Path, ["analyzers"] = analyzers }, $"{edit.Kind} edit of {edit.Path}", !timed ? null : analyzers ? CheckWithAnalyzers : Check, cancellationToken);
         }
         finally
         {

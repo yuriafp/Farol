@@ -116,11 +116,26 @@ internal static class AnalyzerDiagnostics
                     {
                         // The group's analyzers, with every assembly's suppressors, in the compilation's one analysis.
                         var analyzers = group.Analyzers.AddRange(suppressors.Where(s => !group.Analyzers.Contains(s)));
+
+                        // Passes share the analysis, and one may await work another started: a cancellation that is not
+                        // this pass's (the other's limit, or its caller) is retried once instead of failing the group.
+                        async Task<ImmutableArray<Diagnostic>> RunAsync(Func<Task<ImmutableArray<Diagnostic>>> call)
+                        {
+                            try
+                            {
+                                return await call();
+                            }
+                            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+                            {
+                                return await call();
+                            }
+                        }
+
                         foreach (var tree in trees)
                         {
                             token.ThrowIfCancellationRequested();
-                            local.AddRange(await shared.Analysis.GetAnalyzerSyntaxDiagnosticsAsync(tree, analyzers, token));
-                            local.AddRange(await shared.Analysis.GetAnalyzerSemanticDiagnosticsAsync(compilation.GetSemanticModel(tree), filterSpan: null, analyzers, token));
+                            local.AddRange(await RunAsync(() => shared.Analysis.GetAnalyzerSyntaxDiagnosticsAsync(tree, analyzers, token)));
+                            local.AddRange(await RunAsync(() => shared.Analysis.GetAnalyzerSemanticDiagnosticsAsync(shared.Analysis.Compilation.GetSemanticModel(tree), filterSpan: null, analyzers, token)));
                         }
 
                         foreach (var analyzer in group.Analyzers)
@@ -168,6 +183,13 @@ internal static class AnalyzerDiagnostics
                     found.AddRange(diagnostics);
                 }
             }));
+
+            // An analyzer still running past the limit would hold its trees in the shared analysis, and the next pass
+            // on this compilation would wait for it: that pass starts a fresh analysis instead.
+            if (!unfinished.IsEmpty)
+            {
+                Analyses.Remove(compilation);
+            }
         }
         finally
         {

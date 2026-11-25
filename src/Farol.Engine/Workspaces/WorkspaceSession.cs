@@ -493,8 +493,9 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
                         var clock = System.Diagnostics.Stopwatch.StartNew();
                         await indexes.WriteAsync(snapshot, loaded.Report, () => ReferenceEquals(Volatile.Read(ref _loaded), loaded), cancellationToken);
 
-                        // A large solution's write takes minutes: written again no more than a tenth of the time.
-                        interval = TimeSpan.FromTicks(Math.Max(IndexRefreshInterval.Ticks, clock.Elapsed.Ticks * 10));
+                        // A large solution's write takes minutes: written again no more than a tenth of the time, and at
+                        // least every half hour.
+                        interval = TimeSpan.FromTicks(Math.Clamp(clock.Elapsed.Ticks * 10, IndexRefreshInterval.Ticks, Math.Max(IndexRefreshInterval.Ticks, TimeSpan.FromMinutes(30).Ticks)));
                         if (!ReferenceEquals(Volatile.Read(ref _loaded), loaded))
                         {
                             return;
