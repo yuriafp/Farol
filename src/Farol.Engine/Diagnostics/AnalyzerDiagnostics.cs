@@ -131,11 +131,16 @@ internal static class AnalyzerDiagnostics
                             }
                         }
 
-                        foreach (var tree in trees)
+                        // The files side by side: a changed declaration binds files across the project, each analyzed alone.
+                        var perTree = new ConcurrentBag<ImmutableArray<Diagnostic>>();
+                        await Parallel.ForEachAsync(trees, new ParallelOptions { CancellationToken = token, MaxDegreeOfParallelism = Environment.ProcessorCount }, async (tree, _) =>
                         {
-                            token.ThrowIfCancellationRequested();
-                            local.AddRange(await RunAsync(() => shared.Analysis.GetAnalyzerSyntaxDiagnosticsAsync(tree, analyzers, token)));
-                            local.AddRange(await RunAsync(() => shared.Analysis.GetAnalyzerSemanticDiagnosticsAsync(shared.Analysis.Compilation.GetSemanticModel(tree), filterSpan: null, analyzers, token)));
+                            perTree.Add(await RunAsync(() => shared.Analysis.GetAnalyzerSyntaxDiagnosticsAsync(tree, analyzers, token)));
+                            perTree.Add(await RunAsync(() => shared.Analysis.GetAnalyzerSemanticDiagnosticsAsync(shared.Analysis.Compilation.GetSemanticModel(tree), filterSpan: null, analyzers, token)));
+                        });
+                        foreach (var diagnostics in perTree)
+                        {
+                            local.AddRange(diagnostics);
                         }
 
                         foreach (var analyzer in group.Analyzers)
