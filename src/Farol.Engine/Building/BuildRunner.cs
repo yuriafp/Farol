@@ -142,6 +142,14 @@ public sealed partial class BuildRunner(IProcessRunner runner, ToolchainProbe to
 
     private async Task<BuildCommand> PlanAsync(WorkspaceSnapshot snapshot, WorkspaceTarget target, string? projectFile, string configuration, CancellationToken cancellationToken)
     {
+        if (target.Kind == WorkspaceTargetKind.BinaryLog && projectFile is null)
+        {
+            throw new FarolException(
+                ErrorCodes.InvalidArgument,
+                "This workspace is a binary log: there is no solution to build.",
+                "Name a project, or open the solution itself as the workspace to build it.");
+        }
+
         var path = projectFile ?? target.Path;
         var scope = Scope(snapshot, projectFile);
         var binaryLog = Path.Combine(ArtifactDirectory.For("builds", target.Path), Path.GetFileNameWithoutExtension(path) + ".binlog");
@@ -180,7 +188,7 @@ public sealed partial class BuildRunner(IProcessRunner runner, ToolchainProbe to
         }
 
         // packages.config restores into the solution's packages folder; a project built alone must be told where it is.
-        if (projectFile is not null && target.Kind != WorkspaceTargetKind.Project)
+        if (projectFile is not null && target.Kind is WorkspaceTargetKind.Solution or WorkspaceTargetKind.SolutionFilter)
         {
             arguments.Add($"-p:SolutionDir={target.Directory}{Path.DirectorySeparatorChar}");
         }
@@ -202,7 +210,7 @@ public sealed partial class BuildRunner(IProcessRunner runner, ToolchainProbe to
         if ((await toolchain.ProbeAsync(target.Directory, cancellationToken)).PreferredVisualStudio is { MSBuildPath: { } msbuild })
         {
             List<string> arguments = [projectFile, "-t:Restore", "-p:RestorePackagesConfig=true", "-nologo", "-v:m", "-nodeReuse:false", "-p:PreferredUILang=en-US"];
-            if (target.Kind != WorkspaceTargetKind.Project)
+            if (target.Kind is WorkspaceTargetKind.Solution or WorkspaceTargetKind.SolutionFilter)
             {
                 arguments.Add($"-p:SolutionDir={target.Directory}{Path.DirectorySeparatorChar}");
             }

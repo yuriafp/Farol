@@ -47,6 +47,9 @@ internal static class Help
           --Farol:AnalyzerTimeoutSeconds <n>  How long one check's analyzers may run. Default: 10.
           --Farol:Loader auto|msbuild|heuristic  Which loader opens workspaces. Default: auto (MSBuild when it
                                            can evaluate every project, else classic projects are read directly).
+          --Farol:Binlog <path>            Load the workspace from a build's binary log (.binlog): the projects as
+                                           that build compiled them, without MSBuild. A call can also name a .binlog
+                                           as its workspace.
           -h, --help                       Show this help.
 
         Commands:

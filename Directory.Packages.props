@@ -19,6 +19,9 @@
   <ItemGroup Label="MSBuild">
     <!-- Reads binary logs: build errors and warnings with their projects and target frameworks. -->
     <PackageVersion Include="MSBuild.StructuredLogger" Version="2.3.246" />
+    <!-- The binary-log loader; Microsoft.CodeAnalysis aligns the metapackage it brings in (4.8) with Farol's Roslyn. -->
+    <PackageVersion Include="Basic.CompilerLog.Util" Version="0.9.65" />
+    <PackageVersion Include="Microsoft.CodeAnalysis" Version="5.12.0" />
   </ItemGroup>
 
   <ItemGroup Label="NuGet">
@@ -44,8 +47,5 @@
 
   <ItemGroup Label="Tests">
     <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.1" />
-    <!-- Spike A only (binlog replay); promote to src once a loader uses it. -->
-    <PackageVersion Include="Basic.CompilerLog.Util" Version="0.9.65" />
-    <PackageVersion Include="Microsoft.CodeAnalysis" Version="5.12.0" />
   </ItemGroup>
 </Project>

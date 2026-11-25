@@ -26,7 +26,7 @@ public sealed record SolutionOverview(
     string? GlobalJsonSdk,
     IReadOnlyList<string> BindingRedirectFiles)
 {
-    /// <summary>The loader of the workspace ("msbuild-workspace" or "heuristic"), when it is loaded.</summary>
+    /// <summary>The loader of the workspace ("msbuild-workspace", "heuristic" or "binlog"), when it is loaded.</summary>
     public string? Loader { get; init; }
 }
 

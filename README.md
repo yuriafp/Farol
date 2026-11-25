@@ -131,6 +131,7 @@ To run a local build instead, point the client at the host assembly:
 | `Farol:TestTimeoutMinutes` | `--Farol:TestTimeoutMinutes 30` | `20` | The same, per test project run. |
 | `Farol:HookLoadWaitSeconds` | `--Farol:HookLoadWaitSeconds 0` | `20` | How long, from the start of a workspace load, the plugin's edit hook waits for the load before it answers that the edit is checked once the load is done. At most 30; `0` never waits. |
 | `Farol:Loader` | `--Farol:Loader heuristic` | `auto` | Which loader opens workspaces: `auto` uses MSBuild when it can evaluate every project and the heuristic loader otherwise; `msbuild` or `heuristic` forces one. |
+| `Farol:Binlog` | `--Farol:Binlog build.binlog` | none | A binary log (`-bl`) to load the workspace from when a call names none: the projects, files, references and compiler options as that build compiled them, without MSBuild (any OS where the files it names exist). A call can also pass a `.binlog` as its `workspace`. Analyzers are not loaded; a log older than the sources says so. Build with a rebuild (`-t:Rebuild`): an up-to-date build records no compiler call. |
 | `Farol:CheckAnalyzers` | `--Farol:CheckAnalyzers true` | `false` | Run the projects' analyzers in every `dotnet_check` that does not pass `analyzers`, the plugin's edit hook included. |
 | `Farol:AnalyzerTimeoutSeconds` | `--Farol:AnalyzerTimeoutSeconds 30` | `10` | How long one check's analyzers may run; the answer names the analyzer assemblies that did not finish. |
 

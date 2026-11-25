@@ -48,10 +48,11 @@ public static class WorkspaceDiscovery
             ".SLN" or ".SLNX" => new WorkspaceTarget(path, WorkspaceTargetKind.Solution),
             ".SLNF" => new WorkspaceTarget(path, WorkspaceTargetKind.SolutionFilter),
             ".CSPROJ" or ".VBPROJ" => new WorkspaceTarget(path, WorkspaceTargetKind.Project),
+            ".BINLOG" => new WorkspaceTarget(path, WorkspaceTargetKind.BinaryLog),
             _ => throw new FarolException(
                 ErrorCodes.WorkspaceNotFound,
                 $"'{Path.GetFileName(path)}' is not a solution or a C#/VB project.",
-                "Supported: .sln, .slnx, .slnf, .csproj, .vbproj."),
+                "Supported: .sln, .slnx, .slnf, .csproj, .vbproj, and a .binlog of a build."),
         };
 
     // Paths in messages are relative to the root, as everywhere else (AC-30): the candidates can be passed back as they are.

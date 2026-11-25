@@ -14,6 +14,8 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Features" />
     <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Features" />
     <PackageReference Include="MSBuild.StructuredLogger" />
+    <PackageReference Include="Basic.CompilerLog.Util" />
+    <PackageReference Include="Microsoft.CodeAnalysis" />
     <PackageReference Include="NuGet.Credentials" />
     <PackageReference Include="NuGet.ProjectModel" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" />

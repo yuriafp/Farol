@@ -16,7 +16,8 @@ internal static class CheckRenderer
     public static CheckOutput Render(ResponseBuilder text, CheckResult result, WorkspaceSnapshot snapshot, string root, CheckScope scope, int offset)
     {
         var baseline = $"baseline: the workspace as loaded {Ago(snapshot.Load.LoadedAt)}" +
-            (snapshot.Load.IsHeuristic ? " (heuristic load: generated code is missing and build and test need MSBuild; errors from that were there at load)" : string.Empty);
+            (snapshot.Load.IsHeuristic ? " (heuristic load: generated code is missing and build and test need MSBuild; errors from that were there at load)"
+                : snapshot.Load.IsBinaryLog ? " (binary-log load: the projects as that build compiled them)" : string.Empty);
         CheckOutput Output(Page<DiagnosticItem> found, Page<DiagnosticItem>? existing) => new(
             scope.ToString().ToLowerInvariant(),
             result.New.Count(e => e.Severity == DiagnosticSeverity.Error),

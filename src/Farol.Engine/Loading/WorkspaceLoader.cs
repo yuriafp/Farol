@@ -9,9 +9,9 @@ namespace Farol.Engine.Loading;
 /// <summary>
 /// Picks the loader for a workspace: MSBuildWorkspace (full fidelity) when an MSBuild here can evaluate all its projects,
 /// else the heuristic loader, which reads classic .NET Framework projects without MSBuild. <c>Farol:Loader</c>
-/// (auto, msbuild, heuristic) forces one.
+/// (auto, msbuild, heuristic) forces one. A binary log (.binlog) named as the workspace loads through <see cref="BinlogWorkspaceLoader"/>.
 /// </summary>
-public sealed class WorkspaceLoader(MSBuildWorkspaceLoader msbuild, HeuristicWorkspaceLoader heuristic, ToolchainProbe toolchain, IOptions<FarolEngineOptions> options)
+public sealed class WorkspaceLoader(MSBuildWorkspaceLoader msbuild, HeuristicWorkspaceLoader heuristic, BinlogWorkspaceLoader binlog, ToolchainProbe toolchain, IOptions<FarolEngineOptions> options)
 {
     public const string Auto = "auto";
 
@@ -22,6 +22,11 @@ public sealed class WorkspaceLoader(MSBuildWorkspaceLoader msbuild, HeuristicWor
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(target);
+        if (target.Kind == WorkspaceTargetKind.BinaryLog)
+        {
+            return await binlog.LoadAsync(target, cancellationToken);
+        }
+
         var choice = (options.Value.Loader ?? Auto).Trim().ToLowerInvariant();
         var useHeuristic = choice switch
         {

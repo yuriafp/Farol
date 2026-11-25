@@ -153,6 +153,23 @@
   ProjectReference items expand properties, see TargetFrameworkIdentifier and the project's own TargetFramework, and
   follow Choose branches; classic → SDK-style → classic chains are walked to a fixed point; a classic project takes the
   SDK-style variant NuGet would pick; a PackageReference assembly wins over a framework one of the same name.
+- 2026-11-25 — **Slice 7 done** (AC-56): a `.binlog` named as the `workspace` (or as `Farol:Binlog`, used when a call
+  names none) loads through Basic.CompilerLog: each regular compiler call the log recorded becomes a project with the
+  files, references, options and project references the compiler got (WPF's temporary and XAML pre-compile calls are
+  left out). No MSBuild runs. VB projects get mscorlib and Microsoft.VisualBasic from the call's `/sdkpath`, which vbc
+  resolves on its own (the spike A finding). Projects and documents are named and foldered as the other loaders do,
+  documents read from disk, and every project gets a fresh version: with Basic.CompilerLog's versions a cross-language
+  reference (VB to C#) lost its project. Generated files the log recorded become documents (Basic.CompilerLog hands
+  them over as an analyzer reference a workspace cannot hold); project analyzers are not loaded, which the load says.
+  The load warns when source files are newer than the log, with their count. `dotnet_overview` (a `load: binlog`
+  line), `dotnet_workspace` (`loader: binlog`) and `dotnet_check` (the baseline line) say so; `dotnet_build` without a
+  project is refused (a binary log has no solution to build), and the overview's build line says to open the solution.
+  Review (Sonnet; the Neon run failed at its backend) applied: sources the log names outside the root and
+  `Farol:TrustedPaths` are left out with a warning; a call's workspace and `--workspace` win over `Farol:Binlog`; a
+  build or test of a named project on a binary-log workspace does not pass the log's folder as `SolutionDir`; reading
+  the log honors cancellation; a file compiled twice without a target framework gets distinct project names. Known
+  limits: the watcher covers the log's folder and does not notice a rewritten log (reopen the workspace), files are
+  read with UTF-8 detection rather than the call's `/codepage`, and a log replayed on another OS keeps that OS's paths.
 
 ## Problem
 

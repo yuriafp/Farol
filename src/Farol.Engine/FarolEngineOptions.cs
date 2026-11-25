@@ -49,6 +49,12 @@ public sealed class FarolEngineOptions
     /// </summary>
     public string? Loader { get; set; } = "auto";
 
+    /// <summary>
+    /// A binary log (.binlog) to load the workspace from when a call names none: the projects as that build compiled
+    /// them, without MSBuild. Must be inside the root or a trusted path.
+    /// </summary>
+    public string? Binlog { get; set; }
+
     /// <summary>Whether dotnet_check runs the projects' analyzers when a call does not say (the edit hook included). Off by default.</summary>
     public bool CheckAnalyzers { get; set; }
 

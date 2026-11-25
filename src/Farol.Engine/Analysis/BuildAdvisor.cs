@@ -12,6 +12,11 @@ public static class BuildAdvisor
         ArgumentNullException.ThrowIfNull(toolchain);
 
         var target = DisplayPath.From(root, overview.Target.Path);
+        if (overview.Target.Kind == Workspaces.WorkspaceTargetKind.BinaryLog)
+        {
+            return "none from a binary log: open the solution it was built from to build (the log's own command line is in the log)";
+        }
+
         if (overview.Projects.All(p => p.IsSdkStyle))
         {
             return $"dotnet build \"{target}\"";

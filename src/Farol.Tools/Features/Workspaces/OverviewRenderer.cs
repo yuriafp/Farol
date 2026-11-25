@@ -24,6 +24,11 @@ internal static class OverviewRenderer
             text.Line("load: heuristic — no MSBuild here can evaluate .NET Framework projects, so their project files were read directly: " +
                 "navigation and dotnet_check work, generated code (XAML parts) is missing, and dotnet_build and dotnet_test need MSBuild (Visual Studio or Build Tools on Windows).");
         }
+        else if (overview.Loader == "binlog")
+        {
+            text.Line("load: binlog — the projects as the build in the binary log compiled them (files, references, options); MSBuild did not run, " +
+                "project analyzers are not loaded, and project-file changes need a new log.");
+        }
         text.Line(WorkspaceStatusRenderer.ToolchainLine(toolchain));
         var build = BuildAdvisor.SuggestBuildCommand(overview, toolchain, root);
         text.Line($"build: {build}");
@@ -149,7 +154,7 @@ public sealed record OverviewOutput(
     IReadOnlyList<string> BindingRedirectFiles,
     Page<OverviewProject> Projects)
 {
-    /// <summary>"heuristic" when the classic projects were read without MSBuild; "msbuild-workspace" for a full-fidelity load.</summary>
+    /// <summary>"heuristic" when the classic projects were read without MSBuild; "binlog" when loaded from a binary log; "msbuild-workspace" for a full-fidelity load.</summary>
     public string? Loader { get; init; }
 }
 

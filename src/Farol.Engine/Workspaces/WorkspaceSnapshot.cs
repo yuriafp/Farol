@@ -15,11 +15,13 @@ public sealed record WorkspaceSnapshot(Solution Solution, int Version, ProjectCa
 /// </summary>
 public sealed record WorkspaceLoad(Solution Solution, DateTimeOffset LoadedAt, IReadOnlySet<string> ChangedDuringLoad)
 {
-    /// <summary>The loader that produced this load: "msbuild-workspace" (full fidelity) or "heuristic".</summary>
+    /// <summary>The loader that produced this load: "msbuild-workspace" (full fidelity), "heuristic" or "binlog".</summary>
     public string Loader { get; init; } = "msbuild-workspace";
 
     /// <summary>Whether the load read classic projects without MSBuild: generated code is missing, and build and test need MSBuild.</summary>
     public bool IsHeuristic => Loader == "heuristic";
+
+    public bool IsBinaryLog => Loader == "binlog";
 
     /// <summary>
     /// Renames Farol applied since this load (old name, new name): a load diagnostic whose line the rename rewrote is

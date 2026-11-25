@@ -38,6 +38,7 @@ public static class EngineServiceCollectionExtensions
         services.AddSingleton<ToolchainProbe>();
         services.AddSingleton<MSBuildWorkspaceLoader>();
         services.AddSingleton<HeuristicWorkspaceLoader>();
+        services.AddSingleton<BinlogWorkspaceLoader>();
         services.AddSingleton<WorkspaceLoader>();
         services.AddSingleton<WorkspaceManager>();
         services.AddSingleton<BuildRunner>();

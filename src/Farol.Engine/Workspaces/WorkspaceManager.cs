@@ -68,7 +68,10 @@ public sealed class WorkspaceManager(WorkspaceLoader loader, PathSandbox paths, 
     /// </summary>
     private WorkspaceTarget ResolveTarget(string? workspace, string? file)
     {
-        var requested = string.IsNullOrWhiteSpace(workspace) ? _options.DefaultWorkspace : workspace.Trim();
+        // A call's workspace, then --workspace, then Farol:Binlog: an explicit choice wins over the root's discovery.
+        var requested = !string.IsNullOrWhiteSpace(workspace) ? workspace.Trim()
+            : !string.IsNullOrWhiteSpace(_options.DefaultWorkspace) ? _options.DefaultWorkspace
+            : _options.Binlog?.Trim();
         if (!string.IsNullOrWhiteSpace(requested))
         {
             paths.Demand(PathSandbox.FullPath(requested, _options.RootDirectory, "Workspace"), $"Workspace '{requested}'");
