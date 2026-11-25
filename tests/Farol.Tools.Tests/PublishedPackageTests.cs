@@ -10,7 +10,8 @@ namespace Farol.Tools.Tests;
 
 /// <summary>
 /// The package users install: the Farol.Mcp version the plugin runs, installed from nuget.org by the Published package
-/// workflow, which points FAROL_PUBLISHED_TOOL at its executable; skipped anywhere else. The checks are behavior every
+/// workflow (or, in CI's Linux job, the candidate packed from the source), which points FAROL_PUBLISHED_TOOL at its
+/// executable; skipped anywhere else. The checks are behavior every
 /// release keeps, so the source can move ahead of the published version without failing them.
 /// </summary>
 public sealed class PublishedPackageTests
@@ -57,6 +58,35 @@ public sealed class PublishedPackageTests
         Assert.Contains("8 in 5 project(s)", references, StringComparison.Ordinal);
         Assert.Contains("Legacy.VbLib/ShippingCalculator.vb:", references, StringComparison.Ordinal);
         Assert.Contains("- Legacy.Core/Orders/OrderCalculator.cs:23 · error CS0029", check, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Spec 002's release smoke test on Linux: without an MSBuild that evaluates .NET Framework projects, the package
+    /// loads the legacy fixture heuristically, says so, finds references across C# and VB, and checks an edit.
+    /// </summary>
+    [Fact]
+    public async Task The_published_server_loads_the_legacy_fixture_heuristically_on_linux_and_reports_a_new_error()
+    {
+        SkipUnlessPublished();
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "The Linux release smoke test; Windows loads the legacy fixture with MSBuild.");
+        using var copy = FixtureCopy.Create(TestPaths.LegacyDirectory);
+        await using var client = await StartAsync(copy.Root, ["--autoload", "false"]);
+
+        await CallAsync(client, "dotnet_workspace", new() { ["action"] = "load" });
+        var overview = await CallAsync(client, "dotnet_overview", []);
+        var references = await CallAsync(client, "dotnet_find_references", new() { ["symbol"] = "OrderCalculator.GetTotal" });
+        var outline = await CallAsync(client, "dotnet_outline", new() { ["path"] = "Legacy.VbLib/ShippingCalculator.vb" });
+        var calculator = copy.PathOf("Legacy.Core", "Orders", "OrderCalculator.cs");
+        var source = await File.ReadAllTextAsync(calculator, Ct);
+        await File.WriteAllTextAsync(calculator, source.Replace("return order.Subtotal() * (1 + TaxRate());", "return \"total\";", StringComparison.Ordinal), Ct);
+        var check = await Eventually.MatchesAsync(() => CallAsync(client, "dotnet_check", []), t => t.Contains("CS0029", StringComparison.Ordinal), Ct);
+
+        Assert.Contains("load: heuristic", overview, StringComparison.Ordinal);
+        Assert.Contains("6 project(s)", overview, StringComparison.Ordinal);
+        Assert.Contains("Legacy.VbLib/ShippingCalculator.vb:", references, StringComparison.Ordinal);
+        Assert.Contains("TotalWithShipping", outline, StringComparison.Ordinal);
+        Assert.Contains("- Legacy.Core/Orders/OrderCalculator.cs:23 · error CS0029", check, StringComparison.Ordinal);
+        Assert.Contains("heuristic load", check, StringComparison.Ordinal);
     }
 
     [Fact]

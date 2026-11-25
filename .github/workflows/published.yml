@@ -17,7 +17,12 @@ permissions:
 
 jobs:
   published:
-    runs-on: windows-2025
+    # Windows loads the legacy fixture with Visual Studio's MSBuild; Linux heuristically (spec 002's release smoke test).
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 50
     env:
       DOTNET_NOLOGO: true
@@ -68,5 +73,5 @@ jobs:
 
       - name: Test the published package
         env:
-          FAROL_PUBLISHED_TOOL: ${{ runner.temp }}/farol/farol.exe
+          FAROL_PUBLISHED_TOOL: ${{ runner.temp }}/farol/${{ runner.os == 'Windows' && 'farol.exe' || 'farol' }}
         run: dotnet test --project tests/Farol.Tools.Tests -c Release --no-build --filter-class Farol.Tools.Tests.PublishedPackageTests

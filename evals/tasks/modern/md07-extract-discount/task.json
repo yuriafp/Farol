@@ -1,0 +1,12 @@
+{
+  "job": "modern",
+  "repo": "modern",
+  "maxTurns": 40,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "file", "name": "the new method", "path": "src/Modern.Core/Pricing/PriceCalculator.cs", "patterns": [ "private\\s+(static\\s+)?decimal\\s+DiscountFor\\s*\\(\\s*decimal\\s+\\w+" ] },
+    { "type": "file", "name": "Total uses it", "path": "src/Modern.Core/Pricing/PriceCalculator.cs", "patterns": [ "=\\s*DiscountFor\\s*\\(\\s*weekendDiscount" ] },
+    { "type": "command", "name": "the solution builds", "run": "dotnet build Modern.slnx -v:q -nologo", "timeoutMinutes": 10 },
+    { "type": "command", "name": "the tests pass", "run": "dotnet test --solution Modern.slnx", "timeoutMinutes": 10 }
+  ]
+}

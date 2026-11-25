@@ -49,6 +49,17 @@ jobs:
       - name: Test
         run: dotnet test --solution Farol.slnx -c Release --no-build
 
+      # The release smoke test on Linux (spec 002): the package as it would ship, installed as a .NET tool from a local
+      # folder with a throwaway NuGet cache, loads the legacy fixture heuristically.
+      - name: Smoke the package
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/nuget-smoke
+        run: |
+          dotnet pack src/Farol.Host -c Release --no-build -o "$RUNNER_TEMP/packages"
+          version="$(grep -oP '<Version>\K[^<]+' Directory.Build.props)"
+          dotnet tool install Farol.Mcp --version "$version" --add-source "$RUNNER_TEMP/packages" --tool-path "$RUNNER_TEMP/farol"
+          FAROL_PUBLISHED_TOOL="$RUNNER_TEMP/farol/farol" dotnet test --project tests/Farol.Tools.Tests -c Release --no-build --filter-class Farol.Tools.Tests.PublishedPackageTests
+
       # server.json against the MCP Registry's schema and rules (spec 002, AC-69), with the CLI the Registry workflow uses.
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 

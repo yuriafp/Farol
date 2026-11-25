@@ -1,0 +1,18 @@
+diff --git a/src/Modern.Core/Pricing/PriceCalculator.cs b/src/Modern.Core/Pricing/PriceCalculator.cs
+index b970119..cab603c 100644
+--- a/src/Modern.Core/Pricing/PriceCalculator.cs
++++ b/src/Modern.Core/Pricing/PriceCalculator.cs
+@@ -15,10 +15,12 @@ public sealed class PriceCalculator(IClock clock)
+     public decimal Total(IEnumerable<decimal> prices, decimal weekendDiscount)
+     {
+         var subtotal = prices.Sum();
+-        var discount = IsWeekend(clock.UtcNow) ? weekendDiscount : 0m;
++        var discount = DiscountFor(weekendDiscount);
+         return Math.Round(subtotal * (1 - discount), 2);
+     }
+ 
++    private decimal DiscountFor(decimal weekendDiscount) => IsWeekend(clock.UtcNow) ? weekendDiscount : 0m;
++
+     private static bool IsWeekend(DateTime date) =>
+ #if NET
+         date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;

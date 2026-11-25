@@ -1,0 +1,1 @@
+In `PriceCalculator.Total`, extract the computation of the discount (the expression assigned to `discount`) into a private method named `DiscountFor` that takes the weekend discount, and use it in `Total`. Behavior must not change: the build and the tests must stay green.

@@ -1,0 +1,1 @@
+Move `SystemClock` out of `PriceCalculator.cs` into its own file, `src/Modern.Core/Time/SystemClock.cs`, in the namespace `Modern.Core.Time`. Everything that uses it must keep compiling, and the tests must stay green.

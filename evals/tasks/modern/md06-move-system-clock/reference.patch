@@ -1,0 +1,50 @@
+diff --git a/src/Modern.Api/Program.cs b/src/Modern.Api/Program.cs
+index a8a6c25..66efbf6 100644
+--- a/src/Modern.Api/Program.cs
++++ b/src/Modern.Api/Program.cs
+@@ -1,4 +1,5 @@
+ using Modern.Core.Pricing;
++using Modern.Core.Time;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ builder.Services.AddSingleton<IClock, SystemClock>();
+diff --git a/src/Modern.Core/Pricing/PriceCalculator.cs b/src/Modern.Core/Pricing/PriceCalculator.cs
+index b970119..419d510 100644
+--- a/src/Modern.Core/Pricing/PriceCalculator.cs
++++ b/src/Modern.Core/Pricing/PriceCalculator.cs
+@@ -5,11 +5,6 @@ public interface IClock
+     DateTime UtcNow { get; }
+ }
+ 
+-public sealed class SystemClock : IClock
+-{
+-    public DateTime UtcNow => DateTime.UtcNow;
+-}
+-
+ public sealed class PriceCalculator(IClock clock)
+ {
+     public decimal Total(IEnumerable<decimal> prices, decimal weekendDiscount)
+diff --git a/src/Modern.Core/Time/SystemClock.cs b/src/Modern.Core/Time/SystemClock.cs
+new file mode 100644
+index 0000000..2e5d4d0
+--- /dev/null
++++ b/src/Modern.Core/Time/SystemClock.cs
+@@ -0,0 +1,8 @@
++using Modern.Core.Pricing;
++
++namespace Modern.Core.Time;
++
++public sealed class SystemClock : IClock
++{
++    public DateTime UtcNow => DateTime.UtcNow;
++}
+diff --git a/tests/Modern.Tests/PriceCalculatorTests.cs b/tests/Modern.Tests/PriceCalculatorTests.cs
+index e238403..033d60d 100644
+--- a/tests/Modern.Tests/PriceCalculatorTests.cs
++++ b/tests/Modern.Tests/PriceCalculatorTests.cs
+@@ -1,4 +1,5 @@
+ using Modern.Core.Pricing;
++using Modern.Core.Time;
+ using Xunit;
+ 
+ namespace Modern.Tests;

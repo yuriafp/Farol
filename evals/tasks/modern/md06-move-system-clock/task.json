@@ -1,0 +1,13 @@
+{
+  "job": "modern",
+  "repo": "modern",
+  "maxTurns": 40,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "file", "name": "SystemClock in its own file and namespace", "path": "src/Modern.Core/Time/SystemClock.cs", "patterns": [ "namespace\\s+Modern\\.Core\\.Time", "class\\s+SystemClock\\s*:\\s*(Modern\\.Core\\.Pricing\\.)?IClock" ] },
+    { "type": "file", "name": "no longer in PriceCalculator.cs", "path": "src/Modern.Core/Pricing/PriceCalculator.cs", "match": "none", "patterns": [ "class\\s+SystemClock" ] },
+    { "type": "file", "name": "the interface stays", "path": "src/Modern.Core/Pricing/PriceCalculator.cs", "patterns": [ "interface\\s+IClock" ] },
+    { "type": "command", "name": "the solution builds", "run": "dotnet build Modern.slnx -v:q -nologo", "timeoutMinutes": 10 },
+    { "type": "command", "name": "the tests pass", "run": "dotnet test --solution Modern.slnx", "timeoutMinutes": 10 }
+  ]
+}

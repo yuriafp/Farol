@@ -1,0 +1,1 @@
+Make `PriceCalculator.Total` throw an `ArgumentNullException` naming the parameter when `prices` is null, and add an xUnit test for it in `tests/Modern.Tests/PriceCalculatorTests.cs`. The build and every test must pass, with the projects' analyzer rules as they are configured.

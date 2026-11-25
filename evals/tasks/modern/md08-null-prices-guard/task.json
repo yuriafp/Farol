@@ -1,0 +1,13 @@
+{
+  "job": "modern",
+  "repo": "modern",
+  "maxTurns": 40,
+  "timeoutMinutes": 20,
+  "checks": [
+    { "type": "file", "name": "the guard", "path": "src/Modern.Core/Pricing/PriceCalculator.cs", "patterns": [ "ArgumentNullException" ] },
+    { "type": "file", "name": "the test", "path": "tests/Modern.Tests/PriceCalculatorTests.cs", "patterns": [ "ArgumentNullException" ] },
+    { "type": "changed", "name": "changes only the calculator and its tests", "only": [ "src/Modern.Core/Pricing/PriceCalculator.cs", "tests/Modern.Tests/PriceCalculatorTests.cs" ] },
+    { "type": "command", "name": "the solution builds", "run": "dotnet build Modern.slnx -v:q -nologo", "timeoutMinutes": 10 },
+    { "type": "command", "name": "the tests pass", "run": "dotnet test --solution Modern.slnx", "timeoutMinutes": 10 }
+  ]
+}
