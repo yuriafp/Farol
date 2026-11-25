@@ -20,7 +20,7 @@ internal static class Report
         text.AppendLine();
         text.AppendLine("| Measure | Calls | p50 | p95 | Max | Target | Result |");
         text.AppendLine("|---|---:|---:|---:|---:|---|---|");
-        foreach (var series in new[] { run.SymbolQueries, run.FindReferences, run.Check })
+        foreach (var series in run.All)
         {
             text.AppendLine(Invariant($"| {series.Name} | {series.Samples.Count} | {Ms(series.P50)} | {Ms(series.P95)} | {Ms(series.Max)} | p95 under {Ms(series.TargetMilliseconds)} | {Verdict(series.Passed)} |"));
         }
@@ -29,9 +29,10 @@ internal static class Report
         text.AppendLine(Invariant($"| tools/list after the process started | | | | {Ms(server.ToolsListed.TotalMilliseconds)} | before the load ends | {Verdict(server.ToolsListed < run.Load)} |"));
         text.AppendLine(Invariant($"| Workspace load | | | | {run.Load.TotalSeconds:N0} s | | |"));
         text.AppendLine(Invariant($"| Background warm-up after the load (the calls are timed after it) | | | | {run.WarmUp.TotalSeconds:N0} s | | |"));
+        text.AppendLine(Invariant($"| Index written after the warm-up (the calls are timed after it) | | | | {run.IndexWrite.TotalSeconds:N0} s | | |"));
         text.AppendLine();
 
-        foreach (var series in new[] { run.SymbolQueries, run.FindReferences, run.Check })
+        foreach (var series in run.All)
         {
             text.AppendLine(Invariant($"Slowest {char.ToLowerInvariant(series.Name[0])}{series.Name[1..]}: ")
                 + string.Join("; ", series.Slowest(3).Select(s => Invariant($"{s.Label} ({Ms(s.Milliseconds)})"))) + ".");
@@ -50,7 +51,7 @@ internal static class Report
             text.AppendLine();
         }
 
-        text.AppendLine(run.Passed ? "**AC-35: every target met.**" : "**AC-35: not met.**");
+        text.AppendLine(run.Passed ? "**AC-35, AC-53, AC-59: every target met.**" : "**AC-35, AC-53, AC-59: not met.**");
         return text.ToString();
     }
 
@@ -70,10 +71,11 @@ internal static class Report
             ["toolsListedMilliseconds"] = Math.Round(server.ToolsListed.TotalMilliseconds),
             ["loadSeconds"] = Math.Round(run.Load.TotalSeconds, 1),
             ["warmUpSeconds"] = Math.Round(run.WarmUp.TotalSeconds, 1),
+            ["indexWriteSeconds"] = Math.Round(run.IndexWrite.TotalSeconds, 1),
             ["peakWorkingSetBytes"] = run.PeakWorkingSet,
             ["passed"] = run.Passed,
             ["failures"] = new JsonArray([.. run.Failures.Select(f => (JsonNode)f)]),
-            ["series"] = new JsonArray([.. new[] { run.SymbolQueries, run.FindReferences, run.Check }.Select(s => (JsonNode)new JsonObject
+            ["series"] = new JsonArray([.. run.All.Select(s => (JsonNode)new JsonObject
             {
                 ["name"] = s.Name,
                 ["targetMilliseconds"] = s.TargetMilliseconds,
@@ -93,10 +95,10 @@ internal static class Report
     /// </summary>
     public static IEnumerable<string> Annotations(Corpus corpus, FarolServer server, BenchmarkRun run)
     {
-        var series = new[] { run.SymbolQueries, run.FindReferences, run.Check };
+        var series = run.All;
         var results = string.Join("; ", series.Select(s => Invariant($"{s.Name} p95 {Ms(s.P95)} (target {Ms(s.TargetMilliseconds)})")))
-            + Invariant($"; peak memory {Gb(run.PeakWorkingSet)}; load {run.Load.TotalSeconds:N0} s; warm-up {run.WarmUp.TotalSeconds:N0} s; tools/list {Ms(server.ToolsListed.TotalMilliseconds)}; {Environment.ProcessorCount} logical processors.");
-        yield return Command("notice", Invariant($"AC-35 on {corpus.Name}: {(run.Passed ? "met" : "not met")}"), results);
+            + Invariant($"; peak memory {Gb(run.PeakWorkingSet)}; load {run.Load.TotalSeconds:N0} s; warm-up {run.WarmUp.TotalSeconds:N0} s; index {run.IndexWrite.TotalSeconds:N0} s; tools/list {Ms(server.ToolsListed.TotalMilliseconds)}; {Environment.ProcessorCount} logical processors.");
+        yield return Command("notice", Invariant($"AC-35, AC-53, AC-59 on {corpus.Name}: {(run.Passed ? "met" : "not met")}"), results);
 
         foreach (var missed in series.Where(s => s.Samples.Count > 0 && !s.Passed))
         {

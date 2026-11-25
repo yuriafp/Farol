@@ -740,8 +740,10 @@ internal static class IndexWriter
         return depth;
     }
 
+    // A background job: a quarter of the processors, so the tool calls made meanwhile keep theirs (the benchmarks on four
+    // cores showed half of them slowing dotnet_check and dotnet_find_symbols while the index was written).
     private static ParallelOptions Options(CancellationToken cancellationToken) =>
-        new() { MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 2), CancellationToken = cancellationToken };
+        new() { MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 4), CancellationToken = cancellationToken };
 
     private sealed class SymbolRow(long key, string id, ISymbol symbol, bool external)
     {

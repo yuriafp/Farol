@@ -1,7 +1,8 @@
 using System.Diagnostics;
 using Farol.Benchmarks;
 
-// Times Farol on a pinned open-source solution against the performance targets of spec 001 (AC-35).
+// Times Farol on a pinned open-source solution against the performance targets of spec 001 (AC-35) and spec 002
+// (AC-53 startup from the index, AC-59 dotnet_check with analyzers).
 // Usage: Farol.Benchmarks --corpus benchmarks/corpora/<name>.json --repo <checkout of its commit, restored>
 //        [--host <Farol.Host.dll>] [--out <directory>] [--rounds <n>]
 // Exit code: 0 every target met, 1 a target missed or a call failed, 2 bad arguments or setup.
@@ -38,11 +39,25 @@ Console.CancelKeyPress += (_, e) =>
 
 Console.WriteLine($"{corpus.Name}: {size.Lines:N0} lines in {size.Files:N0} files; server log in {options.Output}");
 var clock = Stopwatch.StartNew();
-await using var server = await FarolServer.StartAsync(options.Host, options.Repository, corpus.Workspace, Path.Combine(options.Output, "server.log"), cancel.Token);
+var server = await FarolServer.StartAsync(options.Host, options.Repository, corpus.Workspace, Path.Combine(options.Output, "server.log"), cancel.Token);
 var run = new BenchmarkRun(corpus, options.Repository, server, options.Rounds, Console.Out);
-await run.RunAsync(clock, cancel.Token);
+string version;
+try
+{
+    await run.RunAsync(clock, cancel.Token);
+    version = server.Client.ServerInfo?.Version ?? "?";
+}
+finally
+{
+    await server.DisposeAsync();
+}
 
-var version = server.Client.ServerInfo?.Version ?? "?";
+// Stopped, its index on disk: new servers answer from it while they load.
+await run.MeasureStartupAsync(
+    attempt => FarolServer.StartAsync(options.Host, options.Repository, corpus.Workspace, Path.Combine(options.Output, $"server-start-{attempt}.log"), cancel.Token),
+    starts: 5,
+    cancel.Token);
+
 var markdown = Report.Markdown(corpus, size, version, server, run);
 await File.WriteAllTextAsync(Path.Combine(options.Output, "report.md"), markdown);
 await File.WriteAllTextAsync(Path.Combine(options.Output, "results.json"), Report.Json(corpus, size, version, server, run));

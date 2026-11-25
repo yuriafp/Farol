@@ -13,8 +13,11 @@ internal sealed class FarolServer : IAsyncDisposable
     private readonly Process _process;
     private readonly Task _stderr;
 
-    private FarolServer(Process process, Task stderr, McpClient client, TimeSpan toolsListed, int toolCount)
+    private readonly Stopwatch _clock;
+
+    private FarolServer(Process process, Task stderr, McpClient client, TimeSpan toolsListed, int toolCount, Stopwatch clock)
     {
+        _clock = clock;
         _process = process;
         _stderr = stderr;
         Client = client;
@@ -28,6 +31,9 @@ internal sealed class FarolServer : IAsyncDisposable
     public TimeSpan ToolsListed { get; }
 
     public int ToolCount { get; }
+
+    /// <summary>Since the process was started.</summary>
+    public TimeSpan SinceStart => _clock.Elapsed;
 
     /// <summary>The largest working set the server process has had so far, in bytes.</summary>
     public long PeakWorkingSet
@@ -61,7 +67,7 @@ internal sealed class FarolServer : IAsyncDisposable
             new StreamClientTransport(process.StandardInput.BaseStream, process.StandardOutput.BaseStream),
             cancellationToken: cancellationToken);
         var tools = await client.ListToolsAsync(cancellationToken: cancellationToken);
-        return new FarolServer(process, stderr, client, clock.Elapsed, tools.Count);
+        return new FarolServer(process, stderr, client, clock.Elapsed, tools.Count, clock);
     }
 
     public async Task<ToolAnswer> CallAsync(string tool, IReadOnlyDictionary<string, object?> arguments, CancellationToken cancellationToken)

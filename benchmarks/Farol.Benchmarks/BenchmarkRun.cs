@@ -6,7 +6,9 @@ namespace Farol.Benchmarks;
 
 /// <summary>
 /// One benchmark of one corpus against a running server: load, warm symbol queries, find_references, and dotnet_check
-/// after single-file edits, with the spec 001 targets (Non-Functional Requirements, AC-35).
+/// after single-file edits, with the spec 001 targets (Non-Functional Requirements, AC-35); dotnet_check with the
+/// projects' analyzers (spec 002, AC-59); and, after the server stops, new servers answering from the index the first
+/// one wrote (AC-53).
 /// </summary>
 internal sealed class BenchmarkRun(Corpus corpus, string repository, FarolServer server, int rounds, TextWriter progress)
 {
@@ -15,6 +17,15 @@ internal sealed class BenchmarkRun(Corpus corpus, string repository, FarolServer
     public Series FindReferences { get; } = new("dotnet_find_references", 1000);
 
     public Series Check { get; } = new("dotnet_check after editing one file", 2000);
+
+    public Series CheckWithAnalyzers { get; } = new("dotnet_check with analyzers after editing one file", 4000);
+
+    public Series Startup { get; } = new("Server start to the first dotnet_find_symbols answer, from the index", 2000);
+
+    public IReadOnlyList<Series> All => [SymbolQueries, FindReferences, Check, CheckWithAnalyzers, Startup];
+
+    /// <summary>From the warm-up's end until dotnet_workspace reported the index written (the calls are timed after it).</summary>
+    public TimeSpan IndexWrite { get; private set; }
 
     public TimeSpan Load { get; private set; }
 
@@ -30,7 +41,7 @@ internal sealed class BenchmarkRun(Corpus corpus, string repository, FarolServer
     public const long MemoryTarget = 3L * 1024 * 1024 * 1024;
 
     public bool Passed =>
-        Failures.Count == 0 && SymbolQueries.Passed && FindReferences.Passed && Check.Passed && PeakWorkingSet < MemoryTarget;
+        Failures.Count == 0 && All.All(s => s.Passed) && PeakWorkingSet < MemoryTarget;
 
     public async Task RunAsync(Stopwatch sinceStart, CancellationToken cancellationToken)
     {
@@ -46,7 +57,9 @@ internal sealed class BenchmarkRun(Corpus corpus, string repository, FarolServer
 
         progress.WriteLine($"Loaded in {Load.TotalSeconds:N0} s; waiting for the server's background warm-up...");
         WarmUp = await WaitForWarmUpAsync(cancellationToken);
-        progress.WriteLine($"Server warm-up took {WarmUp.TotalSeconds:N0} s; warming the queries up...");
+        progress.WriteLine($"Server warm-up took {WarmUp.TotalSeconds:N0} s; waiting for the index...");
+        IndexWrite = await WaitForAsync("index: written", "The index was not written", cancellationToken);
+        progress.WriteLine($"Index written {IndexWrite.TotalSeconds:N0} s after the warm-up; warming the queries up...");
 
         // Warm-up, not timed: every query once, and one reference search.
         foreach (var query in corpus.SymbolQueries)
@@ -75,16 +88,74 @@ internal sealed class BenchmarkRun(Corpus corpus, string repository, FarolServer
         progress.WriteLine($"Edits: {corpus.Edits.Count}...");
         foreach (var edit in corpus.Edits)
         {
-            await TimeEditAsync(edit, cancellationToken);
+            await TimeEditAsync(edit, analyzers: false, cancellationToken);
+        }
+
+        // The analyzers load on the first call that runs them: one untimed call first.
+        progress.WriteLine($"Edits with analyzers: {corpus.Edits.Count}...");
+        await CallAsync("dotnet_check", new() { ["analyzers"] = true }, "warm-up analyzers", series: null, cancellationToken);
+        foreach (var edit in corpus.Edits)
+        {
+            await TimeEditAsync(edit, analyzers: true, cancellationToken);
         }
 
         PeakWorkingSet = server.PeakWorkingSet;
     }
 
     /// <summary>
+    /// AC-53: servers started on the indexed workspace, each timed from its process start to its first
+    /// dotnet_find_symbols answer, which must come from the index while the load runs.
+    /// </summary>
+    public async Task MeasureStartupAsync(Func<int, Task<FarolServer>> start, int starts, CancellationToken cancellationToken)
+    {
+        var query = corpus.SymbolQueries.FirstOrDefault(q => q.Tool == "dotnet_find_symbols");
+        if (query is null)
+        {
+            Failures.Add("The corpus has no dotnet_find_symbols query to time the start with.");
+            return;
+        }
+
+        progress.WriteLine($"Starts from the index: {starts}...");
+        for (var attempt = 1; attempt <= starts; attempt++)
+        {
+            await using var restarted = await start(attempt);
+            var answer = await restarted.CallAsync(query.Tool, query.Arguments.ToDictionary(a => a.Key, a => (object?)a.Value), cancellationToken);
+            var elapsed = restarted.SinceStart;
+            if (answer.IsError || !answer.Text.StartsWith("from the index written ", StringComparison.Ordinal))
+            {
+                Failures.Add($"Start {attempt}: the first {query.Label} did not answer from the index: {FirstLine(answer.Text)}");
+                continue;
+            }
+
+            Startup.Add($"start {attempt}, {query.Label}", elapsed);
+        }
+    }
+
+    /// <summary>
     /// Waits until dotnet_workspace reports the background warm-up done: the targets are for a warm server, and on a
     /// small machine a call made meanwhile shares the processors with it.
     /// </summary>
+    private async Task<TimeSpan> WaitForAsync(string line, string failure, CancellationToken cancellationToken)
+    {
+        var clock = Stopwatch.StartNew();
+        while (true)
+        {
+            var status = await server.CallAsync("dotnet_workspace", Arguments(("action", "status")), cancellationToken);
+            if (status.Text.Contains(line, StringComparison.Ordinal))
+            {
+                return clock.Elapsed;
+            }
+
+            if (status.IsError || clock.Elapsed > TimeSpan.FromMinutes(20))
+            {
+                Failures.Add($"{failure}: {status.Text}");
+                return clock.Elapsed;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+        }
+    }
+
     private async Task<TimeSpan> WaitForWarmUpAsync(CancellationToken cancellationToken)
     {
         const string Ready = "search indexes ready in ";
@@ -110,7 +181,7 @@ internal sealed class BenchmarkRun(Corpus corpus, string repository, FarolServer
     }
 
     /// <summary>Applies the edit, times dotnet_check the way the plugin's hook calls it, then puts the file back.</summary>
-    private async Task TimeEditAsync(SourceEdit edit, CancellationToken cancellationToken)
+    private async Task TimeEditAsync(SourceEdit edit, bool analyzers, CancellationToken cancellationToken)
     {
         var path = Path.Combine(repository, edit.Path);
         var original = await File.ReadAllBytesAsync(path, cancellationToken);
@@ -127,7 +198,7 @@ internal sealed class BenchmarkRun(Corpus corpus, string repository, FarolServer
         try
         {
             await File.WriteAllBytesAsync(path, [.. encoding.Preamble, .. encoding.GetBytes(edited)], cancellationToken);
-            await CallAsync("dotnet_check", Arguments(("edited", edit.Path)), $"{edit.Kind} edit of {edit.Path}", Check, cancellationToken);
+            await CallAsync("dotnet_check", new() { ["edited"] = edit.Path, ["analyzers"] = analyzers }, $"{edit.Kind} edit of {edit.Path}", analyzers ? CheckWithAnalyzers : Check, cancellationToken);
         }
         finally
         {

@@ -480,6 +480,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
     private async Task IndexAsync(WorkspaceIndexes indexes, LoadedWorkspace loaded, CancellationToken cancellationToken)
     {
         var written = -1;
+        var interval = IndexRefreshInterval;
         while (!cancellationToken.IsCancellationRequested && ReferenceEquals(Volatile.Read(ref _loaded), loaded))
         {
             try
@@ -489,7 +490,11 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
                     var snapshot = await RefreshAsync(cancellationToken);
                     if (snapshot.Version != written && ReferenceEquals(Volatile.Read(ref _loaded), loaded))
                     {
+                        var clock = System.Diagnostics.Stopwatch.StartNew();
                         await indexes.WriteAsync(snapshot, loaded.Report, () => ReferenceEquals(Volatile.Read(ref _loaded), loaded), cancellationToken);
+
+                        // A large solution's write takes minutes: written again no more than a tenth of the time.
+                        interval = TimeSpan.FromTicks(Math.Max(IndexRefreshInterval.Ticks, clock.Elapsed.Ticks * 10));
                         if (!ReferenceEquals(Volatile.Read(ref _loaded), loaded))
                         {
                             return;
@@ -500,7 +505,7 @@ public sealed partial class WorkspaceSession : IAsyncDisposable
                     }
                 }
 
-                await Task.Delay(IndexRefreshInterval, cancellationToken);
+                await Task.Delay(interval, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
